@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-find_package(GTest CONFIG REQUIRED)
-message(STATUS "Using GTest ${GTest_VERSION}")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/)
 
@@ -33,13 +31,6 @@ set(SDK_UNIT_TEST_SRCS
   ${SDK_UNIT_TEST_TRANSACTION_SRCS}
   ${SDK_UNIT_TEST_VECTOR_SRCS}
 )
-
-# add_library(SDK_UNIT_TEST_OBJS
-#             OBJECT
-#             ${SDK_UNIT_TEST_SRCS}
-# )
-
-# add_dependencies(SDK_UNIT_TEST_OBJS sdk)
 
 add_executable(sdk_unit_test
   main.cc
