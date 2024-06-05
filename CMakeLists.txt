@@ -33,9 +33,11 @@ message(STATUS "SYSTEM: ${CMAKE_HOST_SYSTEM_NAME} ${CMAKE_HOST_SYSTEM_PROCESSOR}
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 
 # third-party install path
-set(THIRD_PARTY_INSTALL_PATH ${PROJECT_SOURCE_DIR}/third-party/installed)
-set(CMAKE_PREFIX_PATH ${THIRD_PARTY_INSTALL_PATH})
-message(STATUS "THIRD_PARTY_INSTALL_PATH:${THIRD_PARTY_INSTALL_PATH}, CMAKE_PREFIX_PATH:{CMAKE_PREFIX_PATH}")
+if(NOT THIRD_PARTY_INSTALL_PATH)
+  set(THIRD_PARTY_INSTALL_PATH ${PROJECT_SOURCE_DIR}/third-party/installed)
+endif()
+list(APPEND CMAKE_PREFIX_PATH ${THIRD_PARTY_INSTALL_PATH})
+message(STATUS "THIRD_PARTY_INSTALL_PATH:${THIRD_PARTY_INSTALL_PATH}, CMAKE_PREFIX_PATH:${CMAKE_PREFIX_PATH}")
 
 # find third-party
 set(gflags_DIR ${THIRD_PARTY_INSTALL_PATH}/lib/cmake/gflags)
@@ -52,6 +54,12 @@ message(STATUS "Using zlib ${ZLIB_VERSION}, include_dir:${ZLIB_INCLUDE_DIR}")
 find_package (glog REQUIRED)
 add_compile_definitions(GLOG_USE_GLOG_EXPORT)
 message(STATUS "Using glog ${glog_VERSION}")
+
+find_package(GTest CONFIG REQUIRED)
+message(STATUS "Using GTest ${GTest_VERSION}")
+
+find_package(RapidJSON REQUIRED)
+message(STATUS "Using RapidJSON ${RapidJSON_VERSION}, include_dir:${RapidJSON_INCLUDE_DIR}")
 
 # # https://github.com/llvm/llvm-project/blob/main/cmake/Modules/FindGRPC.cmake
 # This setup requires gRPC to be built from sources using CMake and installed
@@ -106,7 +114,7 @@ set(GRPC_PROTO_SRCS "")
 set(GRPC_PROTO_HDRS "")
 set(GRPC_PROTO_GRPC_SRCS "")
 set(GRPC_PROTO_GRPC_HDRS "")
-set(PROTOS_DIR ${PROJECT_SOURCE_DIR}/dingo-store-proto/proto)
+set(PROTOS_DIR ${PROJECT_SOURCE_DIR}/store-proto/proto)
 message(STATUS "PROTOS_DIR:${PROTOS_DIR}")
 file(GLOB_RECURSE MSG_PROTOS ${PROTOS_DIR}/*.proto)
 # First loop to copy proto files
@@ -197,3 +205,4 @@ add_subdirectory(src/example)
 add_subdirectory(python)
 
 add_subdirectory(test/unit_test/sdk)
+add_subdirectory(test/integration_test)
