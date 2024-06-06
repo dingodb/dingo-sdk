@@ -15,7 +15,7 @@
 #ifndef DINGODB_SDK_GRPC_STORE_RPC_H_
 #define DINGODB_SDK_GRPC_STORE_RPC_H_
 
-#include "proto_grpc/store.grpc.pb.h"
+#include "proto/store.grpc.pb.h"
 #include "sdk/rpc/grpc/unary_rpc.h"
 
 namespace dingodb {

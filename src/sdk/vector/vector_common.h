@@ -18,8 +18,8 @@
 #include <cstdint>
 
 #include "glog/logging.h"
-#include "sdk/port/common.pb.h"
-#include "sdk/port/meta.pb.h"
+#include "proto/common.pb.h"
+#include "proto/meta.pb.h"
 #include "sdk/types.h"
 #include "sdk/types_util.h"
 #include "sdk/vector.h"

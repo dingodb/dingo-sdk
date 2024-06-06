@@ -15,8 +15,8 @@
 #ifndef DINGODB_SDK_GRPC_INDEX_SERVICE_RPC_H_
 #define DINGODB_SDK_GRPC_INDEX_SERVICE_RPC_H_
 
-#include "proto_grpc/index.pb.h"
-#include "proto_grpc/index.grpc.pb.h"
+#include "proto/index.grpc.pb.h"
+#include "proto/index.pb.h"
 #include "sdk/rpc/grpc/unary_rpc.h"
 
 namespace dingodb {

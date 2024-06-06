@@ -50,6 +50,8 @@ class RpcClient {
   RpcClientOptions m_options;
 };
 
+RpcClient *NewRpcClient(const RpcClientOptions &options);
+
 }  // namespace sdk
 }  // namespace dingodb
 #endif  // DINGODB_SDK_RPC_CLIENT_H_

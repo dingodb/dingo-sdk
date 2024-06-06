@@ -18,7 +18,7 @@
 #include <cstdint>
 
 #include "fmt/core.h"
-#include "sdk/port/store.pb.h"
+#include "proto/store.pb.h"
 #include "sdk/status.h"
 
 namespace dingodb {

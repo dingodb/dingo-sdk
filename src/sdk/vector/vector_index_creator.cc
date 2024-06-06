@@ -15,7 +15,7 @@
 #include <cstdint>
 
 #include "glog/logging.h"
-#include "sdk/port/meta.pb.h"
+#include "proto/meta.pb.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/status.h"
 #include "sdk/vector.h"

@@ -22,7 +22,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "sdk/port/meta.pb.h"
+#include "proto/meta.pb.h"
 #include "sdk/status.h"
 #include "sdk/vector/vector_index.h"
 

@@ -14,6 +14,8 @@
 
 #include "sdk/region.h"
 
+#include <mutex>
+
 #include "common/logging.h"
 
 namespace dingodb {

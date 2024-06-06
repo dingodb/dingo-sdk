@@ -32,7 +32,7 @@
 #include "sdk/client.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/helper.h"
-#include "sdk/port/common.pb.h"
+#include "proto/common.pb.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/vector.h"
 #include "util.h"
