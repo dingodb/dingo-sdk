@@ -99,7 +99,13 @@ if(SDK_ENABLE_GRPC)
     )
 
 else()
-    message(FATAL_ERROR "NOT Supported build sdk with brpc")
+    message(STATUS "Build sdk with brpc")
+
+    find_package(leveldb REQUIRED)
+    message("Using leveldb ${leveldb_VERSION}")
+
+    find_package(Snappy)
+    message("Using Snappy ${Snappy_VERSION}")
 
     list(APPEND SDK_SRCS
         rpc/brpc/brpc_rpc_client.cc
@@ -121,6 +127,17 @@ else()
       PRIVATE
         $<TARGET_OBJECTS:PROTO_OBJS>
         $<TARGET_OBJECTS:SERRIAL_OJBS>
+        brpc
+        leveldb::leveldb
+        Snappy::snappy
+        grpc_protobuf
+        ZLIB::ZLIB
+        fmt::fmt
+        gflags
+        glog::glog
+        ${OPENSSL_LIBRARIES}
+        dl 
+        Threads::Threads
    )
 endif()
 

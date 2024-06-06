@@ -16,6 +16,7 @@
 #define DINGODB_SDK_GRPC_RPC_CLIENT_H_
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <thread>

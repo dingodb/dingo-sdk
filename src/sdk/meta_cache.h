@@ -22,7 +22,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "sdk/port/coordinator.pb.h"
+#include "proto/coordinator.pb.h"
 #include "sdk/region.h"
 #include "sdk/rpc/coordinator_rpc_controller.h"
 #include "sdk/status.h"

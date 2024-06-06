@@ -19,7 +19,7 @@
 #include "gtest/gtest.h"
 #include "mock_store_rpc_controller.h"
 #include "sdk/common/common.h"
-#include "sdk/port/error.pb.h"
+#include "proto/error.pb.h"
 #include "sdk/region.h"
 #include "sdk/rpc/rpc.h"
 #include "sdk/rpc/store_rpc.h"

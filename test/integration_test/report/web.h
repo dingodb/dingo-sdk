@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "gtest/gtest.h"
-#include "sdk/port/common.pb.h"
+#include "proto/common.pb.h"
 
 namespace dingodb::report::web {
 

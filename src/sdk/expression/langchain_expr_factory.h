@@ -19,7 +19,7 @@
 
 #include "sdk/expression/langchain_expr.h"
 #include "sdk/status.h"
-#include "sdk/port/common.pb.h"
+#include "proto/common.pb.h"
 
 namespace dingodb {
 namespace sdk {

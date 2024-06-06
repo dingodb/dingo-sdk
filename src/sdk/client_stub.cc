@@ -15,16 +15,11 @@
 #include "sdk/client_stub.h"
 
 #include <memory>
+#include <vector>
 
 #include "sdk/common/param_config.h"
 #include "sdk/meta_cache.h"
 #include "sdk/rawkv/raw_kv_region_scanner_impl.h"
-
-#ifdef USE_GRPC
-#include "sdk/rpc/grpc/grpc_rpc_client.h"
-#else
-#include "sdk/rpc/brpc/brpc_rpc_client.h"
-#endif
 #include "sdk/rpc/coordinator_rpc_controller.h"
 #include "sdk/rpc/rpc_client.h"
 #include "sdk/status.h"
@@ -57,12 +52,7 @@ Status ClientStub::Open(const std::vector<EndPoint>& endpoints) {
   options.timeout_ms = FLAGS_rpc_channel_timeout_ms;
   options.connect_timeout_ms = FLAGS_rpc_channel_connect_timeout_ms;
 
-#ifdef USE_GRPC
-  store_rpc_client_ = std::make_shared<GrpcRpcClient>(options);
-  store_rpc_client_->Open();
-#else
-  store_rpc_client_ = std::make_shared<BrpcRpcClient>(options);
-#endif
+  store_rpc_client_.reset(NewRpcClient(options));
 
   meta_cache_ = std::make_shared<MetaCache>(coordinator_rpc_controller_);
 

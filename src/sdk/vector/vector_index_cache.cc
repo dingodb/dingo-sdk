@@ -21,7 +21,7 @@
 
 #include "glog/logging.h"
 #include "sdk/client_stub.h"
-#include "sdk/port/meta.pb.h"
+#include "proto/meta.pb.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/status.h"
 

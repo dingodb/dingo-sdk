@@ -17,7 +17,7 @@
 
 #include <vector>
 
-#include "sdk/port/meta.pb.h"
+#include "proto/meta.pb.h"
 #include "sdk/rpc/coordinator_rpc_controller.h"
 #include "sdk/status.h"
 

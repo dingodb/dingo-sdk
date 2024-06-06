@@ -22,7 +22,7 @@
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "sdk/client.h"
-#include "sdk/port/store.pb.h"
+#include "proto/store.pb.h"
 #include "sdk/status.h"
 
 namespace dingodb {

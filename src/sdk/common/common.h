@@ -17,8 +17,8 @@
 
 #include "glog/logging.h"
 #include "google/protobuf/message.h"
-#include "sdk/port/meta.pb.h"
-#include "sdk/port/store.pb.h"
+#include "proto/meta.pb.h"
+#include "proto/store.pb.h"
 #include "sdk/rpc/rpc.h"
 #include "sdk/utils/net_util.h"
 

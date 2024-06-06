@@ -21,7 +21,7 @@
 
 #include "sdk/expression/langchain_expr.h"
 #include "sdk/expression/langchain_expr_visitor.h"
-#include "sdk/port/common.pb.h"
+#include "proto/common.pb.h"
 #include "sdk/types.h"
 
 namespace dingodb {

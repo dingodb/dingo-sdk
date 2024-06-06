@@ -15,8 +15,8 @@
 #ifndef DINGODB_SDK_GRPC_COORDINATOR_RPC_H_
 #define DINGODB_SDK_GRPC_COORDINATOR_RPC_H_
 
-#include "proto_grpc/coordinator.grpc.pb.h"
-#include "proto_grpc/meta.grpc.pb.h"
+#include "proto/coordinator.grpc.pb.h"
+#include "proto/meta.grpc.pb.h"
 #include "sdk/rpc/grpc/unary_rpc.h"
 
 namespace dingodb {

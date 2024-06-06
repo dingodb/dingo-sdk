@@ -148,6 +148,18 @@ ExternalProject_Add(c-ares
         -DCMAKE_INSTALL_LIBDIR:PATH=${THIRD_PARTY_INSTALL_PATH}/lib
 )
 
+# Builds zlib project from the git submodule.
+ExternalProject_Add(zlib
+  PREFIX zlib
+  SOURCE_DIR "${GRPC_SOURCES_DIR}/third_party/zlib"
+  CMAKE_ARGS
+      -DBUILD_SHARED_LIBS=OFF
+  CMAKE_CACHE_ARGS
+        -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=TRUE
+        -DCMAKE_INSTALL_PREFIX:PATH=${THIRD_PARTY_INSTALL_PATH}
+        -DCMAKE_INSTALL_LIBDIR:PATH=${THIRD_PARTY_INSTALL_PATH}/lib
+)
+
 # Builds protobuf project from the git submodule.
 ExternalProject_Add(protobuf
   PREFIX protobuf
@@ -155,32 +167,21 @@ ExternalProject_Add(protobuf
   CMAKE_CACHE_ARGS
         -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=TRUE
         -Dprotobuf_BUILD_TESTS:BOOL=OFF
-        -Dprotobuf_WITH_ZLIB:BOOL=OFF
+        -Dprotobuf_WITH_ZLIB:BOOL=ON
+        -DZLIB_ROOT:STRING=${THIRD_PARTY_INSTALL_PATH}
         -Dprotobuf_ABSL_PROVIDER:STRING=package
         -Dabsl_DIR:STRING=${THIRD_PARTY_INSTALL_PATH}/lib/cmake/absl
         -Dutf8_range_DIR:STRING=${THIRD_PARTY_INSTALL_PATH}/lib/cmake/utf8_range
         -Dprotobuf_MSVC_STATIC_RUNTIME:BOOL=OFF
         -DCMAKE_INSTALL_PREFIX:PATH=${THIRD_PARTY_INSTALL_PATH}
         -DCMAKE_INSTALL_LIBDIR:PATH=${THIRD_PARTY_INSTALL_PATH}/lib
-  DEPENDS absl utf8_range
+  DEPENDS absl utf8_range zlib
 )
 
 # Builds re2 project from the git submodule.
 ExternalProject_Add(re2
   PREFIX re2
   SOURCE_DIR "${GRPC_SOURCES_DIR}/third_party/re2"
-  CMAKE_CACHE_ARGS
-        -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=TRUE
-        -DCMAKE_INSTALL_PREFIX:PATH=${THIRD_PARTY_INSTALL_PATH}
-        -DCMAKE_INSTALL_LIBDIR:PATH=${THIRD_PARTY_INSTALL_PATH}/lib
-)
-
-# Builds zlib project from the git submodule.
-ExternalProject_Add(zlib
-  PREFIX zlib
-  SOURCE_DIR "${GRPC_SOURCES_DIR}/third_party/zlib"
-  CMAKE_ARGS
-      -DBUILD_SHARED_LIBS=OFF
   CMAKE_CACHE_ARGS
         -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=TRUE
         -DCMAKE_INSTALL_PREFIX:PATH=${THIRD_PARTY_INSTALL_PATH}

@@ -21,7 +21,7 @@
 #include "sdk/client.h"
 #include "sdk/common/common.h"
 #include "sdk/common/param_config.h"
-#include "sdk/port/error.pb.h"
+#include "proto/error.pb.h"
 #include "sdk/rawkv/raw_kv_region_scanner_impl.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/status.h"

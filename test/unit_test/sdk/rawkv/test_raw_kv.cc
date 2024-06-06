@@ -25,7 +25,7 @@
 #include "sdk/client.h"
 #include "sdk/common/common.h"
 #include "common/logging.h"
-#include "sdk/port/error.pb.h"
+#include "proto/error.pb.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/status.h"

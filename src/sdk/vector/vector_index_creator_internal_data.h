@@ -19,7 +19,7 @@
 #include <utility>
 
 #include "sdk/client_stub.h"
-#include "sdk/port/common.pb.h"
+#include "proto/common.pb.h"
 #include "sdk/vector.h"
 #include "sdk/vector/vector_common.h"
 

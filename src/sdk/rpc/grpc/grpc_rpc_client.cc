@@ -95,5 +95,11 @@ void GrpcRpcClient::SendRpc(Rpc& rpc, RpcCallback cb) {
   rpc.Call(ctx.release());
 }
 
+RpcClient* NewRpcClient(const RpcClientOptions& options) {
+  auto* client = new GrpcRpcClient(options);
+  client->Open();
+  return client;
+}
+
 }  // namespace sdk
 }  // namespace dingodb

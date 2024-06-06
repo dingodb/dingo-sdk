@@ -17,10 +17,11 @@
 
 #include <cstdint>
 #include <shared_mutex>
+#include <vector>
 
 #include "fmt/core.h"
 #include "glog/logging.h"
-#include "sdk/port/common.pb.h"
+#include "proto/common.pb.h"
 #include "sdk/status.h"
 #include "sdk/utils/net_util.h"
 

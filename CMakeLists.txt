@@ -112,89 +112,139 @@ if (ENABLE_GRPC_REFLECTION)
     add_library(grpc++_reflection ALIAS gRPC::grpc++_reflection)
 endif()
 
-  
+if(SDK_ENABLE_GRPC)
+    add_definitions(-DUSE_GRPC=1)
+endif()
 
-# grpc proto file
-set(GRPC_PROTO_DIR ${CMAKE_BINARY_DIR}/proto_tmp)
-add_custom_target(create_grpc_proto_dir ALL
-  COMMAND ${CMAKE_COMMAND} -E make_directory ${GRPC_PROTO_DIR}
+set(PROTO_OUTPUT_DIR ${CMAKE_BINARY_DIR}/proto)
+add_custom_target(create_proto_output_dir ALL
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${PROTO_OUTPUT_DIR}
 )
+message("PROTO_OUTPUT_DIR:${PROTO_OUTPUT_DIR}")
 
-set(GRPC_PROTO_OUTPUT_DIR ${CMAKE_BINARY_DIR}/proto_grpc)
-add_custom_target(create_grpc_proto_output_dir ALL
-  COMMAND ${CMAKE_COMMAND} -E make_directory ${GRPC_PROTO_OUTPUT_DIR}
-)
-message("grpc proto_tmp:${GRPC_PROTO_DIR}, proto_grpc:${GRPC_PROTO_OUTPUT_DIR}")
+set(PROTO_OBJS_SRC "")
 
-set(GRPC_PROTOS "")
-
-set(GRPC_PROTO_SRCS "")
-set(GRPC_PROTO_HDRS "")
-set(GRPC_PROTO_GRPC_SRCS "")
-set(GRPC_PROTO_GRPC_HDRS "")
 set(PROTOS_DIR ${PROJECT_SOURCE_DIR}/store-proto/proto)
 message("PROTOS_DIR:${PROTOS_DIR}")
 file(GLOB_RECURSE MSG_PROTOS ${PROTOS_DIR}/*.proto)
-# First loop to copy proto files
-foreach(msg ${MSG_PROTOS})
-    get_filename_component(FIL_WE ${msg} NAME_WE)
-    set(TMP_PROTO ${GRPC_PROTO_DIR}/${FIL_WE}.proto)
-    message("proto:${msg}, grpc_proto: ${TMP_PROTO}")
 
-    add_custom_command(
-        OUTPUT ${TMP_PROTO}
-        COMMAND ${CMAKE_COMMAND} -E copy ${msg} ${TMP_PROTO}
-        COMMAND sed -i "/cc_generic_services/c\\option cc_generic_services = false;" ${TMP_PROTO}
-        COMMENT "Copying ${msg} to ${TMP_PROTO} and replacing cc_generic_services option"
-        VERBATIM
+if(SDK_ENABLE_GRPC)
+    # grpc proto file
+    set(GRPC_PROTO_DIR ${CMAKE_BINARY_DIR}/proto_tmp)
+    add_custom_target(create_grpc_proto_dir ALL
+      COMMAND ${CMAKE_COMMAND} -E make_directory ${GRPC_PROTO_DIR}
     )
+    message("GRPC_PROTO_DIR:${GRPC_PROTO_DIR}")
 
-    list(APPEND GRPC_PROTOS ${TMP_PROTO})
-endforeach()
+    set(GRPC_PROTOS "")
 
-foreach(grpc_proto ${GRPC_PROTOS})
-    get_filename_component(FIL_WE ${grpc_proto} NAME_WE)
+    set(GRPC_PROTO_SRCS "")
+    set(GRPC_PROTO_HDRS "")
+    set(GRPC_PROTO_GRPC_SRCS "")
+    set(GRPC_PROTO_GRPC_HDRS "")
+    # First loop to copy proto files
 
-    set(FILE_PREFIX_NAME "${GRPC_PROTO_OUTPUT_DIR}/${FIL_WE}")
-    list(APPEND GRPC_PROTO_SRCS "${FILE_PREFIX_NAME}.pb.cc")
-    list(APPEND GRPC_PROTO_HDRS "${FILE_PREFIX_NAME}.pb.h")
-    list(APPEND GRPC_PROTO_GRPC_SRCS "${FILE_PREFIX_NAME}.grpc.pb.cc")
-    list(APPEND GRPC_PROTO_GRPC_HDRS "${FILE_PREFIX_NAME}.grpc.pb.h")
+    foreach(msg ${MSG_PROTOS})
+        get_filename_component(FIL_WE ${msg} NAME_WE)
+        set(TMP_PROTO ${GRPC_PROTO_DIR}/${FIL_WE}.proto)
+        message("proto:${msg}, grpc_proto: ${TMP_PROTO}")
 
-    add_custom_command(
-      OUTPUT "${FILE_PREFIX_NAME}.pb.cc"
-             "${FILE_PREFIX_NAME}.pb.h"
-             "${FILE_PREFIX_NAME}.grpc.pb.cc"
-             "${FILE_PREFIX_NAME}.grpc.pb.h"
-      COMMAND  ${PROTOC}
-      ARGS --grpc_out "${GRPC_PROTO_OUTPUT_DIR}"
-        --cpp_out "${GRPC_PROTO_OUTPUT_DIR}"
-        -I "${GRPC_PROTO_DIR}"
-        --plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN}
-        "${grpc_proto}"
-      DEPENDS ${GRPC_PROTOS}
-      COMMENT "Running GRpc protocol buffer compiler on ${grpc_proto}"
-      VERBATIM
-    )
-endforeach()
+        add_custom_command(
+            OUTPUT ${TMP_PROTO}
+            COMMAND ${CMAKE_COMMAND} -E copy ${msg} ${TMP_PROTO}
+            COMMAND sed -i "/cc_generic_services/c\\option cc_generic_services = false;" ${TMP_PROTO}
+            COMMENT "Copying ${msg} to ${TMP_PROTO} and replacing cc_generic_services option"
+            VERBATIM
+        )
 
-set_source_files_properties(
-  ${GRPC_PROTO_SRCS} 
-  ${GRPC_PROTO_HDRS} 
-  ${GRPC_PROTO_GRPC_SRCS} 
-  ${GRPC_PROTO_GRPC_HDRS} 
-  PROPERTIES GENERATED TRUE)
+        list(APPEND GRPC_PROTOS ${TMP_PROTO})
+    endforeach()
 
-add_library(PROTO_OBJS OBJECT 
+    foreach(grpc_proto ${GRPC_PROTOS})
+        get_filename_component(FIL_WE ${grpc_proto} NAME_WE)
+
+        set(FILE_PREFIX_NAME "${PROTO_OUTPUT_DIR}/${FIL_WE}")
+        list(APPEND GRPC_PROTO_SRCS "${FILE_PREFIX_NAME}.pb.cc")
+        list(APPEND GRPC_PROTO_HDRS "${FILE_PREFIX_NAME}.pb.h")
+        list(APPEND GRPC_PROTO_GRPC_SRCS "${FILE_PREFIX_NAME}.grpc.pb.cc")
+        list(APPEND GRPC_PROTO_GRPC_HDRS "${FILE_PREFIX_NAME}.grpc.pb.h")
+
+        add_custom_command(
+          OUTPUT "${FILE_PREFIX_NAME}.pb.cc"
+                 "${FILE_PREFIX_NAME}.pb.h"
+                 "${FILE_PREFIX_NAME}.grpc.pb.cc"
+                 "${FILE_PREFIX_NAME}.grpc.pb.h"
+          COMMAND  ${PROTOC}
+          ARGS --grpc_out "${PROTO_OUTPUT_DIR}"
+            --cpp_out "${PROTO_OUTPUT_DIR}"
+            -I "${GRPC_PROTO_DIR}"
+            --plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN}
+            "${grpc_proto}"
+          DEPENDS ${GRPC_PROTOS}
+          COMMENT "Running GRpc protocol buffer compiler on ${grpc_proto}"
+          VERBATIM
+        )
+    endforeach()
+
+    set_source_files_properties(
       ${GRPC_PROTO_SRCS} 
       ${GRPC_PROTO_HDRS} 
       ${GRPC_PROTO_GRPC_SRCS} 
       ${GRPC_PROTO_GRPC_HDRS} 
-)
+      PROPERTIES GENERATED TRUE)
 
+    set(PROTO_OBJS_SRC
+          ${GRPC_PROTO_SRCS} 
+          ${GRPC_PROTO_HDRS} 
+          ${GRPC_PROTO_GRPC_SRCS} 
+          ${GRPC_PROTO_GRPC_HDRS} 
+    )
+
+else()
+    set(PROTO_SRCS "")
+    set(PROTO_HDRS "")
+
+    foreach(msg ${MSG_PROTOS})
+            get_filename_component(FIL_WE ${msg} NAME_WE)
+
+            message(STATUS "proto file: ${msg}")
+
+            set(FILE_PREFIX_NAME "${PROTO_OUTPUT_DIR}/${FIL_WE}")
+            list(APPEND PROTO_SRCS "${FILE_PREFIX_NAME}.pb.cc")
+            list(APPEND PROTO_HDRS "${FILE_PREFIX_NAME}.pb.h")
+
+            add_custom_command(
+              OUTPUT "${FILE_PREFIX_NAME}.pb.cc"
+                 "${FILE_PREFIX_NAME}.pb.h"
+              COMMAND  ${PROTOC}
+              ARGS --cpp_out  ${PROTO_OUTPUT_DIR}
+                -I ${PROTOS_DIR}
+                ${msg}
+              DEPENDS ${msg}
+              COMMENT "Running C++ protocol buffer compiler on ${msg}"
+              VERBATIM
+            )
+    endforeach()
+
+    set_source_files_properties(
+      ${PROTO_SRCS} 
+      ${PROTO_HDRS} 
+      PROPERTIES GENERATED TRUE)
+
+    set(PROTO_OBJS_SRC
+        ${PROTO_SRCS} 
+        ${PROTO_HDRS} 
+    )
+endif(SDK_ENABLE_GRPC)
+
+
+add_library(PROTO_OBJS OBJECT 
+      ${PROTO_OBJS_SRC} 
+)
 set_target_properties(PROTO_OBJS
   PROPERTIES
-  POSITION_INDEPENDENT_CODE ON)
+  POSITION_INDEPENDENT_CODE ON
+)
 
 # include dir
 include_directories(${THIRD_PARTY_INSTALL_PATH}/include)
@@ -213,10 +263,6 @@ set_target_properties(SERRIAL_OJBS
   PROPERTIES
   POSITION_INDEPENDENT_CODE ON
 )
-
-if(SDK_ENABLE_GRPC)
-    add_definitions(-DUSE_GRPC=1)
-endif()
 
 add_subdirectory(src/sdk)
 

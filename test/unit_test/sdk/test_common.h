@@ -21,10 +21,10 @@
 #include <string>
 
 #include "sdk/common/common.h"
-#include "sdk/port/common.pb.h"
-#include "sdk/port/error.pb.h"
-#include "sdk/port/meta.pb.h"
-#include "sdk/port/store.pb.h"
+#include "proto/common.pb.h"
+#include "proto/error.pb.h"
+#include "proto/meta.pb.h"
+#include "proto/store.pb.h"
 #include "sdk/region.h"
 #include "sdk/utils/net_util.h"
 

@@ -13,15 +13,17 @@
 // limitations under the License.
 
 #include "sdk/rpc/brpc/brpc_rpc_client.h"
+
 #include <memory>
 
 #include "glog/logging.h"
 #include "sdk/rpc/brpc/unary_rpc.h"
+#include "sdk/rpc/rpc_client.h"
 
 namespace dingodb {
 namespace sdk {
 
-void BrpcRpcClient::SendRpc(Rpc& rpc, RpcCallback cb) {
+void BrpcRpcClient::SendRpc(Rpc &rpc, RpcCallback cb) {
   auto endpoint = rpc.GetEndPoint();
   CHECK(endpoint.IsValid()) << "rpc endpoint not valid: " << endpoint.ToString();
 
@@ -49,6 +51,11 @@ void BrpcRpcClient::SendRpc(Rpc& rpc, RpcCallback cb) {
   ctx->cb = std::move(cb);
   ctx->channel = channel;
   rpc.Call(ctx.release());
+}
+
+RpcClient *NewRpcClient(const RpcClientOptions &options) {
+  auto *client = new BrpcRpcClient(options);
+  return client;
 }
 
 }  // namespace sdk
