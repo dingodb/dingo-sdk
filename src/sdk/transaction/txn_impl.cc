@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "fmt/core.h"
 #include "gflags/gflags.h"
 #include "glog/logging.h"

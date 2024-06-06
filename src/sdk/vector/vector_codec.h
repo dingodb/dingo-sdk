@@ -18,7 +18,7 @@
 #include <optional>
 
 #include "glog/logging.h"
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "sdk/utils/codec.h"
 #include "serial/buf.h"
 #include "serial/schema/long_schema.h"

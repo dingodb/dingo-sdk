@@ -23,7 +23,7 @@
 
 #include "glog/logging.h"
 #include "sdk/client.h"
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "sdk/status.h"
 
 using dingodb::sdk::Status;

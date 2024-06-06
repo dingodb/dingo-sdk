@@ -14,7 +14,7 @@
 
 #include "sdk/admin_tool.h"
 
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "glog/logging.h"
 #include "rpc/coordinator_rpc.h"
 #include "sdk/client_stub.h"

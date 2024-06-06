@@ -14,7 +14,7 @@
 
 #include <memory>
 
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "gtest/gtest.h"
 #include "sdk/vector.h"
 #include "sdk/vector/vector_common.h"

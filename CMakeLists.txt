@@ -18,16 +18,21 @@ cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 project(dingo-sdk C CXX)
 
 option(SDK_ENABLE_GRPC "Build sdk with grpc instead brpc" ON)
+option(BUILD_BENCHMARK "Build benchmark" ON)
+option(BUILD_INTEGRATION_TESTS "Build integration test" ON)
+option(BUILD_UNIT_TESTS "Build unit test" ON)
+option(BUILD_SDK_EXAMPLE "Build sdk example" ON)
+option(BUILD_PYTHON_SDK "Build python sdk" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
-message(STATUS "CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
+message("CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Debug")
 endif()
-message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message("CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
-message(STATUS "SYSTEM: ${CMAKE_HOST_SYSTEM_NAME} ${CMAKE_HOST_SYSTEM_PROCESSOR}")
+message("SYSTEM: ${CMAKE_HOST_SYSTEM_NAME} ${CMAKE_HOST_SYSTEM_PROCESSOR}")
 
 # bin output dir
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
@@ -36,30 +41,43 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 if(NOT THIRD_PARTY_INSTALL_PATH)
   set(THIRD_PARTY_INSTALL_PATH ${PROJECT_SOURCE_DIR}/third-party/installed)
 endif()
+message("THIRD_PARTY_INSTALL_PATH:${THIRD_PARTY_INSTALL_PATH}")
+
 list(APPEND CMAKE_PREFIX_PATH ${THIRD_PARTY_INSTALL_PATH})
-message(STATUS "THIRD_PARTY_INSTALL_PATH:${THIRD_PARTY_INSTALL_PATH}, CMAKE_PREFIX_PATH:${CMAKE_PREFIX_PATH}")
+message("CMAKE_PREFIX_PATH:${CMAKE_PREFIX_PATH}")
+
+# link first lookup from THIRD_PARTY_INSTALL_PATH
+link_directories(BEFORE ${THIRD_PARTY_INSTALL_PATH}/lib)
+
+# openssl
+if(NOT OPENSSL_ROOT_DIR) 
+  set(OPENSSL_ROOT_DIR ${THIRD_PARTY_INSTALL_PATH})
+endif()
+find_package(OpenSSL REQUIRED)
+message("OpenSSL libraries: ${OPENSSL_LIBRARIES}, include dir: ${OPENSSL_INCLUDE_DIR}")
 
 # find third-party
 set(gflags_DIR ${THIRD_PARTY_INSTALL_PATH}/lib/cmake/gflags)
 find_package(gflags REQUIRED)
-message(STATUS "Using gflags ${gflags_VERSION}, include_dir:${gflags_INCLUDE_DIR}")
+message("Using gflags ${gflags_VERSION}, include_dir:${gflags_INCLUDE_DIR}")
 
 find_package(fmt REQUIRED)
-message(STATUS "Using fmt ${fmt_VERSION}")
+message("Using fmt ${fmt_VERSION}")
 
 set(ZLIB_USE_STATIC_LIBS "ON")
 find_package(ZLIB REQUIRED)
-message(STATUS "Using zlib ${ZLIB_VERSION}, include_dir:${ZLIB_INCLUDE_DIR}")
+message("Using zlib ${ZLIB_VERSION}, include_dir:${ZLIB_INCLUDE_DIR}")
 
 find_package (glog REQUIRED)
+# used for glog 0.7.0
 add_compile_definitions(GLOG_USE_GLOG_EXPORT)
-message(STATUS "Using glog ${glog_VERSION}")
+message("Using glog ${glog_VERSION}")
 
 find_package(GTest CONFIG REQUIRED)
-message(STATUS "Using GTest ${GTest_VERSION}")
+message("Using GTest ${GTest_VERSION}")
 
 find_package(RapidJSON REQUIRED)
-message(STATUS "Using RapidJSON ${RapidJSON_VERSION}, include_dir:${RapidJSON_INCLUDE_DIR}")
+message("Using RapidJSON ${RapidJSON_VERSION}, include_dir:${RapidJSON_INCLUDE_DIR}")
 
 # # https://github.com/llvm/llvm-project/blob/main/cmake/Modules/FindGRPC.cmake
 # This setup requires gRPC to be built from sources using CMake and installed
@@ -70,17 +88,17 @@ message(STATUS "Using RapidJSON ${RapidJSON_VERSION}, include_dir:${RapidJSON_IN
 # LLVM's BUILD_SHARED_LIBS has no effect).
 set(protobuf_MODULE_COMPATIBLE TRUE)
 find_package(Protobuf CONFIG REQUIRED)
-message(STATUS "Using protobuf ${Protobuf_VERSION}, include_dir:${Protobuf_INCLUDE_DIRS}" )
+message("Using protobuf ${Protobuf_VERSION}, include_dir:${Protobuf_INCLUDE_DIRS}" )
 # include_directories(${Protobuf_INCLUDE_DIRS})
 
 find_package(gRPC CONFIG REQUIRED)
-message(STATUS "Using gRPC ${gRPC_VERSION}")
+message("Using gRPC ${gRPC_VERSION}")
 
 find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin REQUIRED)
-message(STATUS "Using grpc_cpp_plugin ${GRPC_CPP_PLUGIN}")
+message("Using grpc_cpp_plugin ${GRPC_CPP_PLUGIN}")
 
 find_program(PROTOC protoc REQUIRED)
-message(STATUS "Using protoc ${PROTOC}")
+message("Using protoc ${PROTOC}")
 
 # gRPC CMake CONFIG gives the libraries slightly odd names, make them match
 # the conventional system-installed names.
@@ -106,7 +124,7 @@ set(GRPC_PROTO_OUTPUT_DIR ${CMAKE_BINARY_DIR}/proto_grpc)
 add_custom_target(create_grpc_proto_output_dir ALL
   COMMAND ${CMAKE_COMMAND} -E make_directory ${GRPC_PROTO_OUTPUT_DIR}
 )
-message(STATUS "grpc proto_tmp:${GRPC_PROTO_DIR}, proto_grpc:${GRPC_PROTO_OUTPUT_DIR}")
+message("grpc proto_tmp:${GRPC_PROTO_DIR}, proto_grpc:${GRPC_PROTO_OUTPUT_DIR}")
 
 set(GRPC_PROTOS "")
 
@@ -115,13 +133,13 @@ set(GRPC_PROTO_HDRS "")
 set(GRPC_PROTO_GRPC_SRCS "")
 set(GRPC_PROTO_GRPC_HDRS "")
 set(PROTOS_DIR ${PROJECT_SOURCE_DIR}/store-proto/proto)
-message(STATUS "PROTOS_DIR:${PROTOS_DIR}")
+message("PROTOS_DIR:${PROTOS_DIR}")
 file(GLOB_RECURSE MSG_PROTOS ${PROTOS_DIR}/*.proto)
 # First loop to copy proto files
 foreach(msg ${MSG_PROTOS})
     get_filename_component(FIL_WE ${msg} NAME_WE)
     set(TMP_PROTO ${GRPC_PROTO_DIR}/${FIL_WE}.proto)
-    message(STATUS "proto:${msg}, grpc_proto: ${TMP_PROTO}")
+    message("proto:${msg}, grpc_proto: ${TMP_PROTO}")
 
     add_custom_command(
         OUTPUT ${TMP_PROTO}
@@ -167,14 +185,14 @@ set_source_files_properties(
   ${GRPC_PROTO_GRPC_HDRS} 
   PROPERTIES GENERATED TRUE)
 
-add_library(GPRC_PROTO_OBJS OBJECT 
+add_library(PROTO_OBJS OBJECT 
       ${GRPC_PROTO_SRCS} 
       ${GRPC_PROTO_HDRS} 
       ${GRPC_PROTO_GRPC_SRCS} 
       ${GRPC_PROTO_GRPC_HDRS} 
 )
 
-set_target_properties(GPRC_PROTO_OBJS
+set_target_properties(PROTO_OBJS
   PROPERTIES
   POSITION_INDEPENDENT_CODE ON)
 
@@ -201,8 +219,28 @@ if(SDK_ENABLE_GRPC)
 endif()
 
 add_subdirectory(src/sdk)
-add_subdirectory(src/example)
-add_subdirectory(python)
 
-add_subdirectory(test/unit_test/sdk)
-add_subdirectory(test/integration_test)
+if(BUILD_SDK_EXAMPLE)
+  message(STATUS "Build sdk example")
+  add_subdirectory(src/example)
+endif()
+
+if(BUILD_BENCHMARK)
+  message(STATUS "Build benchmark")
+  add_subdirectory(src/benchmark)
+endif()
+
+if(BUILD_PYTHON_SDK)
+  message(STATUS "Build python sdk")
+  add_subdirectory(python)
+endif()
+
+if(BUILD_INTEGRATION_TESTS)
+  message(STATUS "Build integration test")
+  add_subdirectory(test/integration_test)
+endif()
+
+if(BUILD_UNIT_TESTS)
+  message(STATUS "Build unit test")
+  add_subdirectory(test/unit_test/sdk)
+endif()

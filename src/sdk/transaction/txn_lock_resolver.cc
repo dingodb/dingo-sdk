@@ -16,7 +16,7 @@
 
 #include <cstdint>
 
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "glog/logging.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/common.h"

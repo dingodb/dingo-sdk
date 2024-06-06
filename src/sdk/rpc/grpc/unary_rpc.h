@@ -29,7 +29,7 @@
 #include "grpcpp/support/async_unary_call.h"
 #include "grpcpp/support/status.h"
 #include "grpcpp/support/stub_options.h"
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "sdk/rpc/rpc.h"
 #include "sdk/status.h"
 
