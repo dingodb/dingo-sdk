@@ -24,7 +24,7 @@
 #include "brpc/channel.h"
 #include "brpc/controller.h"
 #include "butil/fast_rand.h"
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "google/protobuf/message.h"

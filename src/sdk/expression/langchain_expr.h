@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "sdk/types.h"
 
 namespace dingodb {

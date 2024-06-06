@@ -15,11 +15,11 @@
 #ifndef DINGODB_SDK_COMMON_LOGGING_H_
 #define DINGODB_SDK_COMMON_LOGGING_H_
 
-#include "glog/logging.h"
 #include <string>
 
+#include "glog/logging.h"
+
 namespace dingodb {
-namespace sdk {
 
 /**
  * define the debug log level.
@@ -42,17 +42,11 @@ static constexpr int kGlobalValueOfDebug = DINGO_DEBUG;
 
 #define DINGO_LOG_IF(level, condition) DINGO_LOG_IF_##level(condition)
 
-#define DINGO_LOG_IF_DEBUG(condition)                                          \
-  VLOG_IF(DINGO_DEBUG, condition) << CURRENT_FUNC_NAME
-#define DINGO_LOG_IF_INFO(condition)                                           \
-  LOG_IF(INFO, condition) << CURRENT_FUNC_NAME
-#define DINGO_LOG_IF_WARNING(condition)                                        \
-  LOG_IF(WARNING, condition) << CURRENT_FUNC_NAME
-#define DINGO_LOG_IF_ERROR(condition)                                          \
-  LOG_IF(ERROR, condition) << CURRENT_FUNC_NAME
-#define DINGO_LOG_IF_FATAL(condition)                                          \
-  LOG_IF(FATAL, condition) << CURRENT_FUNC_NAME
+#define DINGO_LOG_IF_DEBUG(condition) VLOG_IF(DINGO_DEBUG, condition) << CURRENT_FUNC_NAME
+#define DINGO_LOG_IF_INFO(condition) LOG_IF(INFO, condition) << CURRENT_FUNC_NAME
+#define DINGO_LOG_IF_WARNING(condition) LOG_IF(WARNING, condition) << CURRENT_FUNC_NAME
+#define DINGO_LOG_IF_ERROR(condition) LOG_IF(ERROR, condition) << CURRENT_FUNC_NAME
+#define DINGO_LOG_IF_FATAL(condition) LOG_IF(FATAL, condition) << CURRENT_FUNC_NAME
 
-} // namespace sdk
-} // namespace dingodb
+}  // namespace dingodb
 #endif

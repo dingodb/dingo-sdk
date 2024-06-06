@@ -18,7 +18,7 @@
 #include <memory>
 #include <mutex>
 
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "gtest/gtest.h"
 #include "sdk/utils/thread_pool_actuator.h"
 

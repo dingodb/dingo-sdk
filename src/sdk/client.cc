@@ -23,7 +23,7 @@
 #include <utility>
 #include <vector>
 
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "sdk/client_internal_data.h"
@@ -59,9 +59,9 @@ namespace sdk {
 
 Status Client::BuildAndInitLog(std::string addrs, Client** client) {
   static std::once_flag init;
-  std::call_once(init, [&]() { 
-    FLAGS_v = dingodb::sdk::kGlobalValueOfDebug;
-    google::InitGoogleLogging("dingo_sdk"); 
+  std::call_once(init, [&]() {
+    FLAGS_v = dingodb::kGlobalValueOfDebug;
+    google::InitGoogleLogging("dingo_sdk");
   });
 
   return BuildFromAddrs(addrs, client);

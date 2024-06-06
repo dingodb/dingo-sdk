@@ -25,3 +25,18 @@
 [submodule "third-party/rapidjson"]
 	path = third-party/rapidjson
 	url = https://github.com/Tencent/rapidjson.git
+[submodule "third-party/brpc"]
+	path = third-party/brpc
+	url = https://github.com/apache/brpc.git
+[submodule "third-party/leveldb"]
+	path = third-party/leveldb
+	url = https://github.com/google/leveldb.git
+[submodule "third-party/snappy"]
+	path = third-party/snappy
+	url = https://github.com/google/snappy.git
+[submodule "third-party/openssl"]
+	path = third-party/openssl
+	url = https://github.com/openssl/openssl.git
+[submodule "third-party/hdf5"]
+	path = third-party/hdf5
+	url = https://github.com/HDFGroup/hdf5.git

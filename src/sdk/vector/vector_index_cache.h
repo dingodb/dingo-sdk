@@ -19,7 +19,7 @@
 #include <shared_mutex>
 #include <unordered_map>
 
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "sdk/vector.h"
 #include "sdk/vector/vector_index.h"
 

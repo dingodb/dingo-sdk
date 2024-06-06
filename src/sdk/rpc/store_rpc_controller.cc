@@ -16,7 +16,7 @@
 #include <string>
 #include <utility>
 
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "sdk/client_stub.h"

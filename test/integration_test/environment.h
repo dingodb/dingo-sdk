@@ -17,6 +17,7 @@
 
 #include <mutex>
 
+#include "common/logging.h"
 #include "fmt/core.h"
 #include "gflags/gflags.h"
 #include "glog/logging.h"
@@ -24,7 +25,6 @@
 #include "sdk/client.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/helper.h"
-#include "sdk/common/logging.h"
 #include "sdk/rpc/coordinator_rpc.h"
 
 DECLARE_string(coordinator_addrs);
@@ -54,8 +54,7 @@ class Environment : public testing::Environment {
 
     std::vector<sdk::EndPoint> endpoints = sdk::StringToEndpoints(FLAGS_coordinator_addrs);
     auto s = client_stub_->Open(endpoints);
-    CHECK(s.ok()) << "Open coordinator proxy failed, please check parameter --coordinator_addrs="
-                  << FLAGS_coordinator_addrs;
+    CHECK(s.ok()) << "Open client stub failed, please check parameter --coordinator_addrs=" << FLAGS_coordinator_addrs;
 
     sdk::Client* tmp;
     auto status = sdk::Client::BuildFromAddrs(FLAGS_coordinator_addrs, &tmp);

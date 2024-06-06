@@ -14,7 +14,7 @@
 
 #include "sdk/rawkv/raw_kv_delete_range_task.h"
 
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "sdk/common/common.h"

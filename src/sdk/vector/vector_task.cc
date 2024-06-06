@@ -14,7 +14,7 @@
 
 #include "sdk/vector/vector_task.h"
 
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "sdk/common/param_config.h"
 #include "sdk/utils/async_util.h"
 

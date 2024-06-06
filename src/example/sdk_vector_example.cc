@@ -23,7 +23,7 @@
 #include "gflags/gflags.h"
 #include "glog/logging.h"
 #include "sdk/client.h"
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "sdk/status.h"
 #include "sdk/types.h"
 #include "sdk/utils/scoped_cleanup.h"

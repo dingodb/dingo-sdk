@@ -20,7 +20,7 @@
 
 #include "glog/logging.h"
 #include "sdk/common/common.h"
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "sdk/common/param_config.h"
 #include "sdk/expression/langchain_expr.h"
 #include "sdk/expression/langchain_expr_encoder.h"

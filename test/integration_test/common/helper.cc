@@ -14,12 +14,13 @@
 
 #include "common/helper.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <system_error>
 
+#include "common/logging.h"
 #include "fmt/core.h"
-#include "sdk/common/logging.h"
 
 namespace dingodb {
 

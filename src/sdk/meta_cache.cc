@@ -19,7 +19,7 @@
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "sdk/common/common.h"
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "sdk/common/param_config.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/status.h"

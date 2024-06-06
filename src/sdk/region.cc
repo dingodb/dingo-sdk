@@ -14,7 +14,7 @@
 
 #include "sdk/region.h"
 
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 
 namespace dingodb {
 namespace sdk {

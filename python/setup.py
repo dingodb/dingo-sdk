@@ -23,7 +23,7 @@ NOTE: only support LINUX now.
 """
 setuptools.setup(
     name="dingosdk",
-    version="0.1rc11",
+    version="0.1rc11-1",
     description="dingo-store python sdk",
     license="Apache License 2.0",
     long_description=long_description,

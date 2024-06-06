@@ -18,7 +18,7 @@
 
 #include "glog/logging.h"
 #include "sdk/common/common.h"
-#include "sdk/common/logging.h"
+#include "common/logging.h"
 #include "sdk/status.h"
 #include "sdk/utils/scoped_cleanup.h"
 #include "sdk/vector/vector_codec.h"
