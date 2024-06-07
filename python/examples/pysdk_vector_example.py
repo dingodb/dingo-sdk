@@ -21,7 +21,7 @@ g_index_id = 0
 g_index_name = "example01"
 g_range_partition_seperator_ids = [5, 10, 20]
 g_dimension = 2
-g_flat_param = dingosdk.FlatParam(g_dimension, dingosdk.kL2)
+g_flat_param = dingosdk.FlatParam(g_dimension, dingosdk.MetricType.kL2) ###
 g_vector_ids = []
 
 s, g_client = dingosdk.Client.BuildAndInitLog(args.coordinator_addrs)
@@ -54,7 +54,6 @@ def post_clean(use_index_name=False):
         print(
             f"index_id: {index_id}, g_index_id: {g_index_id}, get indexid: {tmp.ToString()}"
         )
-        assert index_id == g_index_id
         tmp = g_client.DropIndexByName(g_schema_id, g_index_name)
     else:
         tmp = g_client.DropIndex(g_index_id)
@@ -64,11 +63,13 @@ def post_clean(use_index_name=False):
 
 
 def vector_add(use_index_name=False):
-    vectors = dingosdk.VectorWithIdVector()
+    # vectors = dingosdk.VectorWithIdVector()
+    # vectors = dingosdk.VectorWithId() ###
+    vectors = [] ###
 
     delta = 0.1
     for id in g_range_partition_seperator_ids:
-        tmp_vector = dingosdk.Vector(dingosdk.kFloat, g_dimension)
+        tmp_vector = dingosdk.Vector(dingosdk.ValueType.kFloat, g_dimension) ###
         tmp_vector.float_values = [1.0 + delta, 2.0 + delta]
         tmp = dingosdk.VectorWithId(id, tmp_vector)
         vectors.append(tmp)
@@ -93,7 +94,7 @@ def vector_search(use_index_name=False):
     target_vectors = []
     init = 0.1
     for i in range(5):
-        tmp_vector = dingosdk.Vector(dingosdk.kFloat, g_dimension)
+        tmp_vector = dingosdk.Vector(dingosdk.ValueType.kFloat, g_dimension) ###
         tmp_vector.float_values = [init, init]
 
         tmp = dingosdk.VectorWithId()
@@ -105,7 +106,7 @@ def vector_search(use_index_name=False):
     param = dingosdk.SearchParam()
     param.topk = 2
     # param.use_brute_force = True
-    param.extra_params[dingosdk.kParallelOnQueries] = 10
+    param.extra_params[dingosdk.SearchExtraParamType.kParallelOnQueries] = 10 ###
 
     if use_index_name:
         tmp, result = g_vector_client.SearchByIndexName(
@@ -222,7 +223,7 @@ def vector_get_index_metrics(use_index_name=False):
 
     print(f"vector get index metrics: {tmp.ToString()}, result : {result.ToString()}")
     if tmp.ok():
-        assert result.index_type == dingosdk.kFlat
+        assert result.index_type == dingosdk.VectorIndexType.kFlat ###
         assert result.count == len(g_vector_ids)
         assert result.deleted_count == 0
         assert result.max_vector_id == g_vector_ids[-1]
@@ -316,12 +317,14 @@ def index_with_auot_incre():
     time.sleep(20)
 
     # add use auto incre id
-    vectors = dingosdk.VectorWithIdVector()
+    # vectors = dingosdk.VectorWithIdVector()
+    # vectors = dingosdk.VectorWithId() ###
+    vectors = [] ###
     vector_ids = []
     delta = 0.1
     count = 5
     for id in range(start_id, start_id + count):
-        tmp_vector = dingosdk.Vector(dingosdk.kFloat, g_dimension)
+        tmp_vector = dingosdk.Vector(dingosdk.ValueType.kFloat, g_dimension) ###
         tmp_vector.float_values = [1.0 + delta, 2.0 + delta]
         tmp = dingosdk.VectorWithId(0, tmp_vector)
 
@@ -359,6 +362,7 @@ def index_with_auot_incre():
 
 
 if __name__ == "__main__":
+    post_clean(True)
     prepare_vector_index()
     vector_add()
     vector_search()

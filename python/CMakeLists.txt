@@ -15,43 +15,33 @@
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 project(pysdk)
 
-find_package(SWIG REQUIRED)
+find_package(Python COMPONENTS Interpreter Development)
 
-if(SWIG_FOUND)
-  message("SWIG found: ${SWIG_EXECUTABLE}, dir: ${SWIG_DIR}, version: ${SWIG_VERSION}")
-endif()
+find_package(pybind11 REQUIRED)
+message(STATUS "Found pybind11 v${pybind11_VERSION}: ${pybind11_INCLUDE_DIRS}")
 
-# Find Python 3
-find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-include(UseSWIG)
-
-set(CMAKE_SWIG_FLAGS)
-set(SWIG_SOURCE_FILE_EXTENSIONS swg)
-
-list(APPEND CMAKE_SWIG_FLAGS "-DSWIGWORDSIZE64" "-c++")
-
-set_property(SOURCE dingosdk.swg PROPERTY CPLUSPLUS ON)
-
-swig_add_library(dingosdk 
-  TYPE SHARED 
-  LANGUAGE python 
-  SOURCES dingosdk.swg
-)
-
-target_include_directories(dingosdk 
-  PRIVATE 
-  ${Python3_INCLUDE_DIRS}
+pybind11_add_module(dingosdk 
+  src/wrapper.cc 
+  src/status_bindings.cc
+  src/client_bindings.cc
+  src/vector_bindings.cc
 )
 
 target_link_libraries(dingosdk
   PRIVATE
+  pybind11::headers
   sdk
 )
 
+set_target_properties(dingosdk PROPERTIES
+                                INTERPROCEDURAL_OPTIMIZATION ON
+                                VISIBILITY_INLINES_HIDDEN ON
+                                )
+
 configure_file(setup.py setup.py COPYONLY)
 configure_file(__init__.py __init__.py COPYONLY)
-configure_file(loader.py loader.py COPYONLY)
 
 configure_file(examples/pysdk_rawkv_example.py pysdk_rawkv_example.py COPYONLY)
 configure_file(examples/pysdk_vector_example.py pysdk_vector_example.py COPYONLY)
