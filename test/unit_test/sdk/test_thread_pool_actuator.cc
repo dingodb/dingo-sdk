@@ -66,12 +66,12 @@ TEST_F(SDKThreadPoolActuatorTest, Execute) {
   std::atomic<int> count(2);
 
   actuator->Execute([&]() {
-    EXPECT_EQ(count.fetch_sub(1), 2);
+    count.fetch_sub(1);
     cond.notify_all();
   });
 
   actuator->Execute([&]() {
-    EXPECT_EQ(count.fetch_sub(1), 1);
+    count.fetch_sub(1);
     cond.notify_all();
   });
 

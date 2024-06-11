@@ -26,6 +26,7 @@
 #include "sdk/vector/vector_index_cache.h"
 #include "sdk/vector/vector_scan_query_task.h"
 #include "sdk/vector/vector_search_task.h"
+#include "sdk/vector/vector_update_task.h"
 
 namespace dingodb {
 namespace sdk {
@@ -45,6 +46,21 @@ Status VectorClient::AddByIndexName(int64_t schema_id, const std::string &index_
       stub_.GetVectorIndexCache()->GetIndexIdByKey(EncodeVectorIndexCacheKey(schema_id, index_name), index_id));
   CHECK_GT(index_id, 0);
   VectorAddTask task(stub_, index_id, vectors, replace_deleted, is_update);
+  return task.Run();
+}
+
+Status VectorClient::UpdateByIndexId(int64_t index_id, std::vector<VectorWithId> &vectors) {
+  VectorUpdateTask task(stub_, index_id, vectors);
+  return task.Run();
+}
+
+Status VectorClient::UpdateByIndexName(int64_t schema_id, const std::string &index_name,
+                                       std::vector<VectorWithId> &vectors) {
+  int64_t index_id{0};
+  DINGO_RETURN_NOT_OK(
+      stub_.GetVectorIndexCache()->GetIndexIdByKey(EncodeVectorIndexCacheKey(schema_id, index_name), index_id));
+  CHECK_GT(index_id, 0);
+  VectorUpdateTask task(stub_, index_id, vectors);
   return task.Run();
 }
 

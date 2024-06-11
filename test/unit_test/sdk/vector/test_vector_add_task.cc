@@ -114,15 +114,22 @@ TEST_F(SDKVectorAddTaskTest, InitNoAutoIncreSuccess) {
   EXPECT_TRUE(s.ok());
 }
 
-TEST_F(SDKVectorAddTaskTest, InitAutoIncreFail) {
+TEST_F(SDKVectorAddTaskTest, InitAutoIncreRewriteId) {
   auto vector_index = CreateFakeVectorIndex(1);
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
-    auto* t_rpc = dynamic_cast<GetIndexRpc*>(&rpc);
-    EXPECT_EQ(t_rpc->Request()->index_id().entity_id(), vector_index->GetId());
-    *(t_rpc->MutableResponse()->mutable_index_definition_with_id()) = vector_index->GetIndexDefWithId();
-    return Status::OK();
-  });
+  EXPECT_CALL(*meta_rpc_controller, SyncCall)
+      .WillOnce([&](Rpc& rpc) {
+        auto* t_rpc = dynamic_cast<GetIndexRpc*>(&rpc);
+        EXPECT_EQ(t_rpc->Request()->index_id().entity_id(), vector_index->GetId());
+        *(t_rpc->MutableResponse()->mutable_index_definition_with_id()) = vector_index->GetIndexDefWithId();
+        return Status::OK();
+      })
+      .WillOnce([&](Rpc& rpc) {
+        auto* t_rpc = dynamic_cast<GenerateAutoIncrementRpc*>(&rpc);
+        t_rpc->MutableResponse()->set_start_id(1);
+        t_rpc->MutableResponse()->set_end_id(100);
+        return Status::OK();
+      });
 
   std::vector<VectorWithId> ids;
   for (auto i = 0; i < 10; i++) {
@@ -133,18 +140,25 @@ TEST_F(SDKVectorAddTaskTest, InitAutoIncreFail) {
   VectorAddTask task(*stub, vector_index->GetId(), ids);
 
   Status s = task.TEST_Init();
-  EXPECT_TRUE(s.IsInvalidArgument());
+  EXPECT_TRUE(s.ok());
 }
 
 TEST_F(SDKVectorAddTaskTest, InitAutoIncreSuccess) {
   auto vector_index = CreateFakeVectorIndex(1);
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
-    auto* t_rpc = dynamic_cast<GetIndexRpc*>(&rpc);
-    EXPECT_EQ(t_rpc->Request()->index_id().entity_id(), vector_index->GetId());
-    *(t_rpc->MutableResponse()->mutable_index_definition_with_id()) = vector_index->GetIndexDefWithId();
-    return Status::OK();
-  });
+  EXPECT_CALL(*meta_rpc_controller, SyncCall)
+      .WillOnce([&](Rpc& rpc) {
+        auto* t_rpc = dynamic_cast<GetIndexRpc*>(&rpc);
+        EXPECT_EQ(t_rpc->Request()->index_id().entity_id(), vector_index->GetId());
+        *(t_rpc->MutableResponse()->mutable_index_definition_with_id()) = vector_index->GetIndexDefWithId();
+        return Status::OK();
+      })
+      .WillOnce([&](Rpc& rpc) {
+        auto* t_rpc = dynamic_cast<GenerateAutoIncrementRpc*>(&rpc);
+        t_rpc->MutableResponse()->set_start_id(1);
+        t_rpc->MutableResponse()->set_end_id(100);
+        return Status::OK();
+      });
 
   std::vector<VectorWithId> ids;
   for (auto i = 0; i < 10; i++) {
