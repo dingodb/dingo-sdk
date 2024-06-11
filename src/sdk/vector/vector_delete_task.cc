@@ -32,7 +32,7 @@ Status VectorDeleteTask::Init() {
   next_vector_ids_.clear();
 
   for (const auto& id : vector_ids_) {
-    if(!next_vector_ids_.insert(id).second) {
+    if (!next_vector_ids_.insert(id).second) {
       return Status::InvalidArgument("duplicate vector id: " + std::to_string(id));
     }
   }
@@ -44,12 +44,13 @@ void VectorDeleteTask::DoAsync() {
   std::set<int64_t> next_batch;
   {
     std::unique_lock<std::shared_mutex> w(rw_lock_);
-    if (next_vector_ids_.empty()) {
-      DoAsyncDone(Status::OK());
-      return;
-    }
     next_batch = next_vector_ids_;
     status_ = Status::OK();
+  }
+
+  if (next_batch.empty()) {
+    DoAsyncDone(Status::OK());
+    return;
   }
 
   std::unordered_map<int64_t, std::shared_ptr<Region>> region_id_to_region;

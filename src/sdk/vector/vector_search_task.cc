@@ -18,15 +18,15 @@
 #include <iterator>
 #include <memory>
 
-#include "glog/logging.h"
-#include "sdk/common/common.h"
 #include "common/logging.h"
+#include "glog/logging.h"
+#include "proto/common.pb.h"
+#include "proto/index.pb.h"
+#include "sdk/common/common.h"
 #include "sdk/common/param_config.h"
 #include "sdk/expression/langchain_expr.h"
 #include "sdk/expression/langchain_expr_encoder.h"
 #include "sdk/expression/langchain_expr_factory.h"
-#include "proto/common.pb.h"
-#include "proto/index.pb.h"
 #include "sdk/status.h"
 #include "sdk/utils/scoped_cleanup.h"
 #include "sdk/vector.h"
@@ -79,12 +79,13 @@ void VectorSearchTask::DoAsync() {
   std::set<int64_t> next_part_ids;
   {
     std::unique_lock<std::shared_mutex> w(rw_lock_);
-    if (next_part_ids_.empty()) {
-      DoAsyncDone(Status::OK());
-      return;
-    }
     next_part_ids = next_part_ids_;
     status_ = Status::OK();
+  }
+
+  if (next_part_ids.empty()) {
+    DoAsyncDone(Status::OK());
+    return;
   }
 
   sub_tasks_count_.store(next_part_ids.size());
