@@ -58,13 +58,13 @@ void VectorScanQueryTask::DoAsync() {
   std::set<int64_t> next_part_ids;
   {
     std::unique_lock<std::shared_mutex> w(rw_lock_);
-    if(next_part_ids_.empty()) {
-      DoAsyncDone(Status::OK());
-      return;
-    }
-
     next_part_ids = next_part_ids_;
     status_ = Status::OK();
+  }
+
+  if (next_part_ids.empty()) {
+    DoAsyncDone(Status::OK());
+    return;
   }
 
   sub_tasks_count_.store(next_part_ids.size());
@@ -76,7 +76,7 @@ void VectorScanQueryTask::DoAsync() {
 }
 
 void VectorScanQueryTask::SubTaskCallback(Status status, VectorScanQueryPartTask* sub_task) {
-  SCOPED_CLEANUP({delete sub_task;});
+  SCOPED_CLEANUP({ delete sub_task; });
 
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "sub_task: " << sub_task->Name() << " fail: " << status.ToString();

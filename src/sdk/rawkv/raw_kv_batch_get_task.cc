@@ -42,12 +42,13 @@ void RawKvBatchGetTask::DoAsync() {
   std::set<std::string_view> next_batch;
   {
     std::unique_lock<std::shared_mutex> w(rw_lock_);
-    if(next_keys_.empty()) {
-      DoAsyncDone(Status::OK());
-      return;
-    }
     next_batch = next_keys_;
     status_ = Status::OK();
+  }
+
+  if (next_batch.empty()) {
+    DoAsyncDone(Status::OK());
+    return;
   }
 
   std::unordered_map<int64_t, std::shared_ptr<Region>> region_id_to_region;
