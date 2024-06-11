@@ -56,6 +56,7 @@ set(SDK_SRCS
   vector/vector_get_index_metrics_task.cc
   vector/vector_scan_query_task.cc
   vector/vector_search_task.cc
+  vector/vector_update_task.cc
   utils/thread_pool_actuator.cc
   utils/thread_pool_impl.cc
   common/param_config.cc

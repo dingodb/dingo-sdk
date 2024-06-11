@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "sdk/vector/vector_add_task.h"
+#include "sdk/vector/vector_update_task.h"
 
 #include <cstdint>
 #include <unordered_map>
@@ -28,9 +28,9 @@
 namespace dingodb {
 namespace sdk {
 
-Status VectorAddTask::Init() {
+Status VectorUpdateTask::Init() {
   if (vectors_.empty()) {
-    return Status::InvalidArgument("vectors is empty, no need add vector");
+    return Status::InvalidArgument("vectors is empty, no need update vector");
   }
 
   std::shared_ptr<VectorIndex> tmp;
@@ -38,24 +38,10 @@ Status VectorAddTask::Init() {
   DCHECK_NOTNULL(tmp);
   vector_index_ = std::move(tmp);
 
-  if (vector_index_->HasAutoIncrement()) {
-    auto incrementer = stub.GetAutoIncrementerManager()->GetOrCreateIndexIncrementer(vector_index_);
-    std::vector<int64_t> ids;
-    int64_t id_count = vectors_.size();
-    ids.reserve(id_count);
-
-    DINGO_RETURN_NOT_OK(incrementer->GetNextIds(ids, id_count));
-    CHECK_EQ(ids.size(), id_count);
-
-    for (auto i = 0; i < id_count; i++) {
-      vectors_[i].id = ids[i];
-    }
-  } else {
-    for (auto &vector : vectors_) {
-      int64_t id = vector.id;
-      if (id <= 0) {
-        return Status::InvalidArgument("vector id must be positive");
-      }
+  for (const auto &vector : vectors_) {
+    int64_t id = vector.id;
+    if (id <= 0) {
+      return Status::InvalidArgument("vector id must be positive");
     }
   }
 
@@ -72,7 +58,7 @@ Status VectorAddTask::Init() {
   return Status::OK();
 }
 
-void VectorAddTask::DoAsync() {
+void VectorUpdateTask::DoAsync() {
   std::unordered_map<int64_t, int64_t> next_batch;
   {
     std::unique_lock<std::shared_mutex> w(rw_lock_);
@@ -118,8 +104,6 @@ void VectorAddTask::DoAsync() {
 
     auto rpc = std::make_unique<VectorAddRpc>();
     FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->Epoch());
-    rpc->MutableRequest()->set_is_update(is_update_);
-    rpc->MutableRequest()->set_replace_deleted(replace_deleted_);
 
     for (const auto &id : entry.second) {
       int64_t idx = vector_id_to_idx_[id];
@@ -145,7 +129,7 @@ void VectorAddTask::DoAsync() {
   }
 }
 
-void VectorAddTask::VectorAddRpcCallback(const Status &status, VectorAddRpc *rpc) {
+void VectorUpdateTask::VectorAddRpcCallback(const Status &status, VectorAddRpc *rpc) {
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();

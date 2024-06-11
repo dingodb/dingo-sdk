@@ -17,7 +17,9 @@
 
 #include "sdk/client_stub.h"
 #include "sdk/status.h"
+#include "sdk/types.h"
 #include "sdk/utils/callback.h"
+#include "sdk/vector.h"
 
 namespace dingodb {
 namespace sdk {

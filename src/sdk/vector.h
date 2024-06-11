@@ -471,6 +471,9 @@ class VectorClient {
   Status AddByIndexName(int64_t schema_id, const std::string& index_name, std::vector<VectorWithId>& vectors,
                         bool replace_deleted = false, bool is_update = false);
 
+  Status UpdateByIndexId(int64_t index_id, std::vector<VectorWithId>& vectors);
+  Status UpdateByIndexName(int64_t schema_id, const std::string& index_name, std::vector<VectorWithId>& vectors);
+
   Status SearchByIndexId(int64_t index_id, const SearchParam& search_param,
                          const std::vector<VectorWithId>& target_vectors, std::vector<SearchResult>& out_result);
   Status SearchByIndexName(int64_t schema_id, const std::string& index_name, const SearchParam& search_param,

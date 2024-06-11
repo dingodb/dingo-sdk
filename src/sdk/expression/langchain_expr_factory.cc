@@ -147,17 +147,9 @@ Status LangchainExprFactory::MaybeRemapType(const std::string& name, Type& type)
   return Status::OK();
 }
 
-SchemaLangchainExprFactory::SchemaLangchainExprFactory(const pb::common::ScalarSchema& schema) {
-  for (const auto& schema_item : schema.fields()) {
-    CHECK(attribute_type_
-              .insert(std::make_pair(schema_item.key(), InternalScalarFieldTypePB2Type(schema_item.field_type())))
-              .second);
-  }
-}
-
 Status SchemaLangchainExprFactory::MaybeRemapType(const std::string& name, Type& type) {
-  auto iter = attribute_type_.find(name);
-  if (iter != attribute_type_.end()) {
+  auto iter = schema_.find(name);
+  if (iter != schema_.end()) {
     Type schema_type = iter->second;
     if (kTypeConversionMatrix[type][schema_type]) {
       type = schema_type;

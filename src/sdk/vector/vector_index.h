@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <unordered_map>
 
 #include "proto/meta.pb.h"
 #include "sdk/vector.h"
@@ -51,14 +52,12 @@ class VectorIndex {
 
   bool IsStale() { return stale_.load(std::memory_order_relaxed); }
 
-  bool HasScalarSchema() const;
-
   bool HasAutoIncrement() const { return has_auto_increment_; }
 
   int64_t GetIncrementStartId() const { return increment_start_id_; }
 
-  // the caller must make sure the vector index is not destroyed and HasScalarSchema
-  const pb::common::ScalarSchema& GetScalarSchema() const;
+  bool HasScalarSchema() const { return !scalar_schema_.empty(); }
+  const std::unordered_map<std::string, Type>& GetScalarSchema() const { return scalar_schema_; }
 
   const pb::meta::IndexDefinitionWithId& GetIndexDefWithId() const { return index_def_with_id_; }
 
@@ -71,6 +70,8 @@ class VectorIndex {
 
   void UnMarkStale() { stale_.store(false, std::memory_order_relaxed); }
 
+  void MaybeGenerateScalarSchema();
+
   const int64_t id_{-1};
   const int64_t schema_id_{-1};
   const std::string name_;
@@ -80,6 +81,8 @@ class VectorIndex {
   // start_key is 0 or valid vector id
   std::map<int64_t, int64_t> start_key_to_part_id_;
   std::map<int64_t, pb::common::Range> part_id_to_range_;
+
+  std::unordered_map<std::string, Type> scalar_schema_;
 
   std::atomic<bool> stale_{true};
 };

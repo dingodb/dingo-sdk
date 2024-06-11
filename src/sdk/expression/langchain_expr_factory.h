@@ -17,9 +17,9 @@
 
 #include <memory>
 
+#include "proto/common.pb.h"
 #include "sdk/expression/langchain_expr.h"
 #include "sdk/status.h"
-#include "proto/common.pb.h"
 
 namespace dingodb {
 namespace sdk {
@@ -37,14 +37,14 @@ class LangchainExprFactory {
 
 class SchemaLangchainExprFactory : public LangchainExprFactory {
  public:
-  SchemaLangchainExprFactory(const pb::common::ScalarSchema& schema);
+  SchemaLangchainExprFactory(const std::unordered_map<std::string, Type>& schema) : schema_(schema) {}
 
   ~SchemaLangchainExprFactory() override = default;
 
   Status MaybeRemapType(const std::string& name, Type& type) override;
 
  private:
-  std::unordered_map<std::string, Type> attribute_type_;
+  std::unordered_map<std::string, Type> schema_;
 };
 
 }  // namespace expression
