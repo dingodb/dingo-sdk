@@ -41,6 +41,7 @@ VectorIndex::VectorIndex(pb::meta::IndexDefinitionWithId index_def_with_id)
     CHECK(start_key_to_part_id_.insert({start_id, part_id}).second);
     CHECK(part_id_to_range_.insert({part_id, partition.range()}).second);
   }
+  MaybeGenerateScalarSchema();
   VLOG(kSdkVlogLevel) << "Init:" << ToString();
 }
 
@@ -74,21 +75,6 @@ const pb::common::Range& VectorIndex::GetPartitionRange(int64_t part_id) const {
   return iter->second;
 }
 
-bool VectorIndex::HasScalarSchema() const {
-  if (index_def_with_id_.index_definition().index_parameter().vector_index_parameter().has_scalar_schema()) {
-    const auto& schema =
-        index_def_with_id_.index_definition().index_parameter().vector_index_parameter().scalar_schema();
-    if (schema.fields_size() > 0) {
-      return true;
-    }
-  }
-  return false;
-}
-
-const pb::common::ScalarSchema& VectorIndex::GetScalarSchema() const {
-  return index_def_with_id_.index_definition().index_parameter().vector_index_parameter().scalar_schema();
-}
-
 std::string VectorIndex::ToString(bool verbose) const {
   std::ostringstream oss;
   for (const auto& [start_key, part_id] : start_key_to_part_id_) {
@@ -100,6 +86,15 @@ std::string VectorIndex::ToString(bool verbose) const {
   } else {
     return fmt::format("VectorIndex(id={}, schema_id={}, name={}, start_key_to_part_id={})", id_, schema_id_, name_,
                        oss.str());
+  }
+}
+
+void VectorIndex::MaybeGenerateScalarSchema() {
+  for (const auto& schema_item :
+       index_def_with_id_.index_definition().index_parameter().vector_index_parameter().scalar_schema().fields()) {
+    CHECK(scalar_schema_
+              .insert(std::make_pair(schema_item.key(), InternalScalarFieldTypePB2Type(schema_item.field_type())))
+              .second);
   }
 }
 
