@@ -31,4 +31,7 @@
 *.out
 *.app
 
+dingosdk.egg-info/
+dist/
+
 third-party/installed
