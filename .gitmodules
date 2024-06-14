@@ -40,3 +40,6 @@
 [submodule "third-party/hdf5"]
 	path = third-party/hdf5
 	url = https://github.com/HDFGroup/hdf5.git
+[submodule "python/pybind11"]
+	path = python/pybind11
+	url = https://github.com/pybind/pybind11.git

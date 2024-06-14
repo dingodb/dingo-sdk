@@ -15,21 +15,19 @@
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 project(pysdk)
 
-find_package(Python 3.9 COMPONENTS Interpreter Development)
-set(PYBIND11_NOPYTHON ON)
+find_package(Python 3.6 COMPONENTS Interpreter Development)
  
-find_package(pybind11 REQUIRED)
+add_subdirectory(pybind11)
 message(STATUS "Found pybind11 v${pybind11_VERSION}: ${pybind11_INCLUDE_DIRS}")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-Python_add_library(dingo_store 
+pybind11_add_module(dingo_store 
   src/wrapper.cc 
   src/status_bindings.cc
   src/client_bindings.cc
   src/vector_bindings.cc
   src/types_bindings.cc
-  # WITH_SOABI
 )
 
 target_link_libraries(dingo_store
@@ -41,9 +39,6 @@ target_link_libraries(dingo_store
 set_target_properties(dingo_store PROPERTIES
                                 INTERPROCEDURAL_OPTIMIZATION ON
                                 VISIBILITY_INLINES_HIDDEN ON)
-
-configure_file(setup.py setup.py COPYONLY)
-configure_file(__init__.py __init__.py COPYONLY)
 
 configure_file(examples/pysdk_rawkv_example.py pysdk_rawkv_example.py COPYONLY)
 configure_file(examples/pysdk_vector_example.py pysdk_vector_example.py COPYONLY)
