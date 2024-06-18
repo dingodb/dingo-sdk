@@ -76,11 +76,11 @@ def vector_add(use_index_name=False):
         delta += 1
 
     if use_index_name:
-        add = g_vector_client.AddByIndexName(
+        add, vectors = g_vector_client.AddByIndexName(
             g_schema_id, g_index_name, vectors, False, False
         )
     else:
-        add = g_vector_client.AddByIndexId(g_index_id, vectors, False, False)
+        add, vectors = g_vector_client.AddByIndexId(g_index_id, vectors, False, False)
 
     for v in vectors:
         print(f"add vector: {v.ToString()}")
@@ -328,7 +328,7 @@ def index_with_auot_incre():
         vector_ids.append(id)
         delta += 1
 
-    add = g_vector_client.AddByIndexId(g_index_id, vectors, False, False)
+    add, vectors = g_vector_client.AddByIndexId(g_index_id, vectors, False, False)
 
     for v in vectors:
         print(f"add vector: {v.ToString()}")

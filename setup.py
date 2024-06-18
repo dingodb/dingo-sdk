@@ -140,7 +140,7 @@ NOTE: only support LINUX now.
 """
 setup(
     name="dingosdk",
-    version="0.1rc12",
+    version="0.1rc13",
     author="DingoDB",
     author_email="dingodb@zetyun.com",
     description="dingo-store python sdk",

@@ -253,9 +253,18 @@ void DefineVectorBindings(pybind11::module& m) {
       });
 
   py::class_<VectorClient>(m, "VectorClient")
-      .def("AddByIndexId", &VectorClient::AddByIndexId, py::arg(), py::arg(), py::arg()=false, py::arg()=false)
-      .def("AddByIndexName", &VectorClient::AddByIndexName, 
-            py::arg(), py::arg(), py::arg(), py::arg()=false, py::arg()=false)
+      .def("AddByIndexId", 
+           [](VectorClient& vectorclient, int64_t index_id, std::vector<VectorWithId>& vectors, bool replace_deleted = false,
+                      bool is_update = false){
+             Status status = vectorclient.AddByIndexId(index_id, vectors, replace_deleted, is_update);
+             return std::make_tuple(status, vectors);    
+           }, py::arg(), py::arg(), py::arg()=false, py::arg()=false)
+      .def("AddByIndexName",
+           [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name, std::vector<VectorWithId>& vectors,
+                        bool replace_deleted = false, bool is_update = false){
+             Status status = vectorclient.AddByIndexName(schema_id, index_name, vectors, replace_deleted, is_update);
+             return std::make_tuple(status, vectors); 
+            }, py::arg(), py::arg(), py::arg(), py::arg()=false, py::arg()=false)
       .def("SearchByIndexId",
            [](VectorClient& vectorclient, int64_t index_id, const SearchParam& search_param,
               const std::vector<VectorWithId>& target_vectors) {
