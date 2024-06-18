@@ -4,7 +4,7 @@ from os.path import dirname, abspath
 import argparse
 import time
 
-import dingo_store 
+import dingosdk 
 
 parser = argparse.ArgumentParser(description="argparse")
 parser.add_argument(
@@ -21,10 +21,10 @@ g_index_id = 0
 g_index_name = "example01"
 g_range_partition_seperator_ids = [5, 10, 20]
 g_dimension = 2
-g_flat_param = dingo_store.FlatParam(g_dimension, dingo_store.MetricType.kL2)
+g_flat_param = dingosdk.FlatParam(g_dimension, dingosdk.MetricType.kL2)
 g_vector_ids = []
 
-s, g_client = dingo_store.Client.BuildAndInitLog(args.coordinator_addrs)
+s, g_client = dingosdk.Client.BuildAndInitLog(args.coordinator_addrs)
 assert s.ok(), f"client build fail, {s.ToString()}"
 
 s, g_vector_client = g_client.NewVectorClient()
@@ -67,9 +67,9 @@ def vector_add(use_index_name=False):
 
     delta = 0.1
     for id in g_range_partition_seperator_ids:
-        tmp_vector = dingo_store.Vector(dingo_store.ValueType.kFloat, g_dimension) ###
+        tmp_vector = dingosdk.Vector(dingosdk.ValueType.kFloat, g_dimension)
         tmp_vector.float_values = [1.0 + delta, 2.0 + delta]
-        tmp = dingo_store.VectorWithId(id, tmp_vector)
+        tmp = dingosdk.VectorWithId(id, tmp_vector)
         vectors.append(tmp)
 
         g_vector_ids.append(id)
@@ -92,19 +92,19 @@ def vector_search(use_index_name=False):
     target_vectors = []
     init = 0.1
     for i in range(5):
-        tmp_vector = dingo_store.Vector(dingo_store.ValueType.kFloat, g_dimension) ###
+        tmp_vector = dingosdk.Vector(dingosdk.ValueType.kFloat, g_dimension) ###
         tmp_vector.float_values = [init, init]
 
-        tmp = dingo_store.VectorWithId()
+        tmp = dingosdk.VectorWithId()
         tmp.vector = tmp_vector
         target_vectors.append(tmp)
 
         init = init + 0.1
 
-    param = dingo_store.SearchParam()
+    param = dingosdk.SearchParam()
     param.topk = 2
     # param.use_brute_force = True
-    param.extra_params[dingo_store.SearchExtraParamType.kParallelOnQueries] = 10
+    param.extra_params[dingosdk.SearchExtraParamType.kParallelOnQueries] = 10
 
     if use_index_name:
         tmp, result = g_vector_client.SearchByIndexName(
@@ -129,7 +129,7 @@ def vector_search(use_index_name=False):
 
 
 def vector_query(use_index_name=False):
-    param = dingo_store.QueryParam()
+    param = dingosdk.QueryParam()
     param.vector_ids = g_vector_ids
 
     if use_index_name:
@@ -174,7 +174,7 @@ def vector_get_border(use_index_name=False):
 
 def vector_scan_query(use_index_name=False):
     # forward
-    param = dingo_store.ScanQueryParam()
+    param = dingosdk.ScanQueryParam()
     param.vector_id_start = g_vector_ids[0]
     param.vector_id_end = g_vector_ids[-1]
     param.max_scan_count = 2
@@ -192,7 +192,7 @@ def vector_scan_query(use_index_name=False):
         assert result.vectors[1].id == g_vector_ids[1]
 
     # backward
-    param = dingo_store.ScanQueryParam()
+    param = dingosdk.ScanQueryParam()
     param.vector_id_start = g_vector_ids[-1]
     param.vector_id_end = g_vector_ids[0]
     param.max_scan_count = 2
@@ -221,7 +221,7 @@ def vector_get_index_metrics(use_index_name=False):
 
     print(f"vector get index metrics: {tmp.ToString()}, result : {result.ToString()}")
     if tmp.ok():
-        assert result.index_type == dingo_store.VectorIndexType.kFlat
+        assert result.index_type == dingosdk.VectorIndexType.kFlat
         assert result.count == len(g_vector_ids)
         assert result.deleted_count == 0
         assert result.max_vector_id == g_vector_ids[-1]
@@ -320,9 +320,9 @@ def index_with_auot_incre():
     delta = 0.1
     count = 5
     for id in range(start_id, start_id + count):
-        tmp_vector = dingo_store.Vector(dingo_store.ValueType.kFloat, g_dimension)
+        tmp_vector = dingosdk.Vector(dingosdk.ValueType.kFloat, g_dimension)
         tmp_vector.float_values = [1.0 + delta, 2.0 + delta]
-        tmp = dingo_store.VectorWithId(0, tmp_vector)
+        tmp = dingosdk.VectorWithId(0, tmp_vector)
 
         vectors.append(tmp)
         vector_ids.append(id)
@@ -336,7 +336,7 @@ def index_with_auot_incre():
     print(f"add vector status: {add.ToString()}")
 
     # scan
-    param = dingo_store.ScanQueryParam()
+    param = dingosdk.ScanQueryParam()
     param.vector_id_start = 1
     param.vector_id_end = 100
     param.max_scan_count = 100

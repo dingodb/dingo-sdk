@@ -22,7 +22,7 @@ message(STATUS "Found pybind11 v${pybind11_VERSION}: ${pybind11_INCLUDE_DIRS}")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-pybind11_add_module(dingo_store 
+pybind11_add_module(dingosdk 
   src/wrapper.cc 
   src/status_bindings.cc
   src/client_bindings.cc
@@ -30,13 +30,13 @@ pybind11_add_module(dingo_store
   src/types_bindings.cc
 )
 
-target_link_libraries(dingo_store
+target_link_libraries(dingosdk
   PRIVATE
   pybind11::headers
   sdk
 )
 
-set_target_properties(dingo_store PROPERTIES
+set_target_properties(dingosdk PROPERTIES
                                 INTERPROCEDURAL_OPTIMIZATION ON
                                 VISIBILITY_INLINES_HIDDEN ON)
 
