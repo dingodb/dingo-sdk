@@ -19,7 +19,7 @@
 #include "vector_bindings.h"
 #include "types_bindings.h"
 
-PYBIND11_MODULE(dingo_store, m) {
+PYBIND11_MODULE(dingosdk, m) {
   m.doc() = "python sdk for dingo store, from https://github.com/dingodb/dingo-sdk";
 
   DefineStatusBindings(m);

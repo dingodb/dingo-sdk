@@ -3,7 +3,7 @@
 from os.path import dirname, abspath
 import argparse
 
-import dingo_store 
+import dingosdk 
 
 parser = argparse.ArgumentParser(description="argparse")
 parser.add_argument(
@@ -17,7 +17,7 @@ args = parser.parse_args()
 
 g_region_ids = []
 
-s, g_client = dingo_store.Client.BuildFromAddrs(args.coordinator_addrs)
+s, g_client = dingosdk.Client.BuildFromAddrs(args.coordinator_addrs)
 assert s.ok(), "client build fail"
 
 
@@ -26,7 +26,7 @@ def create_region(
     start_key: str,
     end_key: str,
     replicas: int = 3,
-    engine_type=dingo_store.EngineType.kLSM,
+    engine_type=dingosdk.EngineType.kLSM,
 ):
     assert name, "name should not be empty"
     assert start_key, "start_key should not be empty"
@@ -87,10 +87,10 @@ def raw_kv_example():
     values = ["rwb01", "rwc01", "rwd01", "rwf01", "rl01", "rm01"]
 
     # batch put/batch get/batch delete
-    # kvs = dingo_store.KVPairVector()
+    # kvs = dingosdk.KVPairVector()
     kvs = []
     for i in range(len(keys)):
-        kv = dingo_store.KVPair()
+        kv = dingosdk.KVPair()
         kv.key = keys[i]
         kv.value = values[i]
         kvs.append(kv)
@@ -232,7 +232,7 @@ def raw_kv_example():
     # batch compare and set
     kvs = []
     for i in range(len(keys)):
-        kv = dingo_store.KVPair()
+        kv = dingosdk.KVPair()
         kv.key = keys[i]
         kv.value = values[i]
         kvs.append(kv)
@@ -266,7 +266,7 @@ def raw_kv_example():
     # batch compare and set again
     kvs = []
     for key in keys:
-        kv = dingo_store.KVPair()
+        kv = dingosdk.KVPair()
         kv.key = key
         kv.value = "ping"
         kvs.append(kv)
@@ -312,7 +312,7 @@ def raw_kv_example():
     # scan
     kvs = []
     for i in range(len(keys)):
-        kv = dingo_store.KVPair()
+        kv = dingosdk.KVPair()
         kv.key = keys[i]
         kv.value = values[i]
         kvs.append(kv)
@@ -341,9 +341,9 @@ if __name__ == "__main__":
     raw_kv_example()
     post_clean()
 
-    create_region("skd_example01", "wa00000000", "wc00000000", 3, dingo_store.EngineType.kBTree)
-    create_region("skd_example02", "wc00000000", "we00000000", 3, dingo_store.EngineType.kBTree)
-    create_region("skd_example03", "we00000000", "wg00000000", 3, dingo_store.EngineType.kBTree)
-    create_region("skd_example04", "wl00000000", "wn00000000", 3, dingo_store.EngineType.kBTree)
+    create_region("skd_example01", "wa00000000", "wc00000000", 3, dingosdk.EngineType.kBTree)
+    create_region("skd_example02", "wc00000000", "we00000000", 3, dingosdk.EngineType.kBTree)
+    create_region("skd_example03", "we00000000", "wg00000000", 3, dingosdk.EngineType.kBTree)
+    create_region("skd_example04", "wl00000000", "wn00000000", 3, dingosdk.EngineType.kBTree)
     raw_kv_example()
     post_clean()
