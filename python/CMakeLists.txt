@@ -15,6 +15,9 @@
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 project(pysdk)
 
+set(CMAKE_CXX_STANDARD 17)
+message("CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
+
 find_package(Python 3.6 COMPONENTS Interpreter Development)
  
 add_subdirectory(pybind11)
