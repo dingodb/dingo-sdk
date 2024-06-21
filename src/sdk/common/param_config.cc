@@ -28,7 +28,7 @@ DEFINE_int64(rpc_channel_timeout_ms, 500000, "rpc channel timeout ms");
 DEFINE_int64(rpc_channel_connect_timeout_ms, 3000, "rpc channel connect timeout ms");
 
 // only used for grpc
-DEFINE_int64(grpc_poll_thread_num, 8, "grpc poll cq thread num");
+DEFINE_int64(grpc_poll_thread_num, 32, "grpc poll cq thread num");
 
 DEFINE_int64(rpc_max_retry, 3, "rpc call max retry times");
 DEFINE_int64(rpc_time_out_ms, 500000, "rpc call timeout ms");

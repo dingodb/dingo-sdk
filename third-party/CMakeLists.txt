@@ -40,6 +40,7 @@ ExternalProject_Add(glog
         -DBUILD_TESTING=OFF
         -DBUILD_SHARED_LIBS=OFF
         -DWITH_GFLAGS=ON
+        -DWITH_UNWIND=OFF
     CMAKE_CACHE_ARGS 
         -DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=ON
         -Dgflags_DIR:STRING=${THIRD_PARTY_INSTALL_PATH}/lib/cmake/gflags
