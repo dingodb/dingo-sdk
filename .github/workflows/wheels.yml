@@ -1,0 +1,32 @@
+
+name: Build wheel through cibuildwheel on manylinux
+
+on:  
+  push:  
+    tags:  
+      - '*'
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the submodule
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.19.1
+        env:
+          CIBW_BUILD_FRONTEND: build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl

@@ -41,7 +41,6 @@ class CMakeBuild(build_ext):
         # Can be set with Conda-Build, for example.
         cmake_generator = os.environ.get("CMAKE_GENERATOR", "")
 
-        third_party_dir = os.environ.get("THIRD_PARTY_INSTALL_PATH")
         # Set Python_EXECUTABLE instead if you use PYBIND11_FINDPYTHON
         # EXAMPLE_VERSION_INFO shows you how to pass a value into the C++ code
         # from Python.
@@ -54,7 +53,6 @@ class CMakeBuild(build_ext):
             f"-DBUILD_INTEGRATION_TESTS=OFF",
             f"-DBUILD_UNIT_TESTS=OFF",
             f"-DBUILD_SDK_EXAMPLE=OFF",
-            f"-DTHIRD_PARTY_INSTALL_PATH={third_party_dir}",
         ]
 
         build_args = []

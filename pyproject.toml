@@ -31,11 +31,23 @@ filterwarnings = [
 testpaths = ["tests"]
 
 [tool.cibuildwheel]
-test-command = "pytest {project}/tests"
-test-extras = ["test"]
-test-skip = ["*universal2:arm64"]
 # Setuptools bug causes collision between pypy and cpython artifacts
 before-build = "rm -rf {project}/build"
+build = "*-manylinux*"
+skip = "*-musllinux*"
+
+
+# Install system library
+[tool.cibuildwheel.linux]
+before-all = [
+  "yum install -y perl-IPC-Cmd",
+  "cd {project}/third-party",
+  "rm -rf {project}/third-party/build",
+  "rm -rf {project}/third-party/installed",
+  "cmake -S . -B build",
+  "cmake --build build -j 16",
+]
+archs = ["x86_64"]
 
 [tool.ruff]
 target-version = "py37"
