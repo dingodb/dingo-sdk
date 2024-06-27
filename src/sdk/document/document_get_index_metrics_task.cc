@@ -12,28 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "sdk/vector/vector_get_index_metrics_task.h"
+#include "sdk/document/document_get_index_metrics_task.h"
+
+#include <glog/logging.h>
 
 #include <cstdint>
 #include <memory>
 
 #include "sdk/common/common.h"
 #include "sdk/utils/scoped_cleanup.h"
-#include "sdk/vector/vector_common.h"
 
 namespace dingodb {
 namespace sdk {
 
-Status VectorGetIndexMetricsTask::Init() {
-  std::shared_ptr<VectorIndex> tmp;
-  DINGO_RETURN_NOT_OK(stub.GetVectorIndexCache()->GetVectorIndexById(index_id_, tmp));
+Status DocumentGetIndexMetricsTask::Init() {
+  std::shared_ptr<DocumentIndex> tmp;
+  DINGO_RETURN_NOT_OK(stub.GetDocumentIndexCache()->GetDocumentIndexById(index_id_, tmp));
   DCHECK_NOTNULL(tmp);
-  vector_index_ = std::move(tmp);
+  doc_index_ = std::move(tmp);
 
   std::unique_lock<std::shared_mutex> w(rw_lock_);
-  tmp_result_.index_type = vector_index_->GetVectorIndexType();
 
-  auto part_ids = vector_index_->GetPartitionIds();
+  auto part_ids = doc_index_->GetPartitionIds();
   for (const auto& part_id : part_ids) {
     next_part_ids_.emplace(part_id);
   }
@@ -41,7 +41,7 @@ Status VectorGetIndexMetricsTask::Init() {
   return Status::OK();
 }
 
-void VectorGetIndexMetricsTask::DoAsync() {
+void DocumentGetIndexMetricsTask::DoAsync() {
   std::set<int64_t> next_part_ids;
   {
     std::unique_lock<std::shared_mutex> w(rw_lock_);
@@ -57,12 +57,12 @@ void VectorGetIndexMetricsTask::DoAsync() {
   sub_tasks_count_.store(next_part_ids.size());
 
   for (const auto& part_id : next_part_ids) {
-    auto* sub_task = new VectorGetIndexMetricsPartTask(stub, vector_index_, part_id);
+    auto* sub_task = new DocumentGetIndexMetricsPartTask(stub, doc_index_, part_id);
     sub_task->AsyncRun([this, sub_task](auto&& s) { SubTaskCallback(std::forward<decltype(s)>(s), sub_task); });
   }
 }
 
-void VectorGetIndexMetricsTask::SubTaskCallback(Status status, VectorGetIndexMetricsPartTask* sub_task) {
+void DocumentGetIndexMetricsTask::SubTaskCallback(Status status, DocumentGetIndexMetricsPartTask* sub_task) {
   SCOPED_CLEANUP({ delete sub_task; });
 
   if (!status.ok()) {
@@ -75,8 +75,8 @@ void VectorGetIndexMetricsTask::SubTaskCallback(Status status, VectorGetIndexMet
     }
   } else {
     std::unique_lock<std::shared_mutex> w(rw_lock_);
-    IndexMetricsResult result = sub_task->GetResult();
-    MergeIndexMetricsResult(result, tmp_result_);
+    DocIndexMetricsResult result = sub_task->GetResult();
+    MergeDocIndexMetricsResult(result, tmp_result_);
     next_part_ids_.erase(sub_task->part_id_);
   }
 
@@ -86,8 +86,8 @@ void VectorGetIndexMetricsTask::SubTaskCallback(Status status, VectorGetIndexMet
       std::shared_lock<std::shared_mutex> r(rw_lock_);
       tmp = status_;
       if (tmp.ok()) {
-        if (tmp_result_.min_vector_id == INT64_MAX) {
-          tmp_result_.min_vector_id = 0;
+        if (tmp_result_.min_doc_id == INT64_MAX) {
+          tmp_result_.min_doc_id = 0;
         }
         out_result_ = tmp_result_;
       }
@@ -97,8 +97,8 @@ void VectorGetIndexMetricsTask::SubTaskCallback(Status status, VectorGetIndexMet
   }
 }
 
-void VectorGetIndexMetricsPartTask::DoAsync() {
-  const auto& range = vector_index_->GetPartitionRange(part_id_);
+void DocumentGetIndexMetricsPartTask::DoAsync() {
+  const auto& range = doc_index_->GetPartitionRange(part_id_);
   std::vector<std::shared_ptr<Region>> regions;
   Status s = stub.GetMetaCache()->ScanRegionsBetweenContinuousRange(range.start_key(), range.end_key(), regions);
   if (!s.ok()) {
@@ -116,7 +116,7 @@ void VectorGetIndexMetricsPartTask::DoAsync() {
   rpcs_.clear();
 
   for (const auto& region : regions) {
-    auto rpc = std::make_unique<VectorGetRegionMetricsRpc>();
+    auto rpc = std::make_unique<DocumentGetRegionMetricsRpc>();
     FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch());
 
     StoreRpcController controller(stub, *rpc, region);
@@ -134,13 +134,13 @@ void VectorGetIndexMetricsPartTask::DoAsync() {
     auto& controller = controllers_[i];
 
     controller.AsyncCall([this, rpc = rpcs_[i].get()](auto&& s) {
-      VectorGetRegionMetricsRpcCallback(std::forward<decltype(s)>(s), rpc);
+      DocumentGetRegionMetricsRpcCallback(std::forward<decltype(s)>(s), rpc);
     });
   }
 }
 
-void VectorGetIndexMetricsPartTask::VectorGetRegionMetricsRpcCallback(const Status& status,
-                                                                      VectorGetRegionMetricsRpc* rpc) {
+void DocumentGetIndexMetricsPartTask::DocumentGetRegionMetricsRpcCallback(const Status& status,
+                                                                          DocumentGetRegionMetricsRpc* rpc) {
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
@@ -152,9 +152,7 @@ void VectorGetIndexMetricsPartTask::VectorGetRegionMetricsRpcCallback(const Stat
     }
   } else {
     std::unique_lock<std::shared_mutex> w(rw_lock_);
-    IndexMetricsResult result = InternalVectorIndexMetrics2IndexMetricsResult(rpc->Response()->metrics());
-    result.index_type = vector_index_->GetVectorIndexType();
-    CHECK(region_id_to_metrics_.emplace(rpc->Request()->context().region_id(), result).second);
+    CHECK(region_id_to_metrics_.emplace(rpc->Request()->context().region_id(), rpc->Response()->metrics()).second);
   }
 
   if (sub_tasks_count_.fetch_sub(1) == 1) {
@@ -162,8 +160,24 @@ void VectorGetIndexMetricsPartTask::VectorGetRegionMetricsRpcCallback(const Stat
     {
       std::shared_lock<std::shared_mutex> r(rw_lock_);
       tmp = status_;
+
+      for (const auto& [region_id, metrics] : region_id_to_metrics_) {
+        total_metrics_.total_num_docs += metrics.total_num_docs();
+        total_metrics_.total_num_tokens += metrics.total_num_tokens();
+        total_metrics_.max_doc_id = std::max(total_metrics_.max_doc_id, metrics.max_id());
+        if (total_metrics_.min_doc_id != 0) {
+          total_metrics_.min_doc_id = std::min(total_metrics_.min_doc_id, metrics.min_id());
+        }
+        if (total_metrics_.meta_json.empty()) {
+          total_metrics_.meta_json = metrics.meta_json();
+        }
+        if (total_metrics_.json_parameter.empty()) {
+          total_metrics_.json_parameter = metrics.json_parameter();
+        }
+      }
+
+      DoAsyncDone(tmp);
     }
-    DoAsyncDone(tmp);
   }
 }
 

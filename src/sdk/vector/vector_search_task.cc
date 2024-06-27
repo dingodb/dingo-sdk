@@ -49,7 +49,7 @@ Status VectorSearchTask::Init() {
 
   auto part_ids = vector_index_->GetPartitionIds();
 
-  for (const auto &part_id : part_ids) {
+  for (const auto& part_id : part_ids) {
     next_part_ids_.emplace(part_id);
   }
 
@@ -90,13 +90,13 @@ void VectorSearchTask::DoAsync() {
 
   sub_tasks_count_.store(next_part_ids.size());
 
-  for (const auto &part_id : next_part_ids) {
-    auto *sub_task = new VectorSearchPartTask(stub, index_id_, part_id, search_parameter_, target_vectors_);
-    sub_task->AsyncRun([this, sub_task](auto &&s) { SubTaskCallback(std::forward<decltype(s)>(s), sub_task); });
+  for (const auto& part_id : next_part_ids) {
+    auto* sub_task = new VectorSearchPartTask(stub, index_id_, part_id, search_parameter_, target_vectors_);
+    sub_task->AsyncRun([this, sub_task](auto&& s) { SubTaskCallback(std::forward<decltype(s)>(s), sub_task); });
   }
 }
 
-void VectorSearchTask::SubTaskCallback(Status status, VectorSearchPartTask *sub_task) {
+void VectorSearchTask::SubTaskCallback(Status status, VectorSearchPartTask* sub_task) {
   SCOPED_CLEANUP({ delete sub_task; });
 
   if (!status.ok()) {
@@ -109,13 +109,13 @@ void VectorSearchTask::SubTaskCallback(Status status, VectorSearchPartTask *sub_
     }
   } else {
     std::unique_lock<std::shared_mutex> w(rw_lock_);
-    std::unordered_map<int64_t, std::vector<VectorWithDistance>> &sub_results = sub_task->GetSearchResult();
+    std::unordered_map<int64_t, std::vector<VectorWithDistance>>& sub_results = sub_task->GetSearchResult();
     // merge
-    for (auto &result : sub_results) {
+    for (auto& result : sub_results) {
       auto iter = tmp_out_result_.find(result.first);
       if (iter != tmp_out_result_.cend()) {
-        auto &origin = iter->second;
-        auto &to_put = result.second;
+        auto& origin = iter->second;
+        auto& to_put = result.second;
         origin.reserve(origin.size() + to_put.size());
         std::move(to_put.begin(), to_put.end(), std::back_inserter(origin));
       } else {
@@ -138,11 +138,11 @@ void VectorSearchTask::SubTaskCallback(Status status, VectorSearchPartTask *sub_
 }
 
 void VectorSearchTask::ConstructResultUnlocked() {
-  for (const auto &vector_with_id : target_vectors_) {
+  for (const auto& vector_with_id : target_vectors_) {
     VectorWithId tmp;
     {
       //  NOTE: use copy
-      const Vector &to_copy = vector_with_id.vector;
+      const Vector& to_copy = vector_with_id.vector;
       tmp.vector.dimension = to_copy.dimension;
       tmp.vector.value_type = to_copy.value_type;
       tmp.vector.float_values = to_copy.float_values;
@@ -154,15 +154,15 @@ void VectorSearchTask::ConstructResultUnlocked() {
     out_result_.push_back(std::move(search));
   }
 
-  for (auto &iter : tmp_out_result_) {
-    auto &vec = iter.second;
+  for (auto& iter : tmp_out_result_) {
+    auto& vec = iter.second;
     std::sort(vec.begin(), vec.end(),
-              [](const VectorWithDistance &a, const VectorWithDistance &b) { return a.distance < b.distance; });
+              [](const VectorWithDistance& a, const VectorWithDistance& b) { return a.distance < b.distance; });
   }
 
-  for (auto &iter : tmp_out_result_) {
+  for (auto& iter : tmp_out_result_) {
     int64_t idx = iter.first;
-    auto &vec_distance = iter.second;
+    auto& vec_distance = iter.second;
     if (!search_param_.enable_range_search && search_param_.topk > 0 && search_param_.topk < vec_distance.size()) {
       vec_distance.resize(search_param_.topk);
     }
@@ -181,7 +181,7 @@ Status VectorSearchPartTask::Init() {
 }
 
 void VectorSearchPartTask::DoAsync() {
-  const auto &range = vector_index_->GetPartitionRange(part_id_);
+  const auto& range = vector_index_->GetPartitionRange(part_id_);
   std::vector<std::shared_ptr<Region>> regions;
   Status s = stub.GetMetaCache()->ScanRegionsBetweenContinuousRange(range.start_key(), range.end_key(), regions);
   if (!s.ok()) {
@@ -198,7 +198,7 @@ void VectorSearchPartTask::DoAsync() {
   controllers_.clear();
   rpcs_.clear();
 
-  for (const auto &region : regions) {
+  for (const auto& region : regions) {
     auto rpc = std::make_unique<VectorSearchRpc>();
     FillVectorSearchRpcRequest(rpc->MutableRequest(), region);
 
@@ -214,27 +214,24 @@ void VectorSearchPartTask::DoAsync() {
   sub_tasks_count_.store(regions.size());
 
   for (auto i = 0; i < regions.size(); i++) {
-    auto &controller = controllers_[i];
+    auto& controller = controllers_[i];
 
     controller.AsyncCall(
-        [this, rpc = rpcs_[i].get()](auto &&s) { VectorSearchRpcCallback(std::forward<decltype(s)>(s), rpc); });
+        [this, rpc = rpcs_[i].get()](auto&& s) { VectorSearchRpcCallback(std::forward<decltype(s)>(s), rpc); });
   }
 }
 
-void VectorSearchPartTask::FillVectorSearchRpcRequest(pb::index::VectorSearchRequest *request,
-                                                      const std::shared_ptr<Region> &region) {
+void VectorSearchPartTask::FillVectorSearchRpcRequest(pb::index::VectorSearchRequest* request,
+                                                      const std::shared_ptr<Region>& region) {
   FillRpcContext(*request->mutable_context(), region->RegionId(), region->Epoch());
   *(request->mutable_parameter()) = search_parameter_;
-  for (const auto &vector_id : target_vectors_) {
+  for (const auto& vector_id : target_vectors_) {
     // NOTE* vector_id is useless
     FillVectorWithIdPB(request->add_vector_with_ids(), vector_id, false);
   }
 }
 
-void VectorSearchPartTask::VectorSearchRpcCallback(const Status &status, VectorSearchRpc *rpc) {
-  // TODO : to remove
-  VLOG(kSdkVlogLevel) << "rpc: " << rpc->Method() << " request: " << rpc->Request()->DebugString()
-                      << " response: " << rpc->Response()->DebugString();
+void VectorSearchPartTask::VectorSearchRpcCallback(const Status& status, VectorSearchRpc* rpc) {
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
@@ -254,7 +251,7 @@ void VectorSearchPartTask::VectorSearchRpcCallback(const Status &status, VectorS
     {
       std::unique_lock<std::shared_mutex> w(rw_lock_);
       for (auto i = 0; i < rpc->Response()->batch_results_size(); i++) {
-        for (const auto &distancepb : rpc->Response()->batch_results(i).vector_with_distances()) {
+        for (const auto& distancepb : rpc->Response()->batch_results(i).vector_with_distances()) {
           VectorWithDistance distance = InternalVectorWithDistance2VectorWithDistance(distancepb);
           search_result_[i].push_back(std::move(distance));
         }

@@ -83,14 +83,14 @@ void DefineClientBindings(pybind11::module& m) {
              Status status = client.NewVectorIndexCreator(&ptr);
              return std::make_tuple(status, ptr);
            })
-      .def("GetIndexId",
+      .def("GetVectorIndexId",
            [](Client& client, int64_t schema_id, const std::string& index_name) {
              int64_t out_index_id;
-             Status status = client.GetIndexId(schema_id, index_name, out_index_id);
+             Status status = client.GetVectorIndexId(schema_id, index_name, out_index_id);
              return std::make_tuple(status, out_index_id);
            })
-      .def("DropIndex", &Client::DropIndex)
-      .def("DropIndexByName", &Client::DropIndexByName);
+      .def("DropVectorIndexById", &Client::DropVectorIndexById)
+      .def("DropVectorIndexByName", &Client::DropVectorIndexByName);
 
   py::class_<KVPair>(m, "KVPair")
       .def(py::init<>())

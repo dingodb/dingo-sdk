@@ -91,6 +91,7 @@ void GrpcRpcClient::SendRpc(Rpc& rpc, RpcCallback cb) {
   CHECK_NOTNULL(channel.get());
   ctx->channel = std::move(channel);
   ctx->cb = std::move(cb);
+  ctx->endpoint = endpoint;
 
   rpc.Call(ctx.release());
 }

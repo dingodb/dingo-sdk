@@ -96,14 +96,21 @@ Status AutoInrementer::RefillCache() {
   return Status::OK();
 }
 
-void IndexAutoInrementer::PrepareRequest(pb::meta::GenerateAutoIncrementRequest& request) {
+void VectorIndexAutoInrementer::PrepareRequest(pb::meta::GenerateAutoIncrementRequest& request) {
   *request.mutable_table_id() = vector_index_->GetIndexDefWithId().index_id();
   request.set_count(FLAGS_auto_incre_req_count);
   request.set_auto_increment_increment(1);
   request.set_auto_increment_offset(vector_index_->GetIncrementStartId());
 }
 
-std::shared_ptr<AutoInrementer> AutoIncrementerManager::GetOrCreateIndexIncrementer(
+void DocumentIndexAutoInrementer::PrepareRequest(pb::meta::GenerateAutoIncrementRequest& request) {
+  *request.mutable_table_id() = doc_index_->GetIndexDefWithId().index_id();
+  request.set_count(FLAGS_auto_incre_req_count);
+  request.set_auto_increment_increment(1);
+  request.set_auto_increment_offset(doc_index_->GetIncrementStartId());
+}
+
+std::shared_ptr<AutoInrementer> AutoIncrementerManager::GetOrCreateVectorIndexIncrementer(
     std::shared_ptr<VectorIndex>& index) {
   std::unique_lock<std::mutex> lk(mutex_);
   int64_t index_id = index->GetId();
@@ -111,7 +118,21 @@ std::shared_ptr<AutoInrementer> AutoIncrementerManager::GetOrCreateIndexIncremen
   if (iter != auto_incrementer_map_.end()) {
     return iter->second;
   } else {
-    auto incrementer = std::make_shared<IndexAutoInrementer>(stub_, index);
+    auto incrementer = std::make_shared<VectorIndexAutoInrementer>(stub_, index);
+    CHECK(auto_incrementer_map_.emplace(std::make_pair(index_id, incrementer)).second);
+    return incrementer;
+  }
+}
+
+std::shared_ptr<AutoInrementer> AutoIncrementerManager::GetOrCreateDocumentIndexIncrementer(
+    std::shared_ptr<DocumentIndex>& index) {
+  std::unique_lock<std::mutex> lk(mutex_);
+  int64_t index_id = index->GetId();
+  auto iter = auto_incrementer_map_.find(index_id);
+  if (iter != auto_incrementer_map_.end()) {
+    return iter->second;
+  } else {
+    auto incrementer = std::make_shared<DocumentIndexAutoInrementer>(stub_, index);
     CHECK(auto_incrementer_map_.emplace(std::make_pair(index_id, incrementer)).second);
     return incrementer;
   }

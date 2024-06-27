@@ -34,4 +34,5 @@
 dingosdk.egg-info/
 dist/
 
+build*
 third-party/installed

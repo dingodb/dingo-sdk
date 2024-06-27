@@ -37,21 +37,6 @@ static pb::common::Schema::Type Type2InternalSchemaTypePB(Type type) {
   }
 }
 
-static pb::common::ScalarFieldType Type2InternalScalarFieldTypePB(Type type) {
-  switch (type) {
-    case kBOOL:
-      return pb::common::ScalarFieldType::BOOL;
-    case kINT64:
-      return pb::common::ScalarFieldType::INT64;
-    case kDOUBLE:
-      return pb::common::ScalarFieldType::DOUBLE;
-    case kSTRING:
-      return pb::common::ScalarFieldType::STRING;
-    default:
-      CHECK(false) << "Unimplement convert type: " << type;
-  }
-}
-
 static Type InternalSchemaTypePB2Type(pb::common::Schema::Type type) {
   switch (type) {
     case pb::common::Schema::BOOL:
@@ -67,6 +52,23 @@ static Type InternalSchemaTypePB2Type(pb::common::Schema::Type type) {
   }
 }
 
+static pb::common::ScalarFieldType Type2InternalScalarFieldTypePB(Type type) {
+  switch (type) {
+    case kBOOL:
+      return pb::common::ScalarFieldType::BOOL;
+    case kINT64:
+      return pb::common::ScalarFieldType::INT64;
+    case kDOUBLE:
+      return pb::common::ScalarFieldType::DOUBLE;
+    case kSTRING:
+      return pb::common::ScalarFieldType::STRING;
+    case kBYTES:
+      return pb::common::ScalarFieldType::BYTES;
+    default:
+      CHECK(false) << "Unimplement convert type: " << type;
+  }
+}
+
 static Type InternalScalarFieldTypePB2Type(pb::common::ScalarFieldType type) {
   switch (type) {
     case pb::common::ScalarFieldType::BOOL:
@@ -77,6 +79,8 @@ static Type InternalScalarFieldTypePB2Type(pb::common::ScalarFieldType type) {
       return kDOUBLE;
     case pb::common::ScalarFieldType::STRING:
       return kSTRING;
+    case pb::common::ScalarFieldType::BYTES:
+      return kBYTES;
     default:
       CHECK(false) << "unsupported scalar field type:" << pb::common::ScalarFieldType_Name(type);
   }

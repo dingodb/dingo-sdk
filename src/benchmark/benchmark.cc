@@ -29,10 +29,10 @@
 #include "benchmark/color.h"
 #include "fmt/core.h"
 #include "gflags/gflags.h"
+#include "proto/common.pb.h"
 #include "sdk/client.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/helper.h"
-#include "proto/common.pb.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/vector.h"
 #include "util.h"
@@ -672,13 +672,13 @@ int64_t Benchmark::CreateVectorIndex(const std::string& name, const std::string&
 
 void Benchmark::DropVectorIndex(int64_t vector_index_id) {
   CHECK(vector_index_id != 0) << "vector_index_id is invalid";
-  auto status = client_->DropIndex(vector_index_id);
+  auto status = client_->DropVectorIndexById(vector_index_id);
   CHECK(status.IsOK()) << fmt::format("drop vector index failed, {}", status.ToString());
 }
 
 int64_t Benchmark::GetVectorIndex(const std::string& name) {
   int64_t vector_index_id = 0;
-  auto status = client_->GetIndexId(pb::meta::ReservedSchemaIds::DINGO_SCHEMA, name, vector_index_id);
+  auto status = client_->GetVectorIndexId(pb::meta::ReservedSchemaIds::DINGO_SCHEMA, name, vector_index_id);
   CHECK(status.ok()) << fmt::format("get vector index failed, {}", status.ToString());
 
   return vector_index_id;

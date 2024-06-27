@@ -362,7 +362,7 @@ struct ScanQueryParam {
   // the real range is [start, end], include start and end
   // if vector_id_end == 0, scan to the end of the region
   int64_t vector_id_end{0};
-  int64_t max_scan_count;
+  int64_t max_scan_count{0};
   bool is_reverse{false};
 
   bool with_vector_data{true};
