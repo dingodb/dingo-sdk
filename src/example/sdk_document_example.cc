@@ -123,10 +123,10 @@ static void DocumentAdd(bool use_index_name = false) {
     auto id = doc_ids[i];
 
     dingodb::sdk::Document tmp_doc;
-    tmp_doc.AddFiled("text", dingodb::sdk::DocValue::FromString(texts_to_insert[i]));
-    tmp_doc.AddFiled("i64", dingodb::sdk::DocValue::FromInt(1000 + id));
-    tmp_doc.AddFiled("f64", dingodb::sdk::DocValue::FromDouble(1000.0 + id));
-    tmp_doc.AddFiled("bytes", dingodb::sdk::DocValue::FromBytes("bytes_data_" + std::to_string(id)));
+    tmp_doc.AddField("text", dingodb::sdk::DocValue::FromString(texts_to_insert[i]));
+    tmp_doc.AddField("i64", dingodb::sdk::DocValue::FromInt(1000 + id));
+    tmp_doc.AddField("f64", dingodb::sdk::DocValue::FromDouble(1000.0 + id));
+    tmp_doc.AddField("bytes", dingodb::sdk::DocValue::FromBytes("bytes_data_" + std::to_string(id)));
 
     dingodb::sdk::DocWithId tmp(id, std::move(tmp_doc));
 

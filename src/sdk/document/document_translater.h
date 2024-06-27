@@ -128,7 +128,7 @@ class DocumentTranslater {
 
     const auto& doc_pb = pb.document();
     for (const auto& [key, doc_value_pb] : doc_pb.document_data()) {
-      to_return.doc.AddFiled(key, InternalDocumentValuePb2DocValue(doc_value_pb));
+      to_return.doc.AddField(key, InternalDocumentValuePb2DocValue(doc_value_pb));
     }
 
     return std::move(to_return);
