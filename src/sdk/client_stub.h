@@ -20,6 +20,7 @@
 #include "glog/logging.h"
 #include "sdk/admin_tool.h"
 #include "sdk/auto_increment_manager.h"
+#include "sdk/document/document_index_cache.h"
 #include "sdk/meta_cache.h"
 #include "sdk/region_scanner.h"
 #include "sdk/rpc/coordinator_rpc_controller.h"
@@ -89,6 +90,11 @@ class ClientStub {
     return vector_index_cache_;
   }
 
+  virtual std::shared_ptr<DocumentIndexCache> GetDocumentIndexCache() const {
+    DCHECK_NOTNULL(document_index_cache_.get());
+    return document_index_cache_;
+  }
+
   virtual std::shared_ptr<AutoIncrementerManager> GetAutoIncrementerManager() const {
     DCHECK_NOTNULL(auto_increment_manager_.get());
     return auto_increment_manager_;
@@ -106,6 +112,7 @@ class ClientStub {
   std::shared_ptr<TxnLockResolver> txn_lock_resolver_;
   std::shared_ptr<Actuator> actuator_;
   std::shared_ptr<VectorIndexCache> vector_index_cache_;
+  std::shared_ptr<DocumentIndexCache> document_index_cache_;
   std::shared_ptr<AutoIncrementerManager> auto_increment_manager_;
 };
 

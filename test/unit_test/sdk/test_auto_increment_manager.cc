@@ -16,8 +16,8 @@
 #include <memory>
 
 #include "gtest/gtest.h"
-#include "sdk/auto_increment_manager.h"
 #include "proto/meta.pb.h"
+#include "sdk/auto_increment_manager.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/vector/vector_common.h"
 #include "sdk/vector/vector_index.h"
@@ -33,7 +33,7 @@ class SDKAutoInrementerTest : public TestBase {
   void TearDown() override {}
 
   std::shared_ptr<VectorIndex> vector_index;
-  std::shared_ptr<IndexAutoInrementer> incrementer;
+  std::shared_ptr<VectorIndexAutoInrementer> incrementer;
 
   std::string index_name{"incrementer-test"};
   int64_t schema_id{2};
@@ -61,7 +61,7 @@ class SDKAutoInrementerTest : public TestBase {
     }
 
     vector_index = std::make_shared<VectorIndex>(index_definition_with_id);
-    incrementer = std::make_shared<IndexAutoInrementer>(*stub, vector_index);
+    incrementer = std::make_shared<VectorIndexAutoInrementer>(*stub, vector_index);
   }
 };
 

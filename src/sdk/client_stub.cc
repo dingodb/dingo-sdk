@@ -69,6 +69,8 @@ Status ClientStub::Open(const std::vector<EndPoint>& endpoints) {
 
   vector_index_cache_ = std::make_shared<VectorIndexCache>(*this);
 
+  document_index_cache_ = std::make_shared<DocumentIndexCache>(*this);
+
   auto_increment_manager_ = std::make_shared<AutoIncrementerManager>(*this);
 
   return Status::OK();

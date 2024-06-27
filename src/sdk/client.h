@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "sdk/document.h"
 #include "sdk/status.h"
 #include "sdk/vector.h"
 
@@ -74,13 +75,25 @@ class Client {
   // NOTE:: Caller must delete *index_creator when it is no longer needed.
   Status NewVectorIndexCreator(VectorIndexCreator** index_creator);
 
-  Status GetIndexId(int64_t schema_id, const std::string& index_name, int64_t& out_index_id);
+  Status GetVectorIndexId(int64_t schema_id, const std::string& index_name, int64_t& out_index_id);
 
-  Status DropIndex(int64_t index_id);
+  Status DropVectorIndexById(int64_t index_id);
 
-  Status DropIndexByName(int64_t schema_id, const std::string& index_name);
+  Status DropVectorIndexByName(int64_t schema_id, const std::string& index_name);
 
   // TODO：list index/ GetIndexes
+
+  // NOTE:: Caller must delete *client when it is no longer needed.
+  Status NewDocumentClient(DocumentClient** client);
+
+  // NOTE:: Caller must delete *out_creator when it is no longer needed.
+  Status NewDocumentIndexCreator(DocumentIndexCreator** out_creator);
+
+  Status GetDocumentIndexId(int64_t schema_id, const std::string& doc_name, int64_t& doc_index_id);
+
+  Status DropDocumentIndexById(int64_t index_id);
+
+  Status DropDocumentIndexByName(int64_t schema_id, const std::string& index_name);
 
  private:
   friend class RawKV;

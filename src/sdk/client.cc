@@ -26,12 +26,16 @@
 #include "common/logging.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
+#include "proto/common.pb.h"
+#include "proto/coordinator.pb.h"
 #include "sdk/client_internal_data.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/helper.h"
 #include "sdk/common/param_config.h"
-#include "proto/common.pb.h"
-#include "proto/coordinator.pb.h"
+#include "sdk/document.h"
+#include "sdk/document/document_index.h"
+#include "sdk/document/document_index_cache.h"
+#include "sdk/document/document_index_creator_internal_data.h"
 #include "sdk/rawkv/raw_kv_batch_compare_and_set_task.h"
 #include "sdk/rawkv/raw_kv_batch_delete_task.h"
 #include "sdk/rawkv/raw_kv_batch_get_task.h"
@@ -59,10 +63,7 @@ namespace sdk {
 
 Status Client::BuildAndInitLog(std::string addrs, Client** client) {
   static std::once_flag init;
-  std::call_once(init, [&]() {
-    FLAGS_v = dingodb::kGlobalValueOfDebug;
-    google::InitGoogleLogging("dingo_sdk");
-  });
+  std::call_once(init, [&]() { google::InitGoogleLogging("dingo_sdk"); });
 
   return BuildFromAddrs(addrs, client);
 }
@@ -173,18 +174,18 @@ Status Client::NewVectorIndexCreator(VectorIndexCreator** index_creator) {
   return Status::OK();
 }
 
-Status Client::GetIndexId(int64_t schema_id, const std::string& index_name, int64_t& out_index_id) {
+Status Client::GetVectorIndexId(int64_t schema_id, const std::string& index_name, int64_t& out_index_id) {
   return data_->stub->GetVectorIndexCache()->GetIndexIdByKey(EncodeVectorIndexCacheKey(schema_id, index_name),
                                                              out_index_id);
 }
 
-Status Client::DropIndex(int64_t index_id) {
+Status Client::DropVectorIndexById(int64_t index_id) {
   data_->stub->GetVectorIndexCache()->RemoveVectorIndexById(index_id);
   data_->stub->GetAutoIncrementerManager()->RemoveIndexIncrementerById(index_id);
   return data_->stub->GetAdminTool()->DropIndex(index_id);
 }
 
-Status Client::DropIndexByName(int64_t schema_id, const std::string& index_name) {
+Status Client::DropVectorIndexByName(int64_t schema_id, const std::string& index_name) {
   int64_t index_id{0};
 
   Status s =
@@ -195,8 +196,42 @@ Status Client::DropIndexByName(int64_t schema_id, const std::string& index_name)
   }
 
   CHECK_GT(index_id, 0);
-  data_->stub->GetVectorIndexCache()->RemoveVectorIndexById(index_id);
+  return DropVectorIndexById(index_id);
+}
+
+Status Client::NewDocumentClient(DocumentClient** client) {
+  *client = new DocumentClient(*data_->stub);
+  return Status::OK();
+}
+
+Status Client::NewDocumentIndexCreator(DocumentIndexCreator** out_creator) {
+  *out_creator = new DocumentIndexCreator(new DocumentIndexCreator::Data(*data_->stub));
+  return Status::OK();
+}
+
+Status Client::GetDocumentIndexId(int64_t schema_id, const std::string& doc_name, int64_t& doc_index_id) {
+  return data_->stub->GetDocumentIndexCache()->GetIndexIdByKey(EncodeDocumentIndexCacheKey(schema_id, doc_name),
+                                                               doc_index_id);
+}
+
+Status Client::DropDocumentIndexById(int64_t index_id) {
+  data_->stub->GetDocumentIndexCache()->RemoveDocumentIndexById(index_id);
+  data_->stub->GetAutoIncrementerManager()->RemoveIndexIncrementerById(index_id);
   return data_->stub->GetAdminTool()->DropIndex(index_id);
+}
+
+Status Client::DropDocumentIndexByName(int64_t schema_id, const std::string& index_name) {
+  int64_t index_id{0};
+
+  Status s = data_->stub->GetDocumentIndexCache()->GetIndexIdByKey(EncodeDocumentIndexCacheKey(schema_id, index_name),
+                                                                   index_id);
+
+  if (!s.ok()) {
+    return s.Errno() == pb::error::Errno::EINDEX_NOT_FOUND ? Status::OK() : s;
+  }
+
+  CHECK_GT(index_id, 0);
+  return DropDocumentIndexById(index_id);
 }
 
 RawKV::RawKV(Data* data) : data_(data) {}

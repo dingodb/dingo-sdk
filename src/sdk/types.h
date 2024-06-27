@@ -27,15 +27,17 @@ enum Type : uint8_t {
   kINT64 = 1,
   kDOUBLE = 2,
   kSTRING = 3,
+  kBYTES = 4,
   // This must be the last line
   kTypeEnd
 };
 
 static const bool kTypeConversionMatrix[kTypeEnd][kTypeEnd] = {
-    {true, false, false, false},  // kBOOL can be converted to kBOOL
-    {false, true, true, false},   // kINT64 can be converted to kINT64, kDOUBLE
-    {false, false, true, false},  // kDOUBLE can be converted to kDOUBLE
-    {false, false, false, true}   // kSTRING can be converted to kSTRING
+    {true, false, false, false, false},  // kBOOL can be converted to kBOOL
+    {false, true, true, false, false},   // kINT64 can be converted to kINT64, kDOUBLE
+    {false, false, true, false, false},  // kDOUBLE can be converted to kDOUBLE
+    {false, false, false, true, false},  // kSTRING can be converted to kSTRING
+    {false, false, false, false, true}   // kBYTES can be converted to kBYTES
 };
 
 inline std::string TypeToString(Type type) {
@@ -48,6 +50,8 @@ inline std::string TypeToString(Type type) {
       return "Double";
     case kSTRING:
       return "String";
+    case kBYTES:
+      return "Bytes";
     default:
       return "Unknown ValueType";
   }
@@ -73,6 +77,11 @@ struct TypeTraits<kDOUBLE> {
 
 template <>
 struct TypeTraits<kSTRING> {
+  using Type = std::string;
+};
+
+template <>
+struct TypeTraits<kBYTES> {
   using Type = std::string;
 };
 

@@ -57,6 +57,21 @@ set(SDK_SRCS
   vector/vector_scan_query_task.cc
   vector/vector_search_task.cc
   vector/vector_update_task.cc
+  document/document_client.cc
+  document/document_index_creator.cc
+  document/document_param.cc
+  document/document_index_cache.cc
+  document/document_index.cc
+  document/document_task.cc
+  document/document_add_task.cc
+  document/document_batch_query_task.cc
+  document/document_count_task.cc
+  document/document_delete_task.cc
+  document/document_get_border_task.cc
+  document/document_get_index_metrics_task.cc
+  document/document_scan_query_task.cc
+  document/document_search_task.cc
+  document/document_update_task.cc
   utils/thread_pool_actuator.cc
   utils/thread_pool_impl.cc
   common/param_config.cc
@@ -74,6 +89,7 @@ if(SDK_ENABLE_GRPC)
         rpc/grpc/coordinator_rpc.cc
         rpc/grpc/index_service_rpc.cc
         rpc/grpc/store_rpc.cc
+        rpc/grpc/document_service_rpc.cc
     )
 
     add_library(sdk
@@ -113,6 +129,7 @@ else()
         rpc/brpc/coordinator_rpc.cc
         rpc/brpc/index_service_rpc.cc
         rpc/brpc/store_rpc.cc
+        rpc/brpc/document_service_rpc.cc
     )
 
     add_library(sdk

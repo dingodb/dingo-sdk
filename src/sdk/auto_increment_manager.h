@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "proto/meta.pb.h"
+#include "sdk/document/document_index.h"
 #include "sdk/status.h"
 #include "sdk/vector/vector_index.h"
 
@@ -33,55 +34,71 @@ class ClientStub;
 
 class AutoInrementer {
  public:
-  AutoInrementer(const ClientStub &stub) : stub_(stub) {}
+  AutoInrementer(const ClientStub& stub) : stub_(stub) {}
 
   virtual ~AutoInrementer() = default;
 
-  Status GetNextId(int64_t &next);
+  Status GetNextId(int64_t& next);
 
-  Status GetNextIds(std::vector<int64_t> &to_fill, int64_t count);
+  Status GetNextIds(std::vector<int64_t>& to_fill, int64_t count);
 
  protected:
-  virtual void PrepareRequest(pb::meta::GenerateAutoIncrementRequest &request) = 0;
+  virtual void PrepareRequest(pb::meta::GenerateAutoIncrementRequest& request) = 0;
 
  private:
   friend class AutoIncrementerManager;
   Status RefillCache();
 
-  const ClientStub &stub_;
+  const ClientStub& stub_;
 
   std::mutex mutex_;
   struct Req;
-  std::deque<Req *> queue_;
+  std::deque<Req*> queue_;
   std::vector<int64_t> id_cache_;
 };
 
-class IndexAutoInrementer : public AutoInrementer {
+class VectorIndexAutoInrementer : public AutoInrementer {
  public:
-  IndexAutoInrementer(const ClientStub &stub, std::shared_ptr<VectorIndex> vector_index)
+  VectorIndexAutoInrementer(const ClientStub& stub, std::shared_ptr<VectorIndex> vector_index)
       : AutoInrementer(stub), vector_index_(std::move(vector_index)) {}
 
-  ~IndexAutoInrementer() override = default;
+  ~VectorIndexAutoInrementer() override = default;
 
  private:
   friend class AutoIncrementerManager;
-  void PrepareRequest(pb::meta::GenerateAutoIncrementRequest &request) override;
+  void PrepareRequest(pb::meta::GenerateAutoIncrementRequest& request) override;
   // NOTE: when delete index,  we should delete the auto incrementer
+  // TODO: use index_id instead of vector_index
   const std::shared_ptr<VectorIndex> vector_index_;
+};
+
+class DocumentIndexAutoInrementer : public AutoInrementer {
+ public:
+  DocumentIndexAutoInrementer(const ClientStub& stub, std::shared_ptr<DocumentIndex> doc_index)
+      : AutoInrementer(stub), doc_index_(std::move(doc_index)) {}
+
+  ~DocumentIndexAutoInrementer() override = default;
+
+ private:
+  friend class AutoIncrementerManager;
+  void PrepareRequest(pb::meta::GenerateAutoIncrementRequest& request) override;
+  const std::shared_ptr<DocumentIndex> doc_index_;
 };
 
 class AutoIncrementerManager {
  public:
-  AutoIncrementerManager(const ClientStub &stub) : stub_(stub) {}
+  AutoIncrementerManager(const ClientStub& stub) : stub_(stub) {}
 
   ~AutoIncrementerManager() = default;
 
-  std::shared_ptr<AutoInrementer> GetOrCreateIndexIncrementer(std::shared_ptr<VectorIndex> &index);
+  std::shared_ptr<AutoInrementer> GetOrCreateVectorIndexIncrementer(std::shared_ptr<VectorIndex>& index);
+
+  std::shared_ptr<AutoInrementer> GetOrCreateDocumentIndexIncrementer(std::shared_ptr<DocumentIndex>& index);
 
   void RemoveIndexIncrementerById(int64_t index_id);
 
  private:
-  const ClientStub &stub_;
+  const ClientStub& stub_;
   std::mutex mutex_;
   std::unordered_map<int64_t, std::shared_ptr<AutoInrementer>> auto_incrementer_map_;
 };

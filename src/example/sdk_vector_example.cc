@@ -20,10 +20,10 @@
 #include <string>
 #include <utility>
 
+#include "common/logging.h"
 #include "gflags/gflags.h"
 #include "glog/logging.h"
 #include "sdk/client.h"
-#include "common/logging.h"
 #include "sdk/status.h"
 #include "sdk/types.h"
 #include "sdk/utils/scoped_cleanup.h"
@@ -40,14 +40,14 @@ static std::vector<int64_t> g_range_partition_seperator_ids{5, 10, 20};
 static int32_t g_dimension = 2;
 static dingodb::sdk::FlatParam g_flat_param(g_dimension, dingodb::sdk::MetricType::kL2);
 static std::vector<int64_t> g_vector_ids;
-static dingodb::sdk::VectorClient *g_vector_client;
+static dingodb::sdk::VectorClient* g_vector_client;
 
 static const dingodb::sdk::Type kDefaultType = dingodb::sdk::Type::kINT64;
 static std::vector<std::string> g_scalar_col{"id", "fake_id"};
 static std::vector<dingodb::sdk::Type> g_scalar_col_typ{kDefaultType, dingodb::sdk::Type::kDOUBLE};
 
 static void PrepareVectorIndex() {
-  dingodb::sdk::VectorIndexCreator *creator;
+  dingodb::sdk::VectorIndexCreator* creator;
   Status built = g_client->NewVectorIndexCreator(&creator);
   CHECK(built.IsOK()) << "dingo creator build fail:" << built.ToString();
   CHECK_NOTNULL(creator);
@@ -72,13 +72,13 @@ void PostClean(bool use_index_name = false) {
   Status tmp;
   if (use_index_name) {
     int64_t index_id;
-    tmp = g_client->GetIndexId(g_schema_id, g_index_name, index_id);
+    tmp = g_client->GetVectorIndexId(g_schema_id, g_index_name, index_id);
     if (tmp.ok()) {
       CHECK_EQ(index_id, g_index_id);
-      tmp = g_client->DropIndexByName(g_schema_id, g_index_name);
+      tmp = g_client->DropVectorIndexByName(g_schema_id, g_index_name);
     }
   } else {
-    tmp = g_client->DropIndex(g_index_id);
+    tmp = g_client->DropVectorIndexById(g_index_id);
   }
   DINGO_LOG(INFO) << "drop index status: " << tmp.ToString() << ", index_id:" << g_index_id;
   delete g_vector_client;
@@ -86,7 +86,7 @@ void PostClean(bool use_index_name = false) {
 }
 
 static void PrepareVectorClient() {
-  dingodb::sdk::VectorClient *client;
+  dingodb::sdk::VectorClient* client;
   Status built = g_client->NewVectorClient(&client);
   CHECK(built.IsOK()) << "dingo vector client build fail:" << built.ToString();
   CHECK_NOTNULL(client);
@@ -98,7 +98,7 @@ static void VectorAdd(bool use_index_name = false) {
   std::vector<dingodb::sdk::VectorWithId> vectors;
 
   float delta = 0.1;
-  for (const auto &id : g_range_partition_seperator_ids) {
+  for (const auto& id : g_range_partition_seperator_ids) {
     dingodb::sdk::Vector tmp_vector{dingodb::sdk::ValueType::kFloat, g_dimension};
     tmp_vector.float_values.push_back(1.0 + delta);
     tmp_vector.float_values.push_back(2.0 + delta);
@@ -173,17 +173,17 @@ static void VectorSearch(bool use_index_name = false) {
   }
 
   DINGO_LOG(INFO) << "vector search status: " << tmp.ToString();
-  for (const auto &r : result) {
+  for (const auto& r : result) {
     DINGO_LOG(INFO) << "vector search result: " << r.ToString();
   }
 
   CHECK_EQ(result.size(), target_vectors.size());
   for (auto i = 0; i < result.size(); i++) {
-    auto &search_result = result[i];
+    auto& search_result = result[i];
     if (!search_result.vector_datas.empty()) {
       CHECK_EQ(search_result.vector_datas.size(), param.topk);
     }
-    const auto &vector_id = search_result.id;
+    const auto& vector_id = search_result.id;
     CHECK_EQ(vector_id.id, target_vectors[i].id);
     CHECK_EQ(vector_id.vector.Size(), target_vectors[i].vector.Size());
   }
@@ -247,13 +247,13 @@ static void VectorSearchUseExpr(bool use_index_name = false) {
     }
 
     DINGO_LOG(INFO) << "vector search expr status: " << tmp.ToString();
-    for (const auto &r : result) {
+    for (const auto& r : result) {
       DINGO_LOG(INFO) << "vector search expr result: " << r.ToString();
     }
 
-    for (auto &search_result : result) {
-      for (auto &distance : search_result.vector_datas) {
-        const auto &vector_id = distance.vector_data.id;
+    for (auto& search_result : result) {
+      for (auto& distance : search_result.vector_datas) {
+        const auto& vector_id = distance.vector_data.id;
         CHECK_GE(vector_id, 5);
         CHECK_LT(vector_id, 20);
       }
@@ -304,13 +304,13 @@ static void VectorSearchUseExpr(bool use_index_name = false) {
     }
 
     DINGO_LOG(INFO) << "vector search expr with schema convert status: " << tmp.ToString();
-    for (const auto &r : result) {
+    for (const auto& r : result) {
       DINGO_LOG(INFO) << "vector search expr with schema convert result: " << r.ToString();
     }
 
-    for (auto &search_result : result) {
-      for (auto &distance : search_result.vector_datas) {
-        const auto &vector_id = distance.vector_data.id;
+    for (auto& search_result : result) {
+      for (auto& distance : search_result.vector_datas) {
+        const auto& vector_id = distance.vector_data.id;
         CHECK_GE(vector_id, 5);
         CHECK_LT(vector_id, 20);
       }
@@ -575,7 +575,7 @@ static void VectorDelete(bool use_index_name = false) {
     tmp = g_vector_client->DeleteByIndexId(g_index_id, g_vector_ids, result);
   }
   DINGO_LOG(INFO) << "vector delete status: " << tmp.ToString();
-  for (const auto &r : result) {
+  for (const auto& r : result) {
     DINGO_LOG(INFO) << "vector delete result:" << r.ToString();
   }
 }
@@ -619,7 +619,7 @@ static void VectorAddWithAutoId(int64_t start_id) {
     if (tmp.ok()) {
       std::vector<int64_t> target_ids;
       target_ids.reserve(result.vectors.size());
-      for (auto &vector : result.vectors) {
+      for (auto& vector : result.vectors) {
         target_ids.push_back(vector.id);
       }
 
@@ -633,7 +633,7 @@ static void VectorAddWithAutoId(int64_t start_id) {
   }
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   FLAGS_minloglevel = google::GLOG_INFO;
   FLAGS_logtostdout = true;
   FLAGS_colorlogtostdout = true;
@@ -651,7 +651,7 @@ int main(int argc, char *argv[]) {
 
   CHECK(!FLAGS_addrs.empty());
 
-  dingodb::sdk::Client *tmp;
+  dingodb::sdk::Client* tmp;
   Status built = dingodb::sdk::Client::BuildFromAddrs(FLAGS_addrs, &tmp);
   if (!built.ok()) {
     DINGO_LOG(ERROR) << "Fail to build client, please check parameter --addrs=" << FLAGS_addrs
@@ -701,7 +701,7 @@ int main(int argc, char *argv[]) {
     int64_t start_id = 1;
 
     {
-      dingodb::sdk::VectorIndexCreator *creator;
+      dingodb::sdk::VectorIndexCreator* creator;
       Status built = g_client->NewVectorIndexCreator(&creator);
       CHECK(built.IsOK()) << "dingo creator build fail:" << built.ToString();
       CHECK_NOTNULL(creator);

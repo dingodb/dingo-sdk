@@ -19,8 +19,11 @@
 
 #include <cstdint>
 #include <memory>
+#include <mutex>
+#include <shared_mutex>
 #include <string>
 
+#include "common/logging.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "google/protobuf/message.h"
@@ -29,9 +32,9 @@
 #include "grpcpp/support/async_unary_call.h"
 #include "grpcpp/support/status.h"
 #include "grpcpp/support/stub_options.h"
-#include "common/logging.h"
 #include "sdk/rpc/rpc.h"
 #include "sdk/status.h"
+#include "sdk/utils/net_util.h"
 
 namespace dingodb {
 namespace sdk {
@@ -42,6 +45,7 @@ struct GrpcContext : public RpcContext {
 
   std::shared_ptr<grpc::Channel> channel;
   grpc::CompletionQueue* cq;
+  EndPoint endpoint;
 };
 
 template <class RequestType, class ResponseType, class ServiceType, class StubType>
@@ -116,9 +120,22 @@ class UnaryRpc : public Rpc {
     CHECK_NOTNULL(grpc_ctx->channel);
     CHECK_NOTNULL(grpc_ctx->cq);
     grpc::StubOptions options;
-    // TODO: cache stub
-    stub = std::move(ServiceType::NewStub(grpc_ctx->channel));
-    auto reader = Prepare(stub.get(), grpc_ctx->cq);
+
+    StubType* p_stub = nullptr;
+    {
+      std::lock_guard<std::mutex> lg(lk);
+      auto iter = stubs.find(grpc_ctx->endpoint);
+      if (iter == stubs.end()) {
+        auto stub = ServiceType::NewStub(grpc_ctx->channel);
+        p_stub = stub.get();
+        UnaryRpc::stubs.insert(std::make_pair(grpc_ctx->endpoint, std::move(stub)));
+      } else {
+        p_stub = iter->second.get();
+      }
+    }
+    CHECK_NOTNULL(p_stub);
+
+    auto reader = Prepare(p_stub, grpc_ctx->cq);
     reader->Finish(response, &grpc_status, (void*)this);
   }
 
@@ -129,7 +146,15 @@ class UnaryRpc : public Rpc {
   grpc::Status grpc_status;
   std::unique_ptr<StubType> stub;
   std::unique_ptr<GrpcContext> grpc_ctx;
+
+  static std::map<EndPoint, std::unique_ptr<StubType>> stubs;
+  static std::mutex lk;
 };
+
+template <class RequestType, class ResponseType, class ServiceType, class StubType>
+std::map<EndPoint, std::unique_ptr<StubType>> UnaryRpc<RequestType, ResponseType, ServiceType, StubType>::stubs;
+template <class RequestType, class ResponseType, class ServiceType, class StubType>
+std::mutex UnaryRpc<RequestType, ResponseType, ServiceType, StubType>::lk;
 
 #define DECLARE_UNARY_RPC(NS, SERVICE, METHOD)                                                       \
   class METHOD##Rpc final                                                                            \

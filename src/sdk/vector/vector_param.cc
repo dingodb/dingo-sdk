@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef DINGODB_SDK_VECTOR_UTIL_H_
-#define DINGODB_SDK_VECTOR_UTIL_H_
+#ifndef DINGODB_SDK_VECTOR_PARAMS_H_
+#define DINGODB_SDK_VECTOR_PARAMS_H_
 
 #include <cstdint>
 #include <ostream>
@@ -204,4 +204,4 @@ std::string IndexMetricsResult::ToString() const {
 
 }  // namespace sdk
 }  // namespace dingodb
-#endif  // DINGODB_SDK_VECTOR_UTIL_H_
+#endif  // DINGODB_SDK_VECTOR_PARAMS_H_

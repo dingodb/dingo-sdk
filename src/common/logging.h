@@ -21,6 +21,11 @@
 
 namespace dingodb {
 
+const int64_t kSdkVlogLevel = 60;
+#define SDK_DEBUG 56
+#define SDK_INFO 53
+#define SDK_WARN 50
+
 /**
  * define the debug log level.
  * The larger the number, the more comprehensive information is displayed.
