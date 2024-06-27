@@ -105,7 +105,7 @@ class DocValue {
 
 class Document {
  public:
-  void AddFiled(const std::string& key, const DocValue& value);
+  void AddField(const std::string& key, const DocValue& value);
 
   std::string ToString() const;
 

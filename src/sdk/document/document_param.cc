@@ -104,7 +104,7 @@ std::string DocValue::ToString() const {
   return ss.str();
 }
 
-void Document::AddFiled(const std::string& key, const DocValue& value) { fields_.emplace(key, value); }
+void Document::AddField(const std::string& key, const DocValue& value) { fields_.emplace(key, value); }
 
 std::string Document::ToString() const {
   std::string result = "Document {";
