@@ -31,6 +31,8 @@ pybind11_add_module(dingosdk
   src/client_bindings.cc
   src/vector_bindings.cc
   src/types_bindings.cc
+  src/document_bindings.cc
+  src/document_index_bindings.cc
 )
 
 target_link_libraries(dingosdk

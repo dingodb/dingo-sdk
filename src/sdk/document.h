@@ -92,6 +92,7 @@ class DocValue {
   int64_t IntValue() const;
   double DoubleValue() const;
   std::string StringValue() const;
+  std::string BytesValue() const;
 
   std::string ToString() const;
 
@@ -106,6 +107,8 @@ class DocValue {
 class Document {
  public:
   void AddField(const std::string& key, const DocValue& value);
+
+  std::unordered_map<std::string, DocValue> GetFields() const;
 
   std::string ToString() const;
 

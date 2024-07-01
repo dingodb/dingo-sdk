@@ -1,4 +1,3 @@
-
 // Copyright (c) 2023 dingodb.com, Inc. All Rights Reserved
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,29 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "types_bindings.h"
+#ifndef DINGODB_PYTHON_SDK_DOCUMENT_BINDINGS_H_
+#define DINGODB_PYTHON_SDK_DOCUMENT_BINDINGS_H_
 
-#include <pybind11/functional.h>
-#include <pybind11/stl.h>
+#include <pybind11/pybind11.h>
 
-#include <cstdint>
-#include <tuple>
+void DefineDocumentBindings(pybind11::module& m);
 
-#include "sdk/types.h"
-
-void DefineTypesBindings(pybind11::module& m) {
-  using namespace dingodb;
-  using namespace dingodb::sdk;
-  namespace py = pybind11;
-
-  py::enum_<Type>(m, "Type")
-      .value("kBOOL", Type::kBOOL)
-      .value("kINT64", Type::kINT64)
-      .value("kDOUBLE", Type::kDOUBLE)
-      .value("kSTRING", Type::kSTRING)
-      .value("kBYTES", Type::kBYTES)
-      .value("kTypeEnd", Type::kTypeEnd);
-
-  m.def("TypeToString", &TypeToString, "description: TypeToString");
-
-}
+#endif  // DINGODB_PYTHON_SDK_DOCUMENT_BINDINGS_H_
