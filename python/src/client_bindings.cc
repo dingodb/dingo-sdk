@@ -21,6 +21,7 @@
 #include <tuple>
 
 #include "sdk/client.h"
+#include "sdk/document/document_index.h"
 
 void DefineClientBindings(pybind11::module& m) {
   using namespace dingodb;
@@ -90,7 +91,39 @@ void DefineClientBindings(pybind11::module& m) {
              return std::make_tuple(status, out_index_id);
            })
       .def("DropVectorIndexById", &Client::DropVectorIndexById)
-      .def("DropVectorIndexByName", &Client::DropVectorIndexByName);
+      .def("DropVectorIndexByName", &Client::DropVectorIndexByName)
+      .def("NewDocumentClient",
+           [](Client& client) {
+             DocumentClient* ptr;
+             Status status = client.NewDocumentClient(&ptr);
+             return std::make_tuple(status, ptr);
+           })
+      .def("NewDocumentIndexCreator",
+           [](Client& client) {
+             DocumentIndexCreator* ptr;
+             Status status = client.NewDocumentIndexCreator(&ptr);
+             return std::make_tuple(status, ptr);
+           })
+      .def("GetDocumentIndexId",
+           [](Client& client, int64_t schema_id, const std::string& doc_name) {
+             int64_t doc_index_id;
+             Status status = client.GetDocumentIndexId(schema_id, doc_name, doc_index_id);
+             return std::make_tuple(status, doc_index_id);
+           })
+      .def("DropDocumentIndexById", &Client::DropDocumentIndexById)
+      .def("DropDocumentIndexByName", &Client::DropDocumentIndexByName)
+      .def("GetDocumentIndex",
+           [](Client& client, int64_t schema_id, const std::string& index_name) {
+             std::shared_ptr<DocumentIndex> out_doc_index;
+             Status status = client.GetDocumentIndex(schema_id, index_name, out_doc_index);
+             return std::make_tuple(status, out_doc_index);
+           })
+      .def("GetDocumentIndexById",
+           [](Client& client, int64_t index_id) {
+             std::shared_ptr<DocumentIndex> out_doc_index;
+             Status status = client.GetDocumentIndexById(index_id, out_doc_index);
+             return std::make_tuple(status, out_doc_index);
+           });
 
   py::class_<KVPair>(m, "KVPair")
       .def(py::init<>())

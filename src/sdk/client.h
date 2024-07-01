@@ -34,6 +34,7 @@ class Transaction;
 class VectorIndexCreator;
 class VectorClient;
 class EndPoint;
+class DocumentIndex;
 
 /// @brief Callers must keep client valid in it's lifetime in order to interact with the cluster,
 class Client {
@@ -94,6 +95,10 @@ class Client {
   Status DropDocumentIndexById(int64_t index_id);
 
   Status DropDocumentIndexByName(int64_t schema_id, const std::string& index_name);
+
+  Status GetDocumentIndex(int64_t schema_id, const std::string& index_name, std::shared_ptr<DocumentIndex> &out_doc_index);
+
+  Status GetDocumentIndexById(int64_t index_id, std::shared_ptr<DocumentIndex> &out_doc_index);
 
  private:
   friend class RawKV;

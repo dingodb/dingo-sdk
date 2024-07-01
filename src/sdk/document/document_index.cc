@@ -86,7 +86,7 @@ std::string DocumentIndex::ToString(bool verbose) const {
 
 void DocumentIndex::GenerateScalarSchema() {
   for (const auto& schema_item :
-       index_def_with_id_.index_definition().index_parameter().vector_index_parameter().scalar_schema().fields()) {
+       index_def_with_id_.index_definition().index_parameter().document_index_parameter().scalar_schema().fields()) {
     CHECK(schema_.insert(std::make_pair(schema_item.key(), InternalScalarFieldTypePB2Type(schema_item.field_type())))
               .second);
   }

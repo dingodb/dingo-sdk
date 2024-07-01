@@ -84,6 +84,8 @@ double DocValue::DoubleValue() const { return data_->double_val; }
 
 std::string DocValue::StringValue() const { return data_->string_val; }
 
+std::string DocValue::BytesValue() const { return data_->string_val; }
+
 std::string DocValue::ToString() const {
   std::stringstream ss;
   ss << "DocValue { type: " << TypeToString(data_->type) << ", value: ";
@@ -95,6 +97,8 @@ std::string DocValue::ToString() const {
       ss << std::to_string(data_->double_val);
     case Type::kSTRING:
       ss << data_->string_val;
+    case Type::kBYTES:
+      ss << data_->string_val;
     default:
       ss << "";
   }
@@ -105,6 +109,8 @@ std::string DocValue::ToString() const {
 }
 
 void Document::AddField(const std::string& key, const DocValue& value) { fields_.emplace(key, value); }
+
+std::unordered_map<std::string, DocValue> Document::GetFields() const { return fields_; }
 
 std::string Document::ToString() const {
   std::string result = "Document {";
