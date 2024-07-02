@@ -44,7 +44,7 @@ TsoServiceRpc::TsoServiceRpc(const std ::string& cmd) : UnaryRpc(cmd) {}
 TsoServiceRpc::~TsoServiceRpc() = default;
 std::unique_ptr<grpc::ClientAsyncResponseReader<pb::meta::TsoResponse>> TsoServiceRpc::Prepare(
     pb::meta::MetaService::Stub* stub, grpc::CompletionQueue* cq) {
-  return stub->AsyncTsoService(MutableContext(), *request, cq);
+  return stub->AsyncTsoService(MutableContext(), request, cq);
 }
 std ::string TsoServiceRpc::ConstMethod() {
   return fmt ::format("{}.{}Rpc", pb::meta::MetaService::service_full_name(), "TsoService");

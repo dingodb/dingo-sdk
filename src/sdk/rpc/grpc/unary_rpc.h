@@ -51,32 +51,25 @@ struct GrpcContext : public RpcContext {
 template <class RequestType, class ResponseType, class ServiceType, class StubType>
 class UnaryRpc : public Rpc {
  public:
-  UnaryRpc(const std::string& cmd) : Rpc(cmd) {
-    request = new RequestType;
-    response = new ResponseType;
-    context = std::make_unique<grpc::ClientContext>();
-  }
+  UnaryRpc(const std::string& cmd) : Rpc(cmd) { context = std::make_unique<grpc::ClientContext>(); }
 
-  ~UnaryRpc() override {
-    delete request;
-    delete response;
-  }
+  ~UnaryRpc() override = default;
 
-  RequestType* MutableRequest() { return request; }
+  RequestType* MutableRequest() { return &request; }
 
-  const RequestType* Request() const { return request; }
+  const RequestType* Request() const { return &request; }
 
-  ResponseType* MutableResponse() { return response; }
+  ResponseType* MutableResponse() { return &response; }
 
-  const ResponseType* Response() const { return response; }
+  const ResponseType* Response() const { return &response; }
 
-  google::protobuf::Message* RawMutableRequest() override { return request; }
+  google::protobuf::Message* RawMutableRequest() override { return &request; }
 
-  const google::protobuf::Message* RawRequest() const override { return request; }
+  const google::protobuf::Message* RawRequest() const override { return &request; }
 
-  google::protobuf::Message* RawMutableResponse() override { return response; }
+  google::protobuf::Message* RawMutableResponse() override { return &response; }
 
-  const google::protobuf::Message* RawResponse() const override { return response; }
+  const google::protobuf::Message* RawResponse() const override { return &response; }
 
   std::string ServiceName() override { return ServiceType::service_full_name(); }
 
@@ -96,16 +89,18 @@ class UnaryRpc : public Rpc {
       Status err = Status::NetworkError(grpc_status.error_code(), grpc_status.error_message());
       SetStatus(err);
     } else {
-      DINGO_LOG(DEBUG) << "Success send rpc: " << Method() << " endpoint(peer):" << context->peer() << ", request: \n"
-                       << request->DebugString() << ", response:\n"
-                       << response->DebugString();
+      DINGO_LOG(DEBUG) << "Success send rpc: " << Method() << " endpoint(peer):" << context->peer() << "\n"
+                       << "request: \n"
+                       << request.DebugString() << "\n"
+                       << "response:\n"
+                       << response.DebugString();
     }
 
     grpc_ctx->cb();
   }
 
   void Reset() override {
-    response->Clear();
+    response.Clear();
     grpc_status = grpc::Status();
     status = Status::OK();
     context->TryCancel();
@@ -136,12 +131,12 @@ class UnaryRpc : public Rpc {
     CHECK_NOTNULL(p_stub);
 
     auto reader = Prepare(p_stub, grpc_ctx->cq);
-    reader->Finish(response, &grpc_status, (void*)this);
+    reader->Finish(&response, &grpc_status, (void*)this);
   }
 
  protected:
-  RequestType* request;
-  ResponseType* response;
+  RequestType request;
+  ResponseType response;
   std::unique_ptr<grpc::ClientContext> context;
   grpc::Status grpc_status;
   std::unique_ptr<StubType> stub;
@@ -177,7 +172,7 @@ std::mutex UnaryRpc<RequestType, ResponseType, ServiceType, StubType>::lk;
   METHOD##Rpc::~METHOD##Rpc() = default;                                                       \
   std::unique_ptr<grpc::ClientAsyncResponseReader<NS::METHOD##Response>> METHOD##Rpc::Prepare( \
       NS::SERVICE::Stub* stub, grpc::CompletionQueue* cq) {                                    \
-    return stub->Async##METHOD(MutableContext(), *request, cq);                                \
+    return stub->Async##METHOD(MutableContext(), request, cq);                                 \
   }                                                                                            \
   std::string METHOD##Rpc::ConstMethod() { return fmt::format("{}.{}Rpc", NS::SERVICE::service_full_name(), #METHOD); }
 
