@@ -37,7 +37,7 @@
 #include "sdk/vector.h"
 #include "util.h"
 
-DEFINE_string(coordinator_addrs, "127.0.0.1:22001,127.0.0.1:22002,127.0.0.1:22003", "coordinator addrs");
+DEFINE_string(coordinator_addrs, "file://./coor_list", "coordinator addrs");
 DEFINE_bool(show_version, false, "Show dingo-store version info");
 DEFINE_string(prefix, "BENCH", "Region range prefix");
 
@@ -843,16 +843,24 @@ bool Environment::Init() {
     return false;
   }
 
-  DINGO_LOG(INFO) << "using FLAGS_coordinator_addrs: " << FLAGS_coordinator_addrs;
+  DINGO_LOG(INFO) << "using coordinator_addrs: " << FLAGS_coordinator_addrs;
+
+  std::vector<sdk::EndPoint> endpoints = sdk::IsServiceUrlValid(FLAGS_coordinator_addrs)
+                                             ? sdk::FileNamingServiceUrlEndpoints(FLAGS_coordinator_addrs)
+                                             : sdk::StringToEndpoints(FLAGS_coordinator_addrs);
+  if (endpoints.empty()) {
+    std::cerr << fmt::format("coordinator_addrs({}) is invalid, maybe coor_list not exist!", FLAGS_coordinator_addrs)
+              << std::endl;
+    return false;
+  }
 
   client_stub_ = std::make_shared<dingodb::sdk::ClientStub>();
-
-  std::vector<sdk::EndPoint> endpoints = sdk::StringToEndpoints(FLAGS_coordinator_addrs);
   auto s = client_stub_->Open(endpoints);
-  CHECK(s.ok()) << "Open client stub failed, please check parameter --coordinator_addrs=" << FLAGS_coordinator_addrs;
+  CHECK(s.ok()) << "Open client stub failed, please check parameter --coordinator_addrs="
+                << sdk::EndPointToString(endpoints);
 
   sdk::Client* tmp;
-  auto status = sdk::Client::BuildFromAddrs(FLAGS_coordinator_addrs, &tmp);
+  auto status = sdk::Client::BuildFromEndPoint(endpoints, &tmp);
   CHECK(status.ok()) << fmt::format("Build sdk client failed, error: {}", status.ToString());
   client_.reset(tmp);
 

@@ -52,6 +52,8 @@ class Client {
   // NOTE:: Caller must delete *client when it is no longer needed.
   static Status BuildFromAddrs(std::string addrs, Client** client);
 
+  static Status BuildFromEndPoint(std::vector<EndPoint>& endpoints, Client** client);
+
   // NOTE:: Caller must delete *client when it is no longer needed.
   static Status Build(std::string naming_service_url, Client** client);
 

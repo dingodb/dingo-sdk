@@ -16,7 +16,10 @@
 #define DINGODB_SDK_HELPER_H_
 
 #include <fstream>
+#include <iostream>
 
+#include "common/logging.h"
+#include "fmt/core.h"
 #include "glog/logging.h"
 #include "sdk/client_stub.h"
 #include "sdk/rpc/store_rpc_controller.h"
@@ -101,15 +104,33 @@ static std::vector<EndPoint> StringToEndpoints(const std::string& addrs) {
   return endpoints;
 }
 
-static std::vector<EndPoint> FileNamingServiceUrlEndpoints(const std::string& naming_service_url) {
-  std::vector<EndPoint> endpoints;
+static std::string EndPointToString(const std::vector<EndPoint>& endpoints) {
+  std::string addrs;
+  for (const auto& endpoint : endpoints) {
+    addrs.append(endpoint.ToString()).append(",");
+  }
 
+  addrs.pop_back();
+
+  return addrs;
+}
+
+static bool IsExistPath(const std::string& path) { return std::filesystem::exists(path); }
+
+static bool IsServiceUrlValid(const std::string& service_url) { return service_url.substr(0, 7) == "file://"; }
+
+static std::vector<EndPoint> FileNamingServiceUrlEndpoints(const std::string& naming_service_url) {
   CHECK(naming_service_url.substr(0, 7) == "file://") << "Invalid naming_service_url: " << naming_service_url;
 
   std::string file_path = naming_service_url.substr(7);
-  std::ifstream file(file_path);
-  CHECK(file.is_open()) << "Failed to open file: " << file_path;
 
+  std::ifstream file(file_path);
+  if (!file.is_open()) {
+    DINGO_LOG(ERROR) << fmt::format("Open file({}) failed, maybe not exist!", file_path);
+    return {};
+  }
+
+  std::vector<EndPoint> endpoints;
   std::string line;
   while (std::getline(file, line)) {
     if (line.empty()) {
@@ -124,6 +145,7 @@ static std::vector<EndPoint> FileNamingServiceUrlEndpoints(const std::string& na
 
   return endpoints;
 }
+
 }  // namespace sdk
 
 }  // namespace dingodb
