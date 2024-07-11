@@ -89,7 +89,21 @@ Status Client::BuildFromAddrs(std::string addrs, Client** client) {
   return s;
 }
 
-static bool IsServiceUrlValid(const std::string& service_url) { return service_url.substr(0, 7) == "file://"; }
+Status Client::BuildFromEndPoint(std::vector<EndPoint>& endpoints, Client** client) {
+  if (endpoints.empty()) {
+    return Status::InvalidArgument("endpoints is empty");
+  }
+
+  Client* tmp = new Client();
+  Status s = tmp->Init(endpoints);
+  if (!s.ok()) {
+    delete tmp;
+    return s;
+  }
+
+  *client = tmp;
+  return s;
+}
 
 Status Client::Build(std::string naming_service_url, Client** client) {
   if (naming_service_url.empty()) {

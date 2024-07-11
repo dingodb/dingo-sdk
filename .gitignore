@@ -36,3 +36,7 @@ dist/
 
 build*
 third-party/installed
+
+.cache/
+build/
+third-party/build/
