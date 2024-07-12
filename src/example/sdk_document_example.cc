@@ -41,10 +41,6 @@ static std::vector<int64_t> g_range_partition_seperator_ids{5, 10, 20};
 static std::vector<int64_t> g_doc_ids;
 static dingodb::sdk::DocumentClient* g_doc_client;
 
-static const dingodb::sdk::Type kDefaultType = dingodb::sdk::Type::kINT64;
-static std::vector<std::string> g_scalar_col{"id", "fake_id"};
-static std::vector<dingodb::sdk::Type> g_scalar_col_typ{kDefaultType, dingodb::sdk::Type::kDOUBLE};
-
 static void PrepareDocumentIndex(int64_t start_id = 0) {
   dingodb::sdk::DocumentIndexCreator* creator;
   Status built = g_client->NewDocumentIndexCreator(&creator);
