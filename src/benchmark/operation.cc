@@ -719,7 +719,7 @@ bool TxnReadOperation::Arrange(RegionEntryPtr region_entry) {
   for (uint32_t i = 0; i < FLAGS_arrange_kv_num; ++i) {
     sdk::KVPair kv;
     size_t count = counter.fetch_add(1, std::memory_order_relaxed);
-    kv.key = EncodeRawKey(prefix + GenSeqString(count, random_str_len));
+    kv.key = EncodeTxnKey(prefix + GenSeqString(count, random_str_len));
     kv.value = GenRandomString(FLAGS_value_size);
 
     kvs.push_back(kv);
