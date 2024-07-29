@@ -34,7 +34,7 @@ DEFINE_int64(rpc_max_retry, 3, "rpc call max retry times");
 DEFINE_int64(rpc_time_out_ms, 500000, "rpc call timeout ms");
 
 DEFINE_int64(store_rpc_retry_delay_ms, 500, "store rpc retry delay ms");
-DEFINE_int64(store_rpc_max_retry, 30, "store rpc max retry times, use case: wrong leader or request range invalid");
+DEFINE_int64(store_rpc_max_retry, 120, "store rpc max retry times, use case: wrong leader or request range invalid");
 
 DEFINE_int64(scan_batch_size, 1000, "scan batch size, use for region scanner");
 

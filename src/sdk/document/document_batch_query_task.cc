@@ -26,6 +26,10 @@ Status DocumentBatchQueryTask::Init() {
   std::unique_lock<std::shared_mutex> w(rw_lock_);
 
   for (long id : query_param_.doc_ids) {
+    if (id <= 0) {
+      return Status::InvalidArgument("invalid document id: " + std::to_string(id));
+    }
+
     if (!doc_ids_.insert(id).second) {
       return Status::InvalidArgument("duplicate document id: " + std::to_string(id));
     }

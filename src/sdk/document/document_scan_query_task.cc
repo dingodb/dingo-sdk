@@ -28,6 +28,14 @@ Status DocumentScanQueryTask::Init() {
     return Status::InvalidArgument("max_scan_count must be greater than or equal to 0");
   }
 
+  if (scan_query_param_.doc_id_start < 0) {
+    return Status::InvalidArgument("doc_id_start must be greater than or equal to 0");
+  }
+
+  if (scan_query_param_.doc_id_end < 0) {
+    return Status::InvalidArgument("doc_id_end must be greater than or equal to 0");
+  }
+
   if (scan_query_param_.is_reverse) {
     if (!(scan_query_param_.doc_id_end < scan_query_param_.doc_id_start)) {
       return Status::InvalidArgument("doc_id_end must be less than doc_id_start in reverse scan");
