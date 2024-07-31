@@ -17,7 +17,7 @@
 cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 project(dingo-sdk C CXX)
 
-option(SDK_ENABLE_GRPC "Build sdk with grpc instead brpc" ON)
+option(SDK_ENABLE_GRPC "Build sdk with grpc instead brpc" OFF)
 option(BUILD_BENCHMARK "Build benchmark" ON)
 option(BUILD_INTEGRATION_TESTS "Build integration test" ON)
 option(BUILD_UNIT_TESTS "Build unit test" ON)

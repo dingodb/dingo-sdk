@@ -15,8 +15,8 @@
 #ifndef DINGODB_SDK_BRPC_DOCUMENT_SERVICE_RPC_H_
 #define DINGODB_SDK_BRPC_DOCUMENT_SERVICE_RPC_H_
 
-#include "proto/document.grpc.pb.h"
-#include "sdk/rpc/grpc/unary_rpc.h"
+#include "proto/document.pb.h"
+#include "sdk/rpc/brpc/unary_rpc.h"
 
 namespace dingodb {
 namespace sdk {
