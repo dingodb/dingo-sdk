@@ -125,6 +125,8 @@ void DocumentAddTask::DoAsync() {
       DocumentTranslater::FillDocumentWithIdPB(rpc->MutableRequest()->add_documents(), docs_[idx]);
     }
 
+    rpc->MutableRequest()->set_is_update(true);
+
     StoreRpcController controller(stub, *rpc, region);
     controllers_.push_back(controller);
 
