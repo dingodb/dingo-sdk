@@ -40,7 +40,7 @@ EndPoint MetaMemberInfo::PickNextLeader() {
   return leader;
 }
 
-void MetaMemberInfo::MarkLeader(const EndPoint &end_point) {
+void MetaMemberInfo::MarkLeader(const EndPoint& end_point) {
   CHECK(end_point.IsValid()) << "end_point is invalid: " << end_point.ToString();
   std::unique_lock lock(rw_lock_);
   leader_ = end_point;
@@ -51,7 +51,7 @@ void MetaMemberInfo::MarkLeader(const EndPoint &end_point) {
   }
 }
 
-void MetaMemberInfo::MarkFollower(const EndPoint &end_point) {
+void MetaMemberInfo::MarkFollower(const EndPoint& end_point) {
   CHECK(end_point.IsValid()) << "end_point is invalid: " << end_point.ToString();
   std::unique_lock lock(rw_lock_);
   if (leader_ == end_point) {

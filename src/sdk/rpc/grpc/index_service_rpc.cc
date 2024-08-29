@@ -31,6 +31,14 @@ DEFINE_INDEX_SERVICE_RPC(VectorGetBorderId);
 DEFINE_INDEX_SERVICE_RPC(VectorScanQuery);
 DEFINE_INDEX_SERVICE_RPC(VectorGetRegionMetrics);
 DEFINE_INDEX_SERVICE_RPC(VectorCount);
+DEFINE_INDEX_SERVICE_RPC(VectorImport);
+DEFINE_INDEX_SERVICE_RPC(VectorBuild);
+DEFINE_INDEX_SERVICE_RPC(VectorLoad);
+DEFINE_INDEX_SERVICE_RPC(VectorStatus);
+DEFINE_INDEX_SERVICE_RPC(VectorReset);
+DEFINE_INDEX_SERVICE_RPC(VectorDump);
+DEFINE_INDEX_SERVICE_RPC(VectorCountMemory);
+
 
 }  // namespace sdk
 }  // namespace dingodb

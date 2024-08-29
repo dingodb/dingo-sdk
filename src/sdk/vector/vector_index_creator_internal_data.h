@@ -59,7 +59,12 @@ class VectorIndexCreator::Data {
       DCHECK(brute_force_param.has_value());
       auto& param = brute_force_param.value();
       FillButeForceParmeter(parameter, param);
-    } else {
+    }else if(index_type == kDiskAnn){
+      DCHECK(diskann_param.has_value());
+      auto& param = diskann_param.value();
+      FillDiskAnnParmeter(parameter, param);
+    } 
+    else {
       CHECK(false) << "unsupported index type, " << index_type;
     }
 

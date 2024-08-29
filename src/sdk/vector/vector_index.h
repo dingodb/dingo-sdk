@@ -18,8 +18,10 @@
 #include <cstdint>
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 #include "proto/meta.pb.h"
+#include "sdk/region.h"
 #include "sdk/vector.h"
 
 namespace dingodb {
@@ -62,6 +64,8 @@ class VectorIndex {
   const pb::meta::IndexDefinitionWithId& GetIndexDefWithId() const { return index_def_with_id_; }
 
   std::string ToString(bool verbose = false) const;
+
+  bool ExistRegion(std::shared_ptr<Region> region) const;
 
  private:
   friend class VectorIndexCache;

@@ -16,6 +16,7 @@
 #include "vector_bindings.h"
 
 #include <pybind11/functional.h>
+#include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
 #include <cstdint>
@@ -27,6 +28,39 @@ void DefineVectorBindings(pybind11::module& m) {
   using namespace dingodb;
   using namespace dingodb::sdk;
   namespace py = pybind11;
+
+  py::class_<RegionStatus>(m, "RegionStatus")
+      .def(py::init<>())
+      .def_readwrite("region_id", &RegionStatus::region_id)
+      .def_readwrite("status", &RegionStatus::status);
+
+  py::class_<ErrStatusResult>(m, "ErrStatusResult")
+      .def(py::init<>())
+      .def("ToString", &ErrStatusResult::ToString)
+      .def_readwrite("region_status", &ErrStatusResult::region_status);
+
+  py::enum_<DiskANNRegionState>(m, "DiskANNRegionState")
+      .value("kBuildFailed", DiskANNRegionState::kBuildFailed)
+      .value("kLoadFailed", DiskANNRegionState::kLoadFailed)
+      .value("kInittialized", DiskANNRegionState::kInittialized)
+      .value("kBuilding", DiskANNRegionState::kBuilding)
+      .value("kBuilded", DiskANNRegionState::kBuilded)
+      .value("kLoading", DiskANNRegionState::kLoading)
+      .value("kLoaded", DiskANNRegionState::kLoaded)
+      .value("kNoData", DiskANNRegionState::kNoData);
+
+  py::class_<RegionState>(m, "RegionState")
+      .def(py::init<>())
+      .def_readwrite("region_id", &RegionState::region_id)
+      .def_readwrite("state", &RegionState::state)
+      .def_readwrite("status", &RegionState::status);
+
+  py::class_<StateResult>(m, "StateResult")
+      .def(py::init<>())
+      .def("ToString", &StateResult::ToString)
+      .def_readwrite("region_states", &StateResult::region_states);
+
+  m.def("RegionStateToString", &RegionStateToString, "description: RegionStateToString");
 
   py::enum_<VectorIndexType>(m, "VectorIndexType")
       .value("kNoneIndexType", VectorIndexType::kNoneIndexType)
@@ -46,6 +80,14 @@ void DefineVectorBindings(pybind11::module& m) {
       .value("kCosine", MetricType::kCosine);
 
   m.def("MetricTypeToString", &MetricTypeToString, "description: MetricTypeToString");
+
+  py::enum_<ValueType>(m, "ValueType")
+      .value("kNoneValueType", ValueType::kNoneValueType)
+      .value("kFloat", ValueType::kFloat)
+      .value("kUint8", ValueType::kUint8)
+      .value("kInt8", ValueType::kInt8);
+
+  m.def("ValueTypeToString", &ValueTypeToString, "description: ValueTypeToString");
 
   py::class_<FlatParam>(m, "FlatParam")
       .def(py::init<int32_t, MetricType>())
@@ -80,7 +122,14 @@ void DefineVectorBindings(pybind11::module& m) {
       .def_readwrite("max_elements", &HnswParam::max_elements)
       .def_readwrite("nlinks", &HnswParam::nlinks);
 
-  py::class_<DiskAnnParam>(m, "DiskAnnParam").def(py::init<>());
+  py::class_<DiskAnnParam>(m, "DiskAnnParam")
+      .def(py::init<int32_t, MetricType, ValueType>())
+      .def_static("Type", &DiskAnnParam::Type)
+      .def_readwrite("dimension", &DiskAnnParam::dimension)
+      .def_readwrite("metric_type", &DiskAnnParam::metric_type)
+      .def_readwrite("value_type", &DiskAnnParam::value_type)
+      .def_readwrite("max_degree", &DiskAnnParam::max_degree)
+      .def_readwrite("search_list_size", &DiskAnnParam::search_list_size);
 
   py::class_<BruteForceParam>(m, "BruteForceParam")
       .def(py::init<int32_t, MetricType>())
@@ -89,7 +138,7 @@ void DefineVectorBindings(pybind11::module& m) {
       .def_readwrite("metric_type", &BruteForceParam::metric_type);
 
   py::class_<VectorScalarColumnSchema>(m, "VectorScalarColumnSchema")
-      .def(py::init<const std::string&, Type, bool>(), py::arg(), py::arg(), py::arg()=false)
+      .def(py::init<const std::string&, Type, bool>(), py::arg(), py::arg(), py::arg() = false)
       .def_readwrite("key", &VectorScalarColumnSchema::key)
       .def_readwrite("type", &VectorScalarColumnSchema::type)
       .def_readwrite("speed", &VectorScalarColumnSchema::speed);
@@ -98,13 +147,6 @@ void DefineVectorBindings(pybind11::module& m) {
       .def(py::init<>())
       .def("AddScalarColumn", &VectorScalarSchema::AddScalarColumn)
       .def_readwrite("cols", &VectorScalarSchema::cols);
-
-  py::enum_<ValueType>(m, "ValueType")
-      .value("kNoneValueType", ValueType::kNoneValueType)
-      .value("kFloat", ValueType::kFloat)
-      .value("kUint8", ValueType::kUint8);
-
-  m.def("ValueTypeToString", &ValueTypeToString, "description: ValueTypeToString");
 
   py::class_<Vector>(m, "Vector")
       .def(py::init<>())
@@ -171,7 +213,8 @@ void DefineVectorBindings(pybind11::module& m) {
       .def_readwrite("vector_ids", &SearchParam::vector_ids)
       .def_readwrite("use_brute_force", &SearchParam::use_brute_force)
       .def_readwrite("extra_params", &SearchParam::extra_params)
-      .def_readwrite("langchain_expr_json", &SearchParam::langchain_expr_json);
+      .def_readwrite("langchain_expr_json", &SearchParam::langchain_expr_json)
+      .def_readwrite("beamwidth", &SearchParam::beamwidth);
 
   py::class_<VectorWithDistance>(m, "VectorWithDistance")
       .def(py::init<>())
@@ -243,6 +286,7 @@ void DefineVectorBindings(pybind11::module& m) {
       .def("SetIvfFlatParam", &VectorIndexCreator::SetIvfFlatParam)
       .def("SetIvfPqParam", &VectorIndexCreator::SetIvfPqParam)
       .def("SetHnswParam", &VectorIndexCreator::SetHnswParam)
+      .def("SetDiskAnnParam", &VectorIndexCreator::SetDiskAnnParam)
       .def("SetBruteForceParam", &VectorIndexCreator::SetBruteForceParam)
       .def("SetAutoIncrementStart", &VectorIndexCreator::SetAutoIncrementStart)
       .def("SetScalarSchema", &VectorIndexCreator::SetScalarSchema)
@@ -253,18 +297,22 @@ void DefineVectorBindings(pybind11::module& m) {
       });
 
   py::class_<VectorClient>(m, "VectorClient")
-      .def("AddByIndexId", 
-           [](VectorClient& vectorclient, int64_t index_id, std::vector<VectorWithId>& vectors, bool replace_deleted = false,
-                      bool is_update = false){
-             Status status = vectorclient.AddByIndexId(index_id, vectors, replace_deleted, is_update);
-             return std::make_tuple(status, vectors);    
-           }, py::arg(), py::arg(), py::arg()=false, py::arg()=false)
-      .def("AddByIndexName",
-           [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name, std::vector<VectorWithId>& vectors,
-                        bool replace_deleted = false, bool is_update = false){
-             Status status = vectorclient.AddByIndexName(schema_id, index_name, vectors, replace_deleted, is_update);
-             return std::make_tuple(status, vectors); 
-            }, py::arg(), py::arg(), py::arg(), py::arg()=false, py::arg()=false)
+      .def(
+          "AddByIndexId",
+          [](VectorClient& vectorclient, int64_t index_id, std::vector<VectorWithId>& vectors,
+             bool replace_deleted = false, bool is_update = false) {
+            Status status = vectorclient.AddByIndexId(index_id, vectors, replace_deleted, is_update);
+            return std::make_tuple(status, vectors);
+          },
+          py::arg(), py::arg(), py::arg() = false, py::arg() = false)
+      .def(
+          "AddByIndexName",
+          [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name,
+             std::vector<VectorWithId>& vectors, bool replace_deleted = false, bool is_update = false) {
+            Status status = vectorclient.AddByIndexName(schema_id, index_name, vectors, replace_deleted, is_update);
+            return std::make_tuple(status, vectors);
+          },
+          py::arg(), py::arg(), py::arg(), py::arg() = false, py::arg() = false)
       .def("SearchByIndexId",
            [](VectorClient& vectorclient, int64_t index_id, const SearchParam& search_param,
               const std::vector<VectorWithId>& target_vectors) {
@@ -361,10 +409,123 @@ void DefineVectorBindings(pybind11::module& m) {
              Status status = vectorclient.CountByIndexId(index_id, start_vector_id, end_vector_id, out_count);
              return std::make_tuple(status, out_count);
            })
-      .def("CountByIndexName", [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name,
-                                  int64_t start_vector_id, int64_t end_vector_id) {
-        int64_t out_count;
-        Status status = vectorclient.CountByIndexName(schema_id, index_name, start_vector_id, end_vector_id, out_count);
-        return std::make_tuple(status, out_count);
+      .def("CountByIndexName",
+           [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name, int64_t start_vector_id,
+              int64_t end_vector_id) {
+             int64_t out_count;
+             Status status =
+                 vectorclient.CountByIndexName(schema_id, index_name, start_vector_id, end_vector_id, out_count);
+             return std::make_tuple(status, out_count);
+           })
+      .def("StatusByIndexId",
+           [](VectorClient& vectorclient, int64_t index_id) {
+             StateResult result;
+             Status status = vectorclient.StatusByIndexId(index_id, result);
+             return std::make_tuple(status, result);
+           })
+      .def("StatusByIndexName",
+           [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name) {
+             StateResult result;
+             Status status = vectorclient.StatusByIndexName(schema_id, index_name, result);
+             return std::make_tuple(status, result);
+           })
+      .def("StatusByRegionId",
+           [](VectorClient& vectorclient, int64_t index_id, const std::vector<int64_t>& region_ids) {
+             StateResult result;
+             Status status = vectorclient.StatusByRegionId(index_id, region_ids, result);
+             return std::make_tuple(status, result);
+           })
+      .def("StatusByRegionIdIndexName",
+           [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name,
+              const std::vector<int64_t>& region_ids) {
+             StateResult result;
+             Status status = vectorclient.StatusByRegionIdIndexName(schema_id, index_name, region_ids, result);
+             return std::make_tuple(status, result);
+           })
+      .def("BuildByIndexId",
+           [](VectorClient& vectorclient, int64_t index_id) {
+             ErrStatusResult result;
+             Status status = vectorclient.BuildByIndexId(index_id, result);
+             return std::make_tuple(status, result);
+           })
+      .def("BuildByIndexName",
+           [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name) {
+             ErrStatusResult result;
+             Status status = vectorclient.BuildByIndexName(schema_id, index_name, result);
+             return std::make_tuple(status, result);
+           })
+      .def("BuildByRegionId",
+           [](VectorClient& vectorclient, int64_t index_id, const std::vector<int64_t>& region_ids) {
+             ErrStatusResult result;
+             Status status = vectorclient.BuildByRegionId(index_id, region_ids, result);
+             return std::make_tuple(status, result);
+           })
+      .def("BuildByRegionIdIndexName",
+           [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name,
+              const std::vector<int64_t>& region_ids) {
+             ErrStatusResult result;
+             Status status = vectorclient.BuildByRegionIdIndexName(schema_id, index_name, region_ids, result);
+             return std::make_tuple(status, result);
+           })
+      .def("LoadByIndexId",
+           [](VectorClient& vectorclient, int64_t index_id) {
+             ErrStatusResult result;
+             Status status = vectorclient.LoadByIndexId(index_id, result);
+             return std::make_tuple(status, result);
+           })
+      .def("LoadByIndexName",
+           [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name) {
+             ErrStatusResult result;
+             Status status = vectorclient.LoadByIndexName(schema_id, index_name, result);
+             return std::make_tuple(status, result);
+           })
+      .def("LoadByRegionId",
+           [](VectorClient& vectorclient, int64_t index_id, const std::vector<int64_t>& region_ids) {
+             ErrStatusResult result;
+             Status status = vectorclient.LoadByRegionId(index_id, region_ids, result);
+             return std::make_tuple(status, result);
+           })
+      .def("LoadByRegionIdIndexName",
+           [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name,
+              const std::vector<int64_t>& region_ids) {
+             ErrStatusResult result;
+             Status status = vectorclient.LoadByRegionIdIndexName(schema_id, index_name, region_ids, result);
+             return std::make_tuple(status, result);
+           })
+      .def("ResetByIndexId",
+           [](VectorClient& vectorclient, int64_t index_id) {
+             ErrStatusResult result;
+             Status status = vectorclient.ResetByIndexId(index_id, result);
+             return std::make_tuple(status, result);
+           })
+      .def("ResetByIndexName",
+           [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name) {
+             ErrStatusResult result;
+             Status status = vectorclient.ResetByIndexName(schema_id, index_name, result);
+             return std::make_tuple(status, result);
+           })
+      .def("ResetByRegionId",
+           [](VectorClient& vectorclient, int64_t index_id, const std::vector<int64_t>& region_ids) {
+             ErrStatusResult result;
+             Status status = vectorclient.ResetByRegionId(index_id, region_ids, result);
+             return std::make_tuple(status, result);
+           })
+      .def("ResetByRegionIdIndexName",
+           [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name,
+              const std::vector<int64_t>& region_ids) {
+             ErrStatusResult result;
+             Status status = vectorclient.ResetByRegionIdIndexName(schema_id, index_name, region_ids, result);
+             return std::make_tuple(status, result);
+           })
+      .def("CountMemoryByIndexId",
+           [](VectorClient& vectorclient, int64_t index_id) {
+             int64_t count;
+             Status status = vectorclient.CountMemoryByIndexId(index_id, count);
+             return std::make_tuple(status, count);
+           })
+      .def("CountMemoryByIndexName", [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name) {
+        int64_t count;
+        Status status = vectorclient.CountMemoryByIndexName(schema_id, index_name, count);
+        return std::make_tuple(status, count);
       });
 }

@@ -17,7 +17,6 @@
 
 #include "sdk/client_stub.h"
 #include "sdk/status.h"
-#include "sdk/types.h"
 #include "sdk/utils/callback.h"
 #include "sdk/vector.h"
 
@@ -43,9 +42,11 @@ class VectorTask {
 
   const ClientStub& stub;
 
+  virtual bool NeedRetry();
+
  private:
   void FailOrRetry();
-  bool NeedRetry();
+
   void BackoffAndRetry();
   void FireCallback();
 

@@ -57,6 +57,13 @@ set(SDK_SRCS
   vector/vector_scan_query_task.cc
   vector/vector_search_task.cc
   vector/vector_update_task.cc
+  vector/diskann/vector_diskann_count_memory_task.cc
+  vector/diskann/vector_diskann_reset_task.cc
+  vector/diskann/vector_diskann_status_task.cc
+  vector/diskann/vector_diskann_build_task.cc
+  vector/diskann/vector_diskann_load_task.cc
+  vector/diskann/vector_diskann_import_task.cc
+  vector/diskann/vector_diskann_dump.cc
   document/document_client.cc
   document/document_index_creator.cc
   document/document_param.cc

@@ -19,10 +19,10 @@
 #include "common/logging.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
+#include "proto/common.pb.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/common.h"
 #include "sdk/common/param_config.h"
-#include "proto/common.pb.h"
 #include "sdk/status.h"
 #include "sdk/utils/async_util.h"
 
@@ -69,7 +69,7 @@ bool StoreRpcController::PreCheck() {
   if (region_->IsStale()) {
     std::string msg = fmt::format("region:{} is stale", region_->RegionId());
     DINGO_LOG(INFO) << "store rpc fail, " << msg;
-    status_ = Status::Incomplete(msg);
+    status_ = Status::Incomplete(pb::error::Errno::EREGION_VERSION, msg);
     return false;
   }
   return true;
@@ -103,7 +103,7 @@ void StoreRpcController::MaybeDelay() {
   if (NeedDelay()) {
     auto delay = FLAGS_store_rpc_retry_delay_ms * rpc_retry_times_;
     DINGO_LOG(INFO) << "try to delay:" << delay << "ms, rpr_retry_times:" << rpc_retry_times_;
-    (void)usleep(delay*1000);
+    (void)usleep(delay * 1000);
   }
 }
 
