@@ -35,9 +35,9 @@ class MetaMemberInfo {
 
   EndPoint PickNextLeader();
 
-  void MarkLeader(const EndPoint &end_point);
+  void MarkLeader(const EndPoint& end_point);
 
-  void MarkFollower(const EndPoint &end_point);
+  void MarkFollower(const EndPoint& end_point);
 
   std::vector<EndPoint> GetMembers() const;
 
@@ -48,7 +48,7 @@ class MetaMemberInfo {
 
     std::stringstream ss;
     ss << "leader: " << leader_.ToString() << ", members: [";
-    for (const auto &member : members_) {
+    for (const auto& member : members_) {
       ss << member.ToString() << ", ";
     }
     ss << "]";

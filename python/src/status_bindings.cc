@@ -56,6 +56,9 @@ void DefineStatusBindings(pybind11::module& m) {
       .def("IsTxnPrimaryMismatch", &Status::IsTxnPrimaryMismatch)
       .def("IsTxnRolledBack", &Status::IsTxnRolledBack)
       .def("IsNoLeader", &Status::IsNoLeader)
+      .def("IsBuildFailed", &Status::IsBuildFailed)
+      .def("IsLoadFailed", &Status::IsLoadFailed)
+      .def("IsResetFailed", &Status::IsResetFailed)
       .def("ToString", &Status::ToString)
       .def("Errno", &Status::Errno);
 }

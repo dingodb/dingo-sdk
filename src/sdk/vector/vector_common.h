@@ -100,6 +100,42 @@ static VectorIndexType InternalVectorIndexTypePB2VectorIndexType(pb::common::Vec
   }
 }
 
+static pb::common::ValueType ValueType2InternalValueTypePB(ValueType value_type) {
+  switch (value_type) {
+    case ValueType::kFloat:
+      return pb::common::ValueType::FLOAT;
+    case ValueType::kUint8:
+      return pb::common::ValueType::UINT8;
+    case ValueType::kInt8:
+      return pb::common::ValueType::INT8_T;
+    default:
+      CHECK(false) << "unsupported value type:" << value_type;
+  }
+}
+
+static DiskANNRegionState DiskANNStatePB2DiskANNState(pb::common::DiskANNState state) {
+  switch (state) {
+    case pb::common::DISKANN_LOAD_FAILED:
+      return DiskANNRegionState::kLoadFailed;
+    case pb::common::DISKANN_BUILD_FAILED:
+      return DiskANNRegionState::kBuildFailed;
+    case pb::common::DiskANNState::DISKANN_INITIALIZED:
+      return DiskANNRegionState::kInittialized;
+    case pb::common::DISKANN_BUILDING:
+      return DiskANNRegionState::kBuilding;
+    case pb::common::DISKANN_BUILDED:
+      return DiskANNRegionState::kBuilded;
+    case pb::common::DISKANN_LOADING:
+      return DiskANNRegionState::kLoading;
+    case pb::common::DISKANN_LOADED:
+      return DiskANNRegionState::kLoaded;
+    case pb::common::DISKANN_NODATA:
+      return DiskANNRegionState::kNoData;
+    default:
+      CHECK(false) << "unsupported DiskANN State :" << pb::common::DiskANNState_Name(state);
+  }
+}
+
 static void FillFlatParmeter(pb::common::VectorIndexParameter* parameter, const FlatParam& param) {
   parameter->set_vector_index_type(pb::common::VECTOR_INDEX_TYPE_FLAT);
   auto* flat = parameter->mutable_flat_parameter();
@@ -142,6 +178,16 @@ static void FillButeForceParmeter(pb::common::VectorIndexParameter* parameter, c
   bruteforce->set_metric_type(MetricType2InternalMetricTypePB(param.metric_type));
 }
 
+static void FillDiskAnnParmeter(pb::common::VectorIndexParameter* parameter, const DiskAnnParam& param) {
+  parameter->set_vector_index_type(pb::common::VECTOR_INDEX_TYPE_DISKANN);
+  auto* diskann = parameter->mutable_diskann_parameter();
+  diskann->set_dimension(param.dimension);
+  diskann->set_metric_type(MetricType2InternalMetricTypePB(param.metric_type));
+  diskann->set_value_type(ValueType2InternalValueTypePB(param.value_type));
+  diskann->set_max_degree(param.max_degree);
+  diskann->set_search_list_size(param.search_list_size);
+}
+
 static void FillRangePartitionRule(pb::meta::PartitionRule* partition_rule, const std::vector<int64_t>& seperator_ids,
                                    const std::vector<int64_t>& index_and_part_ids) {
   auto part_count = seperator_ids.size() + 1;
@@ -165,17 +211,6 @@ static void FillRangePartitionRule(pb::meta::PartitionRule* partition_rule, cons
     std::string end;
     vector_codec::EncodeVectorKey(kVectorPrefix, part_id + 1, end);
     part->mutable_range()->set_end_key(end);
-  }
-}
-
-static pb::common::ValueType ValueType2InternalValueTypePB(ValueType value_type) {
-  switch (value_type) {
-    case ValueType::kFloat:
-      return pb::common::ValueType::FLOAT;
-    case ValueType::kUint8:
-      return pb::common::ValueType::UINT8;
-    default:
-      CHECK(false) << "unsupported value type:" << value_type;
   }
 }
 
@@ -337,8 +372,9 @@ static void FillSearchHnswParamPB(pb::common::SearchHNSWParam* pb, const SearchP
   }
 }
 
-// TODO: to support
-static void FillSearchDiskAnnParamPB(pb::common::SearchDiskAnnParam* pb, const SearchParam& parameter) {}
+static void FillSearchDiskAnnParamPB(pb::common::SearchDiskAnnParam* pb, const SearchParam& parameter) {
+  pb->set_beamwidth(parameter.beamwidth);
+}
 
 static void FillInternalSearchParams(pb::common::VectorSearchParameter* internal_parameter, VectorIndexType type,
                                      const SearchParam& parameter) {

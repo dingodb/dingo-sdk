@@ -20,8 +20,8 @@
 #include <shared_mutex>
 
 #include "glog/logging.h"
-#include "sdk/client_stub.h"
 #include "proto/meta.pb.h"
+#include "sdk/client_stub.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/status.h"
 

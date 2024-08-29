@@ -64,6 +64,30 @@ static std::string FieldToString(const Type& type, const ScalarField& field) {
   }
 }
 
+std::string ErrStatusResult::ToString() const {
+  std::stringstream ss;
+  ss << " Err Status Result : \n";
+  for (const auto& status : region_status) {
+    ss << "region_id : " << status.region_id << " status : " << status.status.ToString() << "\n";
+  }
+
+  return ss.str();
+}
+
+std::string StateResult::ToString() const {
+  std::stringstream ss;
+  ss << " State Result : \n";
+  for (const auto& region_state : region_states) {
+    if (region_state.status.ok()) {
+      ss << "region_id : " << region_state.region_id << " state : " << RegionStateToString(region_state.state) << "\n";
+    } else {
+      ss << "region_id : " << region_state.region_id << " status : " << region_state.status.ToString() << "\n";
+    }
+  }
+
+  return ss.str();
+}
+
 std::string ScalarValue::ToString() const {
   std::stringstream ss;
   ss << "ScalarValue { type: " << TypeToString(type) << ", fields: [";
@@ -138,6 +162,29 @@ std::string ScanQueryResult::ToString() const {
   oss << "]";
   oss << "}";
   return oss.str();
+}
+
+std::string RegionStateToString(DiskANNRegionState state) {
+  switch (state) {
+    case DiskANNRegionState::kLoadFailed:
+      return "kLoadFailed";
+    case DiskANNRegionState::kBuildFailed:
+      return "kBuildFailed";
+    case DiskANNRegionState::kInittialized:
+      return "kInittialized";
+    case DiskANNRegionState::kBuilding:
+      return "kBuilding";
+    case DiskANNRegionState::kBuilded:
+      return "kBuilded";
+    case DiskANNRegionState::kLoading:
+      return "kLoading";
+    case DiskANNRegionState::kLoaded:
+      return "kLoaded";
+    case DiskANNRegionState::kNoData:
+      return "kNoData";
+    default:
+      return "UnKnown";
+  }
 }
 
 std::string VectorIndexTypeToString(VectorIndexType type) {

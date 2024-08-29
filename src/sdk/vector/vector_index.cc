@@ -16,10 +16,11 @@
 
 #include <cstdint>
 #include <sstream>
+#include <utility>
+#include <vector>
 
 #include "fmt/core.h"
 #include "glog/logging.h"
-#include "sdk/common/param_config.h"
 #include "sdk/vector/vector_codec.h"
 #include "sdk/vector/vector_common.h"
 
@@ -87,6 +88,15 @@ std::string VectorIndex::ToString(bool verbose) const {
     return fmt::format("VectorIndex(id={}, schema_id={}, name={}, start_key_to_part_id={})", id_, schema_id_, name_,
                        oss.str());
   }
+}
+bool VectorIndex::ExistRegion(std::shared_ptr<Region> region) const {
+  for (const auto& it : part_id_to_range_) {
+    auto index_range = it.second;
+    if (region->Range().start_key() >= index_range.start_key() && region->Range().end_key() <= index_range.end_key()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void VectorIndex::MaybeGenerateScalarSchema() {

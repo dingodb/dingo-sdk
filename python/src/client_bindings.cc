@@ -118,12 +118,11 @@ void DefineClientBindings(pybind11::module& m) {
              Status status = client.GetDocumentIndex(schema_id, index_name, out_doc_index);
              return std::make_tuple(status, out_doc_index);
            })
-      .def("GetDocumentIndexById",
-           [](Client& client, int64_t index_id) {
-             std::shared_ptr<DocumentIndex> out_doc_index;
-             Status status = client.GetDocumentIndexById(index_id, out_doc_index);
-             return std::make_tuple(status, out_doc_index);
-           });
+      .def("GetDocumentIndexById", [](Client& client, int64_t index_id) {
+        std::shared_ptr<DocumentIndex> out_doc_index;
+        Status status = client.GetDocumentIndexById(index_id, out_doc_index);
+        return std::make_tuple(status, out_doc_index);
+      });
 
   py::class_<KVPair>(m, "KVPair")
       .def(py::init<>())

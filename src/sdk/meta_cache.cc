@@ -16,11 +16,14 @@
 
 #include <string_view>
 
+#include "common/logging.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
+#include "proto/common.pb.h"
+#include "proto/coordinator.pb.h"
 #include "sdk/common/common.h"
-#include "common/logging.h"
 #include "sdk/common/param_config.h"
+#include "sdk/region.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/status.h"
 #include "sdk/utils/async_util.h"
@@ -42,6 +45,21 @@ Status MetaCache::LookupRegionByKey(std::string_view key, std::shared_ptr<Region
   }
 
   s = SlowLookUpRegionByKey(key, region);
+  return s;
+}
+
+Status MetaCache::LookupRegionByRegionId(int64_t region_id, std::shared_ptr<Region>& region) {
+  CHECK_GT(region_id, 0) << "region_id should bigger than 0";
+  Status s;
+  {
+    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    s = FastLookUpRegionByRegionIdUnlocked(region_id, region);
+    if (s.IsOK()) {
+      return s;
+    }
+  }
+
+  s = SlowLookUpRegionByRegionId(region_id, region);
   return s;
 }
 
@@ -263,7 +281,47 @@ Status MetaCache::SlowLookUpRegionByKey(std::string_view key, std::shared_ptr<Re
 
   return ProcessScanRegionsByKeyResponse(*rpc.Response(), region);
 }
+Status MetaCache::FastLookUpRegionByRegionIdUnlocked(int64_t region_id, std::shared_ptr<Region>& region) {
+  auto it = region_by_id_.find(region_id);
+  if (it == region_by_id_.end()) {
+    return Status::NotFound(fmt::format("not found region for region_id:{}", region_id));
+  } else {
+    region = region_by_id_[region_id];
+    return Status::OK();
+  }
+}
 
+Status MetaCache::SlowLookUpRegionByRegionId(int64_t region_id, std::shared_ptr<Region>& region) {
+  QueryRegionRpc rpc;
+  rpc.MutableRequest()->set_region_id(region_id);
+
+  Status send = coordinator_rpc_controller_->SyncCall(rpc);
+  if (!send.IsOK()) {
+    return send;
+  }
+  return ProcessQueryRegionsByRegionIdResponse(*rpc.Response(), region);
+}
+
+Status MetaCache::ProcessQueryRegionsByRegionIdResponse(const pb::coordinator::QueryRegionResponse& response,
+                                                        std::shared_ptr<Region>& region) {
+  if (response.has_region()) {
+    const auto& region_pb = response.region();
+    std::shared_ptr<Region> new_region;
+    ProcesssQueryRegion(region_pb, new_region);
+    {
+      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      MaybeAddRegionUnlocked(new_region);
+      auto iter = region_by_id_.find(region_pb.id());
+      CHECK(iter != region_by_id_.end());
+      CHECK(iter->second.get() != nullptr);
+      region = iter->second;
+    }
+    return Status::OK();
+  } else {
+    DINGO_LOG(WARNING) << "response:" << response.DebugString();
+    return Status::NotFound("region not found");
+  }
+}
 Status MetaCache::ProcessScanRegionsByKeyResponse(const pb::coordinator::ScanRegionsResponse& response,
                                                   std::shared_ptr<Region>& region) {
   if (response.regions_size() > 0) {
@@ -353,6 +411,21 @@ void MetaCache::ProcessScanRegionInfo(const ScanRegionInfo& scan_region_info, st
 
   region = std::make_shared<Region>(region_id, scan_region_info.range(), scan_region_info.region_epoch(),
                                     scan_region_info.status().region_type(), replicas);
+}
+void MetaCache::ProcesssQueryRegion(const pb::common::Region& query_region, std::shared_ptr<Region>& new_region) {
+  CHECK(query_region.has_definition());
+  std::vector<Replica> replicas;
+  for (const auto& peer : query_region.definition().peers()) {
+    auto endpoint = LocationToEndPoint(peer.server_location());
+    if (query_region.leader_store_id() == peer.store_id()) {
+      replicas.push_back({endpoint, kLeader});
+    } else {
+      replicas.push_back({endpoint, kFollower});
+    }
+  }
+
+  new_region = std::make_shared<Region>(query_region.id(), query_region.definition().range(),
+                                        query_region.definition().epoch(), query_region.region_type(), replicas);
 }
 
 bool MetaCache::NeedUpdateRegion(const std::shared_ptr<Region>& old_region, const std::shared_ptr<Region>& new_region) {

@@ -30,41 +30,41 @@ using VectorIndexCacheKey = std::string;
 
 class VectorIndexCache {
  public:
-  VectorIndexCache(const VectorIndexCache &) = delete;
-  const VectorIndexCache &operator=(const VectorIndexCache &) = delete;
+  VectorIndexCache(const VectorIndexCache&) = delete;
+  const VectorIndexCache& operator=(const VectorIndexCache&) = delete;
 
-  explicit VectorIndexCache(const ClientStub &stub);
+  explicit VectorIndexCache(const ClientStub& stub);
 
   ~VectorIndexCache() = default;
 
-  Status GetIndexIdByKey(const VectorIndexCacheKey &index_key, int64_t &index_id);
+  Status GetIndexIdByKey(const VectorIndexCacheKey& index_key, int64_t& index_id);
 
-  Status GetVectorIndexByKey(const VectorIndexCacheKey &index_key, std::shared_ptr<VectorIndex> &out_vector_index);
+  Status GetVectorIndexByKey(const VectorIndexCacheKey& index_key, std::shared_ptr<VectorIndex>& out_vector_index);
 
-  Status GetVectorIndexById(int64_t index_id, std::shared_ptr<VectorIndex> &out_vector_index);
+  Status GetVectorIndexById(int64_t index_id, std::shared_ptr<VectorIndex>& out_vector_index);
 
   void RemoveVectorIndexById(int64_t index_id);
 
-  void RemoveVectorIndexByKey(const VectorIndexCacheKey &index_key);
+  void RemoveVectorIndexByKey(const VectorIndexCacheKey& index_key);
 
  private:
-  Status SlowGetVectorIndexByKey(const VectorIndexCacheKey &index_key, std::shared_ptr<VectorIndex> &out_vector_index);
-  Status SlowGetVectorIndexById(int64_t index_id, std::shared_ptr<VectorIndex> &out_vector_index);
-  Status ProcessIndexDefinitionWithId(const pb::meta::IndexDefinitionWithId &index_def_with_id,
-                                      std::shared_ptr<VectorIndex> &out_vector_index);
+  Status SlowGetVectorIndexByKey(const VectorIndexCacheKey& index_key, std::shared_ptr<VectorIndex>& out_vector_index);
+  Status SlowGetVectorIndexById(int64_t index_id, std::shared_ptr<VectorIndex>& out_vector_index);
+  Status ProcessIndexDefinitionWithId(const pb::meta::IndexDefinitionWithId& index_def_with_id,
+                                      std::shared_ptr<VectorIndex>& out_vector_index);
 
-  static bool CheckIndexDefinitionWithId(const pb::meta::IndexDefinitionWithId &index_def_with_id);
+  static bool CheckIndexDefinitionWithId(const pb::meta::IndexDefinitionWithId& index_def_with_id);
   template <class VectorIndexResponse>
-  static bool CheckIndexResponse(const VectorIndexResponse &response);
+  static bool CheckIndexResponse(const VectorIndexResponse& response);
 
-  const ClientStub &stub_;
+  const ClientStub& stub_;
   mutable std::shared_mutex rw_lock_;
   std::unordered_map<VectorIndexCacheKey, int64_t> index_key_to_id_;
   std::unordered_map<int64_t, std::shared_ptr<VectorIndex>> id_to_index_;
 };
 
 template <class VectorIndexResponse>
-bool VectorIndexCache::CheckIndexResponse(const VectorIndexResponse &response) {
+bool VectorIndexCache::CheckIndexResponse(const VectorIndexResponse& response) {
   bool checked = true;
   if (!response.has_index_definition_with_id()) {
     checked = false;
@@ -79,7 +79,7 @@ bool VectorIndexCache::CheckIndexResponse(const VectorIndexResponse &response) {
   return checked;
 }
 
-static VectorIndexCacheKey EncodeVectorIndexCacheKey(int64_t schema_id, const std::string &index_name) {
+static VectorIndexCacheKey EncodeVectorIndexCacheKey(int64_t schema_id, const std::string& index_name) {
   DCHECK_GT(schema_id, 0);
   DCHECK(!index_name.empty());
   auto buf_size = sizeof(schema_id) + index_name.size();
@@ -90,7 +90,7 @@ static VectorIndexCacheKey EncodeVectorIndexCacheKey(int64_t schema_id, const st
   return std::move(tmp);
 }
 
-static void DecodeVectorIndexCacheKey(const VectorIndexCacheKey &key, int64_t &schema_id, std::string &index_name) {
+static void DecodeVectorIndexCacheKey(const VectorIndexCacheKey& key, int64_t& schema_id, std::string& index_name) {
   DCHECK_GE(key.size(), sizeof(schema_id));
   int64_t tmp_schema_id;
   memcpy(&tmp_schema_id, key.data(), sizeof(schema_id));
@@ -98,7 +98,7 @@ static void DecodeVectorIndexCacheKey(const VectorIndexCacheKey &key, int64_t &s
   index_name = std::string(key.data() + sizeof(schema_id), key.size() - sizeof(schema_id));
 }
 
-static VectorIndexCacheKey GetVectorIndexCacheKey(const VectorIndex &index) {
+static VectorIndexCacheKey GetVectorIndexCacheKey(const VectorIndex& index) {
   return std::move(EncodeVectorIndexCacheKey(index.GetSchemaId(), index.GetName()));
 }
 

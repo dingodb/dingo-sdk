@@ -15,6 +15,7 @@
 #ifndef DINGODB_SDK_META_CACHE_H_
 #define DINGODB_SDK_META_CACHE_H_
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <shared_mutex>
@@ -22,6 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "proto/common.pb.h"
 #include "proto/coordinator.pb.h"
 #include "sdk/region.h"
 #include "sdk/rpc/coordinator_rpc_controller.h"
@@ -43,6 +45,8 @@ class MetaCache {
   ~MetaCache() = default;
 
   Status LookupRegionByKey(std::string_view key, std::shared_ptr<Region>& region);
+
+  Status LookupRegionByRegionId(int64_t region_id, std::shared_ptr<Region>& region);
 
   // return first region between [start_key, end_key), this will prefetch regions and put into cache
   Status LookupRegionBetweenRange(std::string_view start_key, std::string_view end_key,
@@ -83,8 +87,17 @@ class MetaCache {
 
   Status FastLookUpRegionByKeyUnlocked(std::string_view key, std::shared_ptr<Region>& region);
 
+  Status FastLookUpRegionByRegionIdUnlocked(int64_t region_id, std::shared_ptr<Region>& region);
+
+  Status SlowLookUpRegionByRegionId(int64_t region_id, std::shared_ptr<Region>& region);
+
   Status ProcessScanRegionsByKeyResponse(const pb::coordinator::ScanRegionsResponse& response,
                                          std::shared_ptr<Region>& region);
+
+  static void ProcesssQueryRegion(const pb::common::Region& query_region, std::shared_ptr<Region>& new_region);
+
+  Status ProcessQueryRegionsByRegionIdResponse(const pb::coordinator::QueryRegionResponse& response,
+                                               std::shared_ptr<Region>& region);
 
   Status ProcessScanRegionsBetweenRangeResponse(const pb::coordinator::ScanRegionsResponse& response,
                                                 std::vector<std::shared_ptr<Region>>& regions);

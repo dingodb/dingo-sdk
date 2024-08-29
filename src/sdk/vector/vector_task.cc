@@ -49,7 +49,7 @@ Status VectorTask::Init() { return Status::OK(); }
 
 std::string VectorTask::ErrorMsg() const { return ""; }
 
-void VectorTask::DoAsyncDone(const Status &status) {
+void VectorTask::DoAsyncDone(const Status& status) {
   status_ = status;
   if (status.ok()) {
     FireCallback();

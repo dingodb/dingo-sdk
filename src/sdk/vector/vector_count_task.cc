@@ -38,7 +38,7 @@ Status VectorCountTask::Init() {
 
   std::unique_lock<std::shared_mutex> w(rw_lock_);
   auto part_ids = vector_index_->GetPartitionIds();
-  for (const auto &part_id : part_ids) {
+  for (const auto& part_id : part_ids) {
     next_part_ids_.emplace(part_id);
   }
 
@@ -60,13 +60,13 @@ void VectorCountTask::DoAsync() {
 
   sub_tasks_count_.store(next_part_ids.size());
 
-  for (const auto &part_id : next_part_ids) {
-    auto *sub_task = new VectorCountPartTask(stub, vector_index_, part_id, start_vector_id_, end_vector_id_);
-    sub_task->AsyncRun([this, sub_task](auto &&s) { SubTaskCallback(std::forward<decltype(s)>(s), sub_task); });
+  for (const auto& part_id : next_part_ids) {
+    auto* sub_task = new VectorCountPartTask(stub, vector_index_, part_id, start_vector_id_, end_vector_id_);
+    sub_task->AsyncRun([this, sub_task](auto&& s) { SubTaskCallback(std::forward<decltype(s)>(s), sub_task); });
   }
 }
 
-void VectorCountTask::SubTaskCallback(Status status, VectorCountPartTask *sub_task) {
+void VectorCountTask::SubTaskCallback(Status status, VectorCountPartTask* sub_task) {
   SCOPED_CLEANUP({ delete sub_task; });
 
   if (!status.ok()) {
@@ -98,7 +98,7 @@ void VectorCountTask::SubTaskCallback(Status status, VectorCountPartTask *sub_ta
   }
 }
 
-static void DecodeRangeToVectorId(const pb::common::Range &range, int64_t &begin_vector_id, int64_t &end_vector_id) {
+static void DecodeRangeToVectorId(const pb::common::Range& range, int64_t& begin_vector_id, int64_t& end_vector_id) {
   begin_vector_id = vector_codec::DecodeVectorId(range.start_key());
   int64_t temp_end_vector_id = vector_codec::DecodeVectorId(range.end_key());
   if (temp_end_vector_id > 0) {
@@ -111,7 +111,7 @@ static void DecodeRangeToVectorId(const pb::common::Range &range, int64_t &begin
 }
 
 void VectorCountPartTask::DoAsync() {
-  const auto &range = vector_index_->GetPartitionRange(part_id_);
+  const auto& range = vector_index_->GetPartitionRange(part_id_);
   std::vector<std::shared_ptr<Region>> partition_regions;
   Status s =
       stub.GetMetaCache()->ScanRegionsBetweenContinuousRange(range.start_key(), range.end_key(), partition_regions);
@@ -132,7 +132,7 @@ void VectorCountPartTask::DoAsync() {
 
   std::vector<std::shared_ptr<Region>> regions;
 
-  for (const auto &region : partition_regions) {
+  for (const auto& region : partition_regions) {
     int64_t region_start_vector_id;
     int64_t region_end_vector_id;
     DecodeRangeToVectorId(region->Range(), region_start_vector_id, region_end_vector_id);
@@ -173,15 +173,15 @@ void VectorCountPartTask::DoAsync() {
     sub_tasks_count_.store(regions.size());
 
     for (auto i = 0; i < regions.size(); i++) {
-      auto &controller = controllers_[i];
+      auto& controller = controllers_[i];
 
       controller.AsyncCall(
-          [this, rpc = rpcs_[i].get()](auto &&s) { VectorCountRpcCallback(std::forward<decltype(s)>(s), rpc); });
+          [this, rpc = rpcs_[i].get()](auto&& s) { VectorCountRpcCallback(std::forward<decltype(s)>(s), rpc); });
     }
   }
 }
 
-void VectorCountPartTask::VectorCountRpcCallback(Status status, VectorCountRpc *rpc) {
+void VectorCountPartTask::VectorCountRpcCallback(Status status, VectorCountRpc* rpc) {
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();

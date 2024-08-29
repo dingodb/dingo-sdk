@@ -14,6 +14,7 @@
 
 #include "sdk/vector/vector_search_task.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <iterator>
 #include <memory>
@@ -23,7 +24,6 @@
 #include "proto/common.pb.h"
 #include "proto/index.pb.h"
 #include "sdk/common/common.h"
-#include "sdk/common/param_config.h"
 #include "sdk/expression/langchain_expr.h"
 #include "sdk/expression/langchain_expr_encoder.h"
 #include "sdk/expression/langchain_expr_factory.h"
@@ -182,8 +182,8 @@ Status VectorSearchPartTask::Init() {
 
 void VectorSearchPartTask::DoAsync() {
   const auto& range = vector_index_->GetPartitionRange(part_id_);
-  std::vector<std::shared_ptr<Region>> regions;
-  Status s = stub.GetMetaCache()->ScanRegionsBetweenContinuousRange(range.start_key(), range.end_key(), regions);
+
+  Status s = stub.GetMetaCache()->ScanRegionsBetweenContinuousRange(range.start_key(), range.end_key(), regions_);
   if (!s.ok()) {
     DoAsyncDone(s);
     return;
@@ -197,23 +197,26 @@ void VectorSearchPartTask::DoAsync() {
 
   controllers_.clear();
   rpcs_.clear();
+  nodata_region_ids_.clear();
+  nodata_rpcs_.clear();
 
-  for (const auto& region : regions) {
+  for (int i = 0; i < regions_.size(); i++) {
     auto rpc = std::make_unique<VectorSearchRpc>();
+    auto region = regions_[i];
     FillVectorSearchRpcRequest(rpc->MutableRequest(), region);
-
+    region_id_to_region_index_[region->RegionId()] = i;
     StoreRpcController controller(stub, *rpc, region);
     controllers_.push_back(controller);
 
     rpcs_.push_back(std::move(rpc));
   }
 
-  DCHECK_EQ(rpcs_.size(), regions.size());
+  DCHECK_EQ(rpcs_.size(), regions_.size());
   DCHECK_EQ(rpcs_.size(), controllers_.size());
 
-  sub_tasks_count_.store(regions.size());
+  sub_tasks_count_.store(regions_.size());
 
-  for (auto i = 0; i < regions.size(); i++) {
+  for (auto i = 0; i < regions_.size(); i++) {
     auto& controller = controllers_[i];
 
     controller.AsyncCall(
@@ -236,10 +239,16 @@ void VectorSearchPartTask::VectorSearchRpcCallback(const Status& status, VectorS
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
-    if (status_.ok()) {
-      // only return first fail status
-      status_ = status;
+    if (pb::error::Errno::EDISKANN_IS_NO_DATA == status.Errno()) {
+      DINGO_LOG(INFO) << " nodata region id : " << rpc->Request()->context().region_id();
+      nodata_region_ids_.push_back(rpc->Request()->context().region_id());
+
+    } else {
+      if (status_.ok()) {
+        std::unique_lock<std::shared_mutex> w(rw_lock_);
+        // only return first fail status
+        status_ = status;
+      }
     }
   } else {
     if (rpc->Response()->batch_results_size() != rpc->Request()->vector_with_ids_size()) {
@@ -260,12 +269,89 @@ void VectorSearchPartTask::VectorSearchRpcCallback(const Status& status, VectorS
   }
 
   if (sub_tasks_count_.fetch_sub(1) == 1) {
-    Status tmp;
-    {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
-      tmp = status_;
+    CheckNoDataRegion();
+  }
+}
+
+void VectorSearchPartTask::CheckNoDataRegion() {
+  if (!status_.ok() || nodata_region_ids_.empty()) {
+    Done();
+  } else {
+    SearchByBruteForce();
+  }
+}
+
+void VectorSearchPartTask::Done() {
+  Status tmp;
+  {
+    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    tmp = status_;
+  }
+  DoAsyncDone(tmp);
+}
+
+void VectorSearchPartTask::SearchByBruteForce() {
+  pb::common::VectorSearchParameter paramer = search_parameter_;
+  paramer.clear_diskann();
+  paramer.set_use_brute_force(true);
+
+  for (auto region_id : nodata_region_ids_) {
+    auto rpc = std::make_unique<VectorSearchRpc>();
+    CHECK(region_id_to_region_index_.find(region_id) != region_id_to_region_index_.end());
+    auto region_index = region_id_to_region_index_[region_id];
+    auto region = regions_[region_index];
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch());
+    *(rpc->MutableRequest()->mutable_parameter()) = paramer;
+    for (const auto& vector_id : target_vectors_) {
+      FillVectorWithIdPB(rpc->MutableRequest()->add_vector_with_ids(), vector_id, false);
     }
-    DoAsyncDone(tmp);
+    StoreRpcController controller(stub, *rpc, region);
+    nodata_controllers_.push_back(controller);
+    nodata_rpcs_.push_back(std::move(rpc));
+  }
+  DCHECK_EQ(nodata_rpcs_.size(), nodata_region_ids_.size());
+  DCHECK_EQ(nodata_rpcs_.size(), nodata_controllers_.size());
+
+  nodata_tasks_count_.store(nodata_region_ids_.size());
+  for (auto i = 0; i < nodata_region_ids_.size(); i++) {
+    auto& controller = nodata_controllers_[i];
+    controller.AsyncCall([this, search_rpc = nodata_rpcs_[i].get()](auto&& s) {
+      NodataRegionRpcCallback(std::forward<decltype(s)>(s), search_rpc);
+    });
+  }
+}
+
+void VectorSearchPartTask::NodataRegionRpcCallback(const Status& status, VectorSearchRpc* rpc) {
+  if (!status.ok()) {
+    DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
+                       << " fail: " << status.ToString();
+
+    if (status_.ok()) {
+      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      // only return first fail status
+      status_ = status;
+    }
+
+  } else {
+    if (rpc->Response()->batch_results_size() != rpc->Request()->vector_with_ids_size()) {
+      DINGO_LOG(INFO) << Name() << " rpc: " << rpc->Method()
+                      << " request vector_with_ids_size: " << rpc->Request()->vector_with_ids_size()
+                      << " response batch_results_size: " << rpc->Response()->batch_results_size();
+    }
+
+    {
+      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      for (auto i = 0; i < rpc->Response()->batch_results_size(); i++) {
+        for (const auto& distancepb : rpc->Response()->batch_results(i).vector_with_distances()) {
+          VectorWithDistance distance = InternalVectorWithDistance2VectorWithDistance(distancepb);
+          search_result_[i].push_back(std::move(distance));
+        }
+      }
+    }
+  }
+
+  if (nodata_tasks_count_.fetch_sub(1) == 1) {
+    Done();
   }
 }
 

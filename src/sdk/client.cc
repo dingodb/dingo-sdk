@@ -248,13 +248,14 @@ Status Client::DropDocumentIndexByName(int64_t schema_id, const std::string& ind
   return DropDocumentIndexById(index_id);
 }
 
-Status Client::GetDocumentIndex(int64_t schema_id, const std::string& index_name, std::shared_ptr<DocumentIndex> &out_doc_index){
+Status Client::GetDocumentIndex(int64_t schema_id, const std::string& index_name,
+                                std::shared_ptr<DocumentIndex>& out_doc_index) {
   return data_->stub->GetDocumentIndexCache()->GetDocumentIndexByKey(EncodeDocumentIndexCacheKey(schema_id, index_name),
-                                                                   out_doc_index);
+                                                                     out_doc_index);
 }
 
-Status Client::GetDocumentIndexById(int64_t index_id, std::shared_ptr<DocumentIndex> &out_doc_index) {
-    return data_->stub->GetDocumentIndexCache()->GetDocumentIndexById(index_id,out_doc_index);
+Status Client::GetDocumentIndexById(int64_t index_id, std::shared_ptr<DocumentIndex>& out_doc_index) {
+  return data_->stub->GetDocumentIndexCache()->GetDocumentIndexById(index_id, out_doc_index);
 }
 
 RawKV::RawKV(Data* data) : data_(data) {}

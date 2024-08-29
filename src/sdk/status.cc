@@ -117,6 +117,15 @@ std::string Status::ToString() const {
       case kNoLeader:
         type = "NoLeader";
         break;
+      case kBuildFailed:
+        type = "BuildFailed";
+        break;
+      case kLoadFailed:
+        type = "LoadFailed";
+        break;
+      case kResetFailed:
+        type = "ResetFailed";
+        break;
       default:
         std::string tmp = fmt::format("Unknown code({}):", static_cast<int>(code_));
         CHECK(false) << tmp;

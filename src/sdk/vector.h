@@ -28,6 +28,40 @@ namespace sdk {
 
 class ClientStub;
 
+struct RegionStatus {
+  int64_t region_id;
+  Status status;
+};
+
+struct ErrStatusResult {
+  std::vector<RegionStatus> region_status;
+  std::string ToString() const;
+};
+
+enum DiskANNRegionState : uint8_t {
+  kBuildFailed,
+  kLoadFailed,
+  kInittialized,
+  kBuilding,
+  kBuilded,
+  kLoading,
+  kLoaded,
+  kNoData
+};
+
+struct RegionState {
+  int64_t region_id;
+  DiskANNRegionState state;
+  Status status;  // 没有错误记为OK
+};
+
+struct StateResult {
+  std::vector<RegionState> region_states;
+  std::string ToString() const;
+};
+
+std::string RegionStateToString(DiskANNRegionState state);
+
 enum VectorIndexType : uint8_t { kNoneIndexType, kFlat, kIvfFlat, kIvfPq, kHnsw, kDiskAnn, kBruteForce };
 
 std::string VectorIndexTypeToString(VectorIndexType type);
@@ -35,6 +69,10 @@ std::string VectorIndexTypeToString(VectorIndexType type);
 enum MetricType : uint8_t { kNoneMetricType, kL2, kInnerProduct, kCosine };
 
 std::string MetricTypeToString(MetricType type);
+
+enum ValueType : uint8_t { kNoneValueType, kFloat, kUint8, kInt8 };
+
+std::string ValueTypeToString(ValueType type);
 
 struct FlatParam {
   // dimensions required
@@ -106,7 +144,32 @@ struct HnswParam {
 };
 
 struct DiskAnnParam {
-  // TODO: to support
+  // The number of dimensions in the vector data. required
+  int32_t dimension;
+
+  // distance calculation method (L2 or InnerProduct) required
+  // The distance calculation method to be used for the index.
+  MetricType metric_type;
+
+  // value_type , one of {int8, uint8, float} - float is single precision (32 bit)
+  // Note that we currently only support float. default is float. required
+  ValueType value_type{kFloat};
+
+  // the degree of the graph index, typically between 60 and 150.
+  // Larger max_degree will result in larger indices and longer indexing times, but better search quality.
+  // (default is 64) . R . required
+  int32_t max_degree{64};
+
+  // the size of search list during index build. Typical values are between 75 to 200.
+  // Larger values will take more time to build but result in indices that provide higher recall for the same search
+  // complexity. Use a value for search_list_size value that is at least the value of max_degree unless you need to
+  // build indices really quickly and can somewhat compromise on quality. (default is 100) . L . required
+  int32_t search_list_size{100};
+
+  explicit DiskAnnParam(int32_t p_dimension, MetricType p_metric_type, ValueType p_value_type)
+      : dimension(p_dimension), metric_type(p_metric_type), value_type(p_value_type) {}
+
+  static VectorIndexType Type() { return VectorIndexType::kDiskAnn; }
 };
 
 struct BruteForceParam {
@@ -136,9 +199,12 @@ struct VectorScalarSchema {
   std::vector<VectorScalarColumnSchema> cols;
 };
 
-enum ValueType : uint8_t { kNoneValueType, kFloat, kUint8 };
-
-std::string ValueTypeToString(ValueType type);
+struct VectorLoadDiskAnnParam {
+  uint32_t num_nodes_to_cache{0};
+  bool warmup{true};
+  explicit VectorLoadDiskAnnParam(uint32_t p_num_nodes_to_cache = 0, bool p_warmup = true)
+      : num_nodes_to_cache(p_num_nodes_to_cache), warmup(p_warmup) {}
+};
 
 struct Vector {
   int32_t dimension;
@@ -234,6 +300,7 @@ struct SearchParam {
   bool use_brute_force{false};      // use brute-force search
   std::map<SearchExtraParamType, int32_t> extra_params;  // The search method to use
   std::string langchain_expr_json;                       // must json format, will convert to coprocessor
+  uint32_t beamwidth{2};
 
   explicit SearchParam() = default;
 
@@ -249,7 +316,8 @@ struct SearchParam {
         vector_ids(std::move(other.vector_ids)),
         use_brute_force(other.use_brute_force),
         extra_params(std::move(other.extra_params)),
-        langchain_expr_json(std::move(other.langchain_expr_json)) {
+        langchain_expr_json(std::move(other.langchain_expr_json)),
+        beamwidth(other.beamwidth) {
     other.topk = 0;
     other.with_vector_data = true;
     other.with_scalar_data = false;
@@ -259,6 +327,7 @@ struct SearchParam {
     other.filter_source = kNoneFilterSource;
     other.filter_type = kNoneFilterType;
     other.use_brute_force = false;
+    other.beamwidth = 2;
   }
 
   SearchParam& operator=(SearchParam&& other) noexcept {
@@ -274,6 +343,7 @@ struct SearchParam {
     use_brute_force = other.use_brute_force;
     extra_params = std::move(other.extra_params);
     langchain_expr_json = std::move(other.langchain_expr_json);
+    beamwidth = other.beamwidth;
 
     other.topk = 0;
     other.with_vector_data = true;
@@ -284,6 +354,7 @@ struct SearchParam {
     other.filter_source = kNoneFilterSource;
     other.filter_type = kNoneFilterType;
     other.use_brute_force = false;
+    other.beamwidth = 2;
 
     return *this;
   }
@@ -440,7 +511,7 @@ class VectorIndexCreator {
   VectorIndexCreator& SetIvfFlatParam(const IvfFlatParam& params);
   VectorIndexCreator& SetIvfPqParam(const IvfPqParam& params);
   VectorIndexCreator& SetHnswParam(const HnswParam& params);
-  // VectorIndexCreator& SetDiskAnnParam(DiskAnnParam& params);
+  VectorIndexCreator& SetDiskAnnParam(const DiskAnnParam& params);
   VectorIndexCreator& SetBruteForceParam(const BruteForceParam& params);
 
   // when start_id greater than 0, index is enable auto_increment
@@ -504,6 +575,38 @@ class VectorClient {
   Status CountByIndexId(int64_t index_id, int64_t start_vector_id, int64_t end_vector_id, int64_t& out_count);
   Status CountByIndexName(int64_t schema_id, const std::string& index_name, int64_t start_vector_id,
                           int64_t end_vector_id, int64_t& out_count);
+
+  // DiskANN
+  Status StatusByIndexId(int64_t index_id, StateResult& result);
+  Status StatusByIndexName(int64_t schema_id, const std::string& index_name, StateResult& result);
+  Status StatusByRegionId(int64_t index_id, const std::vector<int64_t>& region_ids, StateResult& result);
+  Status StatusByRegionIdIndexName(int64_t schema_id, const std::string& index_name,
+                                   const std::vector<int64_t>& region_ids, StateResult& result);
+
+  Status BuildByIndexId(int64_t index_id, ErrStatusResult& result);
+  Status BuildByIndexName(int64_t schema_id, const std::string& index_name, ErrStatusResult& result);
+  Status BuildByRegionId(int64_t index_id, const std::vector<int64_t>& region_ids, ErrStatusResult& result);
+  Status BuildByRegionIdIndexName(int64_t schema_id, const std::string& index_name,
+                                  const std::vector<int64_t>& region_ids, ErrStatusResult& result);
+
+  Status LoadByIndexId(int64_t index_id, ErrStatusResult& result);
+  Status LoadByIndexName(int64_t schema_id, const std::string& index_name, ErrStatusResult& result);
+  Status LoadByRegionId(int64_t index_id, const std::vector<int64_t>& region_ids, ErrStatusResult& result);
+  Status LoadByRegionIdIndexName(int64_t schema_id, const std::string& index_name,
+                                 const std::vector<int64_t>& region_ids, ErrStatusResult& result);
+
+  Status ResetByIndexId(int64_t index_id, ErrStatusResult& result);
+  Status ResetByIndexName(int64_t schema_id, const std::string& index_name, ErrStatusResult& result);
+  Status ResetByRegionId(int64_t index_id, const std::vector<int64_t>& region_ids, ErrStatusResult& result);
+  Status ResetByRegionIdIndexName(int64_t schema_id, const std::string& index_name,
+                                  const std::vector<int64_t>& region_ids, ErrStatusResult& result);
+
+  Status CountMemoryByIndexId(int64_t index_id, int64_t& count);
+  Status CountMemoryByIndexName(int64_t schema_id, const std::string& index_name, int64_t& count);
+
+  // dump
+  Status DumpByIndexId(int64_t index_id);
+  Status DumpByIndexName(int64_t schema_id, const std::string& index_name);
 
  private:
   friend class Client;

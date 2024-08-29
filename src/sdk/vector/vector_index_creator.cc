@@ -73,6 +73,12 @@ VectorIndexCreator& VectorIndexCreator::SetHnswParam(const HnswParam& params) {
   return *this;
 }
 
+VectorIndexCreator& VectorIndexCreator::SetDiskAnnParam(const DiskAnnParam& params) {
+  data_->index_type = kDiskAnn;
+  data_->diskann_param = params;
+  return *this;
+}
+
 VectorIndexCreator& VectorIndexCreator::SetBruteForceParam(const BruteForceParam& params) {
   data_->index_type = kBruteForce;
   data_->brute_force_param = params;

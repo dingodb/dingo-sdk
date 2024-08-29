@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 #include "fmt/core.h"
 #include "sdk/client_stub.h"
@@ -101,6 +102,14 @@ class VectorSearchPartTask : public VectorTask {
 
   void VectorSearchRpcCallback(const Status& status, VectorSearchRpc* rpc);
 
+  void SearchByBruteForce();
+
+  void CheckNoDataRegion();
+
+  void Done();
+
+  void NodataRegionRpcCallback(const Status& status, VectorSearchRpc* rpc);
+
   const int64_t index_id_;
   const int64_t part_id_;
   const pb::common::VectorSearchParameter& search_parameter_;
@@ -112,12 +121,18 @@ class VectorSearchPartTask : public VectorTask {
 
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<VectorSearchRpc>> rpcs_;
+  std::vector<int64_t> nodata_region_ids_;
+  std::vector<std::unique_ptr<VectorSearchRpc>> nodata_rpcs_;
+  std::vector<StoreRpcController> nodata_controllers_;
 
   std::shared_mutex rw_lock_;
   Status status_;
+  std::vector<std::shared_ptr<Region>> regions_;
+  std::unordered_map<int64_t, int32_t> region_id_to_region_index_;
   // target_vectors_ idx to search result
   std::unordered_map<int64_t, std::vector<VectorWithDistance>> search_result_;
 
+  std::atomic<int> nodata_tasks_count_{0};
   std::atomic<int> sub_tasks_count_{0};
 };
 

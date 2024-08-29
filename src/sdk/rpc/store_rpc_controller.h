@@ -17,8 +17,8 @@
 
 #include <memory>
 
-#include "sdk/client_stub.h"
 #include "proto/error.pb.h"
+#include "sdk/client_stub.h"
 #include "sdk/status.h"
 #include "sdk/utils/callback.h"
 #include "sdk/utils/net_util.h"

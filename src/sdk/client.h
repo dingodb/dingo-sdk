@@ -98,9 +98,10 @@ class Client {
 
   Status DropDocumentIndexByName(int64_t schema_id, const std::string& index_name);
 
-  Status GetDocumentIndex(int64_t schema_id, const std::string& index_name, std::shared_ptr<DocumentIndex> &out_doc_index);
+  Status GetDocumentIndex(int64_t schema_id, const std::string& index_name,
+                          std::shared_ptr<DocumentIndex>& out_doc_index);
 
-  Status GetDocumentIndexById(int64_t index_id, std::shared_ptr<DocumentIndex> &out_doc_index);
+  Status GetDocumentIndexById(int64_t index_id, std::shared_ptr<DocumentIndex>& out_doc_index);
 
  private:
   friend class RawKV;
