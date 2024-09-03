@@ -118,9 +118,6 @@ if(SDK_ENABLE_GRPC)
 else()
     message(STATUS "Build sdk with brpc")
 
-    find_package(leveldb REQUIRED)
-    message("Using leveldb ${leveldb_VERSION}")
-
     find_package(Snappy)
     message("Using Snappy ${Snappy_VERSION}")
 
@@ -146,7 +143,7 @@ else()
         $<TARGET_OBJECTS:PROTO_OBJS>
         $<TARGET_OBJECTS:SERRIAL_OJBS>
         brpc
-        leveldb::leveldb
+        leveldb
         Snappy::snappy
         grpc_protobuf
         ZLIB::ZLIB
