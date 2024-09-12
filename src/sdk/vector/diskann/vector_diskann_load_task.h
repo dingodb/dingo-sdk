@@ -105,6 +105,7 @@ class VectorLoadByRegionTask : public VectorTask {
   const int64_t index_id_;
   const std::vector<int64_t>& region_ids_;
   ErrStatusResult& result_;
+  ErrStatusResult tmp_result_;
 
   std::shared_ptr<VectorIndex> vector_index_;
   pb::common::VectorLoadParameter param_;

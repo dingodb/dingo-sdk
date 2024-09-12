@@ -5,7 +5,6 @@
 #include <memory>
 #include <unordered_map>
 
-#include "proto/common.pb.h"
 #include "sdk/client_stub.h"
 #include "sdk/rpc/index_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
@@ -102,6 +101,7 @@ class VectorResetByRegionTask : public VectorTask {
   const int64_t index_id_;
   const std::vector<int64_t>& region_ids_;
   ErrStatusResult& result_;
+  ErrStatusResult tmp_result_;
 
   std::shared_ptr<VectorIndex> vector_index_;
 

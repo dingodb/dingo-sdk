@@ -601,6 +601,13 @@ class VectorClient {
   Status ResetByRegionIdIndexName(int64_t schema_id, const std::string& index_name,
                                   const std::vector<int64_t>& region_ids, ErrStatusResult& result);
 
+  Status ImportAddByIndexId(int64_t index_id, std::vector<VectorWithId>& vectors);
+  Status ImportAddByIndexName(int64_t schema_id, const std::string& index_name, std::vector<VectorWithId>& vectors);
+
+  Status ImportDeleteByIndexId(int64_t index_id, const std::vector<int64_t>& vector_ids);
+  Status ImportDeleteByIndexName(int64_t schema_id, const std::string& index_name,
+                                 const std::vector<int64_t>& vector_ids);
+
   Status CountMemoryByIndexId(int64_t index_id, int64_t& count);
   Status CountMemoryByIndexName(int64_t schema_id, const std::string& index_name, int64_t& count);
 

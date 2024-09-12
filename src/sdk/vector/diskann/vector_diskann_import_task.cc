@@ -27,6 +27,10 @@ Status VectorImportAddTask::Init() {
   DCHECK_NOTNULL(tmp);
   vector_index_ = std::move(tmp);
 
+  if (vector_index_->GetVectorIndexType() != VectorIndexType::kDiskAnn) {
+    return Status::InvalidArgument("vector_index is not diskann");
+  }
+
   if (vector_index_->HasAutoIncrement()) {
     auto incrementer = stub.GetAutoIncrementerManager()->GetOrCreateVectorIndexIncrementer(vector_index_);
     std::vector<int64_t> ids;
@@ -168,6 +172,10 @@ Status VectorImportDeleteTask::Init() {
   DCHECK_NOTNULL(tmp);
   vector_index_ = std::move(tmp);
 
+  if (vector_index_->GetVectorIndexType() != VectorIndexType::kDiskAnn) {
+    return Status::InvalidArgument("vector_index is not diskann");
+  }
+
   std::unique_lock<std::shared_mutex> w(rw_lock_);
   next_vector_ids_.clear();
 
@@ -257,15 +265,15 @@ void VectorImportDeleteTask::VectorImportDeleteRpcCallback(const Status& status,
                        << " fail: " << status.ToString();
 
     std::unique_lock<std::shared_mutex> w(rw_lock_);
-    for (auto id : rpc->Request()->delete_ids()) {
-      out_result_.push_back({id, false});
-    }
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
-    DINGO_LOG(INFO) << "delete  region id : " << rpc->Request()->context().region_id();
+    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    for (const auto& id : rpc->Request()->delete_ids()) {
+      next_vector_ids_.erase(id);
+    }
   }
 
   if (sub_tasks_count_.fetch_sub(1) == 1) {

@@ -221,6 +221,10 @@ void MetaCache::ClearCache() {
 }
 
 void MetaCache::MaybeAddRegion(const std::shared_ptr<Region>& new_region) {
+  if (new_region->range_.start_key() >= new_region->range_.end_key()) {
+    DINGO_LOG(WARNING) << "err : region start_key >= region end_key\n" << new_region->ToString();
+    return;
+  }
   std::unique_lock<std::shared_mutex> w(rw_lock_);
   MaybeAddRegionUnlocked(new_region);
 }

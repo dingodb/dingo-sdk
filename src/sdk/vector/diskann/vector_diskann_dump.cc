@@ -21,6 +21,10 @@ Status VectorDumpTask::Init() {
   DCHECK_NOTNULL(tmp);
   vector_index_ = std::move(tmp);
 
+  if (vector_index_->GetVectorIndexType() != VectorIndexType::kDiskAnn) {
+    return Status::InvalidArgument("vector_index is not diskann");
+  }
+
   std::unique_lock<std::shared_mutex> w(rw_lock_);
   auto part_ids = vector_index_->GetPartitionIds();
 

@@ -13,7 +13,7 @@ parser.add_argument(
     "--coordinator_addrs",
     "-addrs",
     type=str,
-    default="172.30.14.11:22001,172.30.14.11:22002,172.30.14.11:22003",
+    default="127.0.0.1:22001,127.0.0.1:22002,127.0.0.1:22003",
     help="coordinator addrs, try to use like 127.0.0.1:22001,127.0.0.1:22002,127.0.0.1:22003",
 )
 args = parser.parse_args()
@@ -83,11 +83,11 @@ def vector_add(use_index_name=False):
         delta += 1
 
     if use_index_name:
-        add, vectors = g_vector_client.AddByIndexName(
+        add, vectors = g_vector_client.ImportAddByIndexName(
             g_schema_id, g_index_name, vectors, False, False
         )
     else:
-        add, vectors = g_vector_client.AddByIndexId(g_index_id, vectors, False, False)
+        add, vectors = g_vector_client.ImportAddByIndexId(g_index_id, vectors)
 
     for v in vectors:
         print(f"add vector: {v.ToString()}")
@@ -137,21 +137,14 @@ def vector_search(use_index_name=False):
 
 def vector_delete(use_index_name=False):
     if use_index_name:
-        tmp, result = g_vector_client.DeleteByIndexName(
+        tmp = g_vector_client.ImportDeleteByIndexName(
             g_schema_id, g_index_name, g_vector_ids
         )
     else:
-        tmp, result = g_vector_client.DeleteByIndexId(g_index_id, g_vector_ids)
+        tmp = g_vector_client.ImportDeleteByIndexId(g_index_id, g_vector_ids)
 
-    print(f"vector delete status: {tmp.ToString()}")
-    for r in result:
-        print(f"vector delete result: {r.ToString()}")
-
-    for i in range(len(result)):
-        delete_result = result[i]
-        print(
-            f"vector_id: {delete_result.vector_id}, bool is deleted: {delete_result.deleted}"
-        )
+    if not tmp.ok():
+        print(f"vector delete status: :{tmp.ToString()}")
 
 
 def vector_status_by_index(use_index_name=False):
@@ -159,9 +152,11 @@ def vector_status_by_index(use_index_name=False):
         tmp, result = g_vector_client.StatusByIndexName(g_schema_id, g_index_name)
     else:
         tmp, result = g_vector_client.StatusByIndexId(g_index_id)
-    print(f"vector status status: {tmp.ToString()}")
+
     if tmp.ok():
         print(f"vector status result :{ result.ToString()}")
+    else:
+        print(f"vector status status: {tmp.ToString()}")
     for i in range(len(result.region_states)):
         status_result = result.region_states[i]
         g_region_ids.add(status_result.region_id)
@@ -177,9 +172,11 @@ def vector_status_by_region(use_index_name=False):
         )
     else:
         tmp, result = g_vector_client.StatusByRegionId(g_index_id, region_ids)
-    print(f"vector status status: {tmp.ToString()}")
+
     if tmp.ok():
         print(f"vector status result :{result.ToString()}")
+    else:
+        print(f"vector status status: {tmp.ToString()}")
 
 
 def vector_reset_by_index(use_index_name=False):
@@ -187,9 +184,10 @@ def vector_reset_by_index(use_index_name=False):
         tmp, result = g_vector_client.ResetByIndexName(g_schema_id, g_index_name)
     else:
         tmp, result = g_vector_client.ResetByIndexId(g_index_id)
-    print(f"vector Reset status: {tmp.ToString()}")
     if tmp.IsResetFailed():
         print(f"vector Reset result :{ result.ToString()}")
+    else:
+        print(f"vector Reset status: {tmp.ToString()}")
 
 
 def vector_reset_by_region(use_index_name=False):
@@ -202,9 +200,10 @@ def vector_reset_by_region(use_index_name=False):
         )
     else:
         tmp, result = g_vector_client.ResetByRegionId(g_index_id, region_ids)
-    print(f"vector Reset status: {tmp.ToString()}")
     if tmp.IsResetFailed():
         print(f"vector Reset result :{result.ToString()}")
+    else:
+        print(f"vector Reset status: {tmp.ToString()}")
 
 
 def vector_build_by_index(use_index_name=False):
@@ -212,9 +211,10 @@ def vector_build_by_index(use_index_name=False):
         tmp, result = g_vector_client.BuildByIndexName(g_schema_id, g_index_name)
     else:
         tmp, result = g_vector_client.BuildByIndexId(g_index_id)
-    print(f"vector Build status: {tmp.ToString()}")
     if tmp.IsBuildFailed():
-        print(f"vector Reset result :{result.ToString()}")
+        print(f"vector Build result :{result.ToString()}")
+    else:
+        print(f"vector Build status: {tmp.ToString()}")
 
 
 def vector_build_by_region(use_index_name=False):
@@ -227,9 +227,10 @@ def vector_build_by_region(use_index_name=False):
         )
     else:
         tmp, result = g_vector_client.BuildByRegionId(g_index_id, region_ids)
-    print(f"vector Build status: {tmp.ToString()}")
     if tmp.IsBuildFailed():
         print(f"vector Reset result :{result.ToString()}")
+    else:
+        print(f"vector Build status: {tmp.ToString()}")
 
 
 def vector_load_by_index(use_index_name=False):
@@ -237,9 +238,10 @@ def vector_load_by_index(use_index_name=False):
         tmp, result = g_vector_client.LoadByIndexName(g_schema_id, g_index_name)
     else:
         tmp, result = g_vector_client.LoadByIndexId(g_index_id)
-    print(f"vector Load status: {tmp.ToString()}")
     if tmp.IsLoadFailed():
-        print(f"vector Reset result :{result.ToString()}")
+        print(f"vector Load result :{result.ToString()}")
+    else:
+        print(f"vector Load status: {tmp.ToString()}")
 
 
 def vector_load_by_region(use_index_name=False):
@@ -252,9 +254,10 @@ def vector_load_by_region(use_index_name=False):
         )
     else:
         tmp, result = g_vector_client.LoadByRegionId(g_index_id, region_ids)
-    print(f"vector Load status: {tmp.ToString()}")
     if tmp.IsLoadFailed():
-        print(f"vector Reset result :{result.ToString()}")
+        print(f"vector Load result :{result.ToString()}")
+    else:
+        print(f"vector Load status: {tmp.ToString()}")
 
 
 def vector_count_memory(use_index_name=False):
@@ -262,9 +265,10 @@ def vector_count_memory(use_index_name=False):
         tmp, result = g_vector_client.LoadByIndexName(g_schema_id, g_index_name)
     else:
         tmp, result = g_vector_client.CountMemoryByIndexId(g_index_id)
-    print(f"vector CountMemory status: {tmp.ToString()}")
     if tmp.ok():
         print(f"vector CountMemory result :{result}")
+    else:
+        print(f"vector CountMemory status: {tmp.ToString()}")
 
 
 def check_builded_by_index(use_index_name=False):

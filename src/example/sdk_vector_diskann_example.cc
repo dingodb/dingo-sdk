@@ -128,9 +128,9 @@ static void VectorAdd(bool use_index_name = false) {
   }
   Status add;
   if (use_index_name) {
-    add = g_vector_client->AddByIndexName(g_schema_id, g_index_name, vectors, false, false);
+    add = g_vector_client->ImportAddByIndexName(g_schema_id, g_index_name, vectors);
   } else {
-    add = g_vector_client->AddByIndexId(g_index_id, vectors, false, false);
+    add = g_vector_client->ImportAddByIndexId(g_index_id, vectors);
   }
   add_times++;
 }
@@ -186,16 +186,12 @@ static void VectorSearch(bool use_index_name = false) {
 
 static void VectorDelete(bool use_index_name = false) {
   Status tmp;
-  std::vector<dingodb::sdk::DeleteResult> result;
   if (use_index_name) {
-    tmp = g_vector_client->DeleteByIndexName(g_schema_id, g_index_name, g_vector_ids, result);
+    tmp = g_vector_client->ImportDeleteByIndexName(g_schema_id, g_index_name, g_vector_ids);
   } else {
-    tmp = g_vector_client->DeleteByIndexId(g_index_id, g_vector_ids, result);
+    tmp = g_vector_client->ImportDeleteByIndexId(g_index_id, g_vector_ids);
   }
   DINGO_LOG(INFO) << "vector delete status: " << tmp.ToString();
-  for (const auto& r : result) {
-    DINGO_LOG(INFO) << "vector delete result:" << r.ToString();
-  }
 }
 
 static void VectorStatusByIndex(bool use_index_name = false) {
@@ -209,7 +205,7 @@ static void VectorStatusByIndex(bool use_index_name = false) {
 
   if (statu.ok()) {
     for (auto& result : result.region_states) {
-      // 收集region id方便后续region操作
+      // Collecting region IDs for subsequent region operations
       g_region_ids.insert(result.region_id);
       if (result.status.ok()) {
         DINGO_LOG(INFO) << "region_id : " << result.region_id << " state : " << RegionStateToString(result.state);
@@ -233,7 +229,7 @@ static void VectorStatusByRegion(bool use_index_name = false) {
   } else {
     statu = g_vector_client->StatusByRegionId(g_index_id, region, result);
   }
-
+  DINGO_LOG(INFO) << "size:" << result.region_states.size();
   if (statu.ok()) {
     DINGO_LOG(INFO) << "vector status " << result.ToString();
   }
@@ -597,73 +593,145 @@ int main(int argc, char* argv[]) {
   }
   CHECK_NOTNULL(tmp);
   g_client.reset(tmp);
-
-  PrepareVectorIndex();
-  PrepareVectorClient();
-
   {
-    // By index
-    VectorAdd();
-    VectorBuildByIndex();
-    CheckBuildedByIndex();
-    VectorStatusByIndex();
-    VectorCountMemory();
-    VectorLoadByIndex();
-    VectorStatusByIndex();
-    VectorDump();
-    CheckLoadedByIndex();
-    VectorStatusByIndex();
-    VectorSearch();
+    PrepareVectorIndex();
+    PrepareVectorClient();
+
+    {
+      // By index
+      VectorAdd();
+      VectorBuildByIndex();
+      CheckBuildedByIndex();
+      VectorStatusByIndex();
+      VectorCountMemory();
+      VectorLoadByIndex();
+      VectorStatusByIndex();
+      VectorDump();
+      CheckLoadedByIndex();
+      VectorStatusByIndex();
+      VectorSearch();
+    }
+
+    {
+      // By region
+      PreCheckResetByRegion();
+      VectorResetByRegion();
+      VectorStatusByIndex();
+      VectorBuildByRegion();
+      CheckBuildedByRegion();
+      VectorStatusByRegion();
+      VectorLoadByRegion();
+      CheckLoadedByRegion();
+      VectorStatusByRegion();
+      VectorDump();
+      VectorCountMemory();
+      VectorSearch();
+      VectorStatusByRegion();
+      PreCheckResetByIndex();
+      VectorResetByIndex();
+      VectorStatusByIndex();
+    }
+
+    {
+      // reset  after build
+      VectorBuildByIndex();
+      CheckBuildedByIndex();
+      PreCheckResetByRegion();
+      VectorStatusByIndex();
+      VectorResetByRegion();
+      VectorStatusByRegion();
+      VectorStatusByIndex();
+      VectorBuildByRegion();
+      CheckBuildedByRegion();
+    }
+
+    {
+      // reset after load
+      VectorLoadByIndex();
+      CheckLoadedByIndex();
+      PreCheckResetByRegion();
+      VectorResetByRegion();
+      VectorStatusByRegion();
+      VectorStatusByIndex();
+      VectorBuildByRegion();
+      CheckBuildedByRegion();
+      VectorLoadByRegion();
+      CheckLoadedByRegion();
+      VectorSearch();
+    }
+
+    VectorDelete();
+    PostClean();
   }
 
   {
-    // By region
-    PreCheckResetByRegion();
-    VectorResetByRegion();
-    VectorStatusByIndex();
-    VectorBuildByRegion();
-    CheckBuildedByRegion();
-    VectorStatusByRegion();
-    VectorLoadByRegion();
-    CheckLoadedByRegion();
-    VectorStatusByRegion();
-    VectorDump();
-    VectorCountMemory();
-    VectorSearch();
-    VectorStatusByRegion();
-    PreCheckResetByIndex();
-    VectorResetByIndex();
-    VectorStatusByIndex();
-  }
+    PrepareVectorIndex();
+    PrepareVectorClient();
 
-  {
-    // reset  after build
-    VectorBuildByIndex();
-    CheckBuildedByIndex();
-    PreCheckResetByRegion();
-    VectorStatusByIndex();
-    VectorResetByRegion();
-    VectorStatusByRegion();
-    VectorStatusByIndex();
-    VectorBuildByRegion();
-    CheckBuildedByRegion();
-  }
+    {
+      // By index
+      VectorAdd(true);
+      VectorBuildByIndex(true);
+      CheckBuildedByIndex(true);
+      VectorStatusByIndex(true);
+      VectorCountMemory(true);
+      VectorLoadByIndex(true);
+      VectorStatusByIndex(true);
+      VectorDump(true);
+      CheckLoadedByIndex(true);
+      VectorStatusByIndex(true);
+      VectorSearch(true);
+    }
 
-  {
-    // reset after load
-    VectorLoadByIndex();
-    CheckLoadedByIndex();
-    PreCheckResetByRegion();
-    VectorResetByRegion();
-    VectorStatusByRegion();
-    VectorStatusByIndex();
-    VectorBuildByRegion();
-    CheckBuildedByRegion();
-    VectorLoadByRegion();
-    CheckLoadedByRegion();
-    VectorSearch();
-  }
+    {
+      // By region
+      PreCheckResetByRegion(true);
+      VectorResetByRegion(true);
+      VectorStatusByIndex(true);
+      VectorBuildByRegion(true);
+      CheckBuildedByRegion(true);
+      VectorStatusByRegion(true);
+      VectorLoadByRegion(true);
+      CheckLoadedByRegion(true);
+      VectorStatusByRegion(true);
+      VectorDump(true);
+      VectorCountMemory(true);
+      VectorSearch(true);
+      VectorStatusByRegion(true);
+      PreCheckResetByIndex(true);
+      VectorResetByIndex(true);
+      VectorStatusByIndex(true);
+    }
 
-  VectorDelete();
-  PostClean();
+    {
+      // reset  after build
+      VectorBuildByIndex(true);
+      CheckBuildedByIndex(true);
+      PreCheckResetByRegion(true);
+      VectorStatusByIndex(true);
+      VectorResetByRegion(true);
+      VectorStatusByRegion(true);
+      VectorStatusByIndex(true);
+      VectorBuildByRegion(true);
+      CheckBuildedByRegion(true);
+    }
+
+    {
+      // reset after load
+      VectorLoadByIndex(true);
+      CheckLoadedByIndex(true);
+      PreCheckResetByRegion(true);
+      VectorResetByRegion(true);
+      VectorStatusByRegion(true);
+      VectorStatusByIndex(true);
+      VectorBuildByRegion(true);
+      CheckBuildedByRegion(true);
+      VectorLoadByRegion(true);
+      CheckLoadedByRegion(true);
+      VectorSearch(true);
+    }
+
+    VectorDelete(true);
+    PostClean(true);
+  }
 }

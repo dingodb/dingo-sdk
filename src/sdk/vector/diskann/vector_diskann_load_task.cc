@@ -214,6 +214,14 @@ Status VectorLoadByRegionTask ::Init() {
   }
 
   std::unique_lock<std::shared_mutex> w(rw_lock_);
+
+  std::set<int64_t> check_duplicates_ids;
+  for (const auto& id : region_ids_) {
+    if (!check_duplicates_ids.insert(id).second) {
+      return Status::InvalidArgument("duplicate vector id: " + std::to_string(id));
+    }
+  }
+
   for (auto region_id : region_ids_) {
     std::shared_ptr<Region> region;
     Status s = stub.GetMetaCache()->LookupRegionByRegionId(region_id, region);
@@ -221,7 +229,7 @@ Status VectorLoadByRegionTask ::Init() {
       RegionStatus region_status;
       region_status.region_id = region_id;
       region_status.status = s;
-      result_.region_status.push_back(std::move(region_status));
+      tmp_result_.region_status.push_back(std::move(region_status));
       DINGO_LOG(WARNING) << "region_id : " << region_id << " is not found \n"
                          << "status : " << s.ToString();
       continue;
@@ -231,7 +239,7 @@ Status VectorLoadByRegionTask ::Init() {
       RegionStatus region_status;
       region_status.region_id = region_id;
       region_status.status = Status::InvalidArgument("region is not DiskANN Index Region");
-      result_.region_status.push_back(std::move(region_status));
+      tmp_result_.region_status.push_back(std::move(region_status));
 
       DINGO_LOG(WARNING) << "region_id : " << region_id << "dose not exist in "
                          << " index_id :" << vector_index_->GetId();
@@ -251,8 +259,9 @@ void VectorLoadByRegionTask::DoAsync() {
   }
 
   if (regions_.empty()) {
-    DINGO_LOG(WARNING) << "regions are empty ";
+    result_.region_status = tmp_result_.region_status;
     DoAsyncDone(Status::LoadFailed(""));
+    return;
   }
 
   param_.mutable_diskann()->set_warmup(true);
@@ -305,6 +314,12 @@ void VectorLoadByRegionTask::VectorLoadByRegionRpcCallback(const Status& status,
   }
 
   if (sub_tasks_count_.fetch_sub(1) == 1) {
+    {
+      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      for (auto& r : tmp_result_.region_status) {
+        result_.region_status.push_back(r);
+      }
+    }
     if (status_.ok() && !result_.region_status.empty()) {
       std::unique_lock<std::shared_mutex> w(rw_lock_);
       status_ = Status::LoadFailed("");

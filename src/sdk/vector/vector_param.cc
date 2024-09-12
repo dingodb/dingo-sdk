@@ -16,12 +16,12 @@
 #ifndef DINGODB_SDK_VECTOR_PARAMS_H_
 #define DINGODB_SDK_VECTOR_PARAMS_H_
 
-#include <cstdint>
+#include <glog/logging.h>
+
 #include <ostream>
 #include <sstream>
 
 #include "fmt/core.h"
-#include "fmt/ranges.h"
 #include "sdk/types.h"
 #include "sdk/vector.h"
 

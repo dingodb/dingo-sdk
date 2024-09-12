@@ -20,7 +20,6 @@ Status VectorCountMemoryByIndexTask::Init() {
   vector_index_ = std::move(tmp);
 
   if (vector_index_->GetVectorIndexType() != VectorIndexType::kDiskAnn) {
-    DoAsyncDone(Status::OK());
     return Status::InvalidArgument("vector_index is not diskann");
   }
   std::unique_lock<std::shared_mutex> w(rw_lock_);
@@ -44,6 +43,7 @@ void VectorCountMemoryByIndexTask::DoAsync() {
     DoAsyncDone(Status::OK());
     return;
   }
+
   sub_tasks_count_.store(next_part_ids.size());
   for (const auto& part_id : next_part_ids) {
     auto* sub_task = new VectorCountMemoryPartTask(stub, vector_index_, part_id);
@@ -63,9 +63,8 @@ void VectorCountMemoryByIndexTask::SubTaskCallback(Status status, VectorCountMem
       status_ = status;
     }
   } else {
+    tmp_count_.fetch_add(sub_task->GetCount());
     std::unique_lock<std::shared_mutex> w(rw_lock_);
-    count_ += sub_task->GetCount();
-
     next_part_ids_.erase(sub_task->part_id_);
   }
 
@@ -76,10 +75,15 @@ void VectorCountMemoryByIndexTask::SubTaskCallback(Status status, VectorCountMem
       tmp = status_;
     }
 
+    if (tmp.ok()) {
+      count_ = tmp_count_.load();
+    }
+
     DoAsyncDone(tmp);
   }
 }
 
+// VectorCountMemoryPartTask
 void VectorCountMemoryPartTask::DoAsync() {
   const auto& range = vector_index_->GetPartitionRange(part_id_);
   std::vector<std::shared_ptr<Region>> regions;
@@ -96,6 +100,7 @@ void VectorCountMemoryPartTask::DoAsync() {
 
   controllers_.clear();
   rpcs_.clear();
+  count_.store(0);
 
   for (const auto& region : regions) {
     auto rpc = std::make_unique<VectorCountMemoryRpc>();

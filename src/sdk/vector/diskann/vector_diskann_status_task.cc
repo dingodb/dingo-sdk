@@ -14,7 +14,6 @@
 #include "sdk/utils/scoped_cleanup.h"
 #include "sdk/vector.h"
 #include "sdk/vector/vector_common.h"
-#include "sdk/vector/vector_helper.h"
 #include "sdk/vector/vector_index.h"
 
 namespace dingodb {
@@ -206,6 +205,14 @@ Status VectorStatusByRegionTask ::Init() {
   }
 
   std::unique_lock<std::shared_mutex> w(rw_lock_);
+
+  std::set<int64_t> check_duplicates_ids;
+  for (const auto& id : region_ids_) {
+    if (!check_duplicates_ids.insert(id).second) {
+      return Status::InvalidArgument("duplicate vector id: " + std::to_string(id));
+    }
+  }
+
   for (auto region_id : region_ids_) {
     std::shared_ptr<Region> region;
     Status s = stub.GetMetaCache()->LookupRegionByRegionId(region_id, region);
@@ -213,7 +220,7 @@ Status VectorStatusByRegionTask ::Init() {
       RegionState region_states;
       region_states.region_id = region_id;
       region_states.status = s;
-      result_.region_states.push_back(std::move(region_states));
+      tmp_result_.region_states.push_back(std::move(region_states));
       DINGO_LOG(WARNING) << "region_id : " << region_id << " is not found \n"
                          << "status : " << s.ToString();
       continue;
@@ -223,7 +230,7 @@ Status VectorStatusByRegionTask ::Init() {
       RegionState region_states;
       region_states.region_id = region_id;
       region_states.status = Status::InvalidArgument("region is not DiskANN Index Region");
-      result_.region_states.push_back(std::move(region_states));
+      tmp_result_.region_states.push_back(std::move(region_states));
 
       DINGO_LOG(WARNING) << "region_id : " << region_id << "dose not exist in "
                          << " index_id :" << vector_index_->GetId();
@@ -242,8 +249,9 @@ void VectorStatusByRegionTask::DoAsync() {
   }
 
   if (regions_.empty()) {
-    DINGO_LOG(WARNING) << "regions are empty ";
+    result_.region_states = tmp_result_.region_states;
     DoAsyncDone(Status::OK());
+    return;
   }
 
   controllers_.clear();
@@ -278,6 +286,7 @@ void VectorStatusByRegionTask::VectorStatusByRegionRpcCallback(const Status& sta
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
     std::unique_lock<std::shared_mutex> w(rw_lock_);
+
     RegionState region_states;
     region_states.region_id = rpc->Request()->context().region_id();
     region_states.status = status;
@@ -295,6 +304,12 @@ void VectorStatusByRegionTask::VectorStatusByRegionRpcCallback(const Status& sta
   }
 
   if (sub_tasks_count_.fetch_sub(1) == 1) {
+    {
+      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      for (auto& r : tmp_result_.region_states) {
+        result_.region_states.push_back(r);
+      }
+    }
     Status tmp;
     {
       std::shared_lock<std::shared_mutex> r(rw_lock_);

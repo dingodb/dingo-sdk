@@ -105,6 +105,7 @@ class VectorStatusByRegionTask : public VectorTask {
   const int64_t index_id_;
   const std::vector<int64_t>& region_ids_;
   StateResult& result_;
+  StateResult tmp_result_;
 
   std::shared_ptr<VectorIndex> vector_index_;
 
