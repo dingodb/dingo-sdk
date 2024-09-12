@@ -16,12 +16,13 @@
 #ifndef DINGODB_SDK_VECTOR_PARAMS_H_
 #define DINGODB_SDK_VECTOR_PARAMS_H_
 
-#include <cstdint>
+#include <glog/logging.h>
+
 #include <ostream>
 #include <sstream>
 
+#include "common/logging.h"
 #include "fmt/core.h"
-#include "fmt/ranges.h"
 #include "sdk/types.h"
 #include "sdk/vector.h"
 
@@ -78,11 +79,8 @@ std::string StateResult::ToString() const {
   std::stringstream ss;
   ss << " State Result : \n";
   for (const auto& region_state : region_states) {
-    if (region_state.status.ok()) {
       ss << "region_id : " << region_state.region_id << " state : " << RegionStateToString(region_state.state) << "\n";
-    } else {
-      ss << "region_id : " << region_state.region_id << " status : " << region_state.status.ToString() << "\n";
-    }
+    
   }
 
   return ss.str();
@@ -167,21 +165,21 @@ std::string ScanQueryResult::ToString() const {
 std::string RegionStateToString(DiskANNRegionState state) {
   switch (state) {
     case DiskANNRegionState::kLoadFailed:
-      return "kLoadFailed";
+      return "LoadFailed";
     case DiskANNRegionState::kBuildFailed:
-      return "kBuildFailed";
+      return "BuildFailed";
     case DiskANNRegionState::kInittialized:
-      return "kInittialized";
+      return "Inittialized";
     case DiskANNRegionState::kBuilding:
-      return "kBuilding";
+      return "Building";
     case DiskANNRegionState::kBuilded:
-      return "kBuilded";
+      return "Builded";
     case DiskANNRegionState::kLoading:
-      return "kLoading";
+      return "Loading";
     case DiskANNRegionState::kLoaded:
-      return "kLoaded";
+      return "Loaded";
     case DiskANNRegionState::kNoData:
-      return "kNoData";
+      return "NoData";
     default:
       return "UnKnown";
   }
