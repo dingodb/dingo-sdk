@@ -58,10 +58,14 @@ set(SDK_SRCS
   vector/vector_search_task.cc
   vector/vector_update_task.cc
   vector/diskann/vector_diskann_count_memory_task.cc
-  vector/diskann/vector_diskann_reset_task.cc
-  vector/diskann/vector_diskann_status_task.cc
-  vector/diskann/vector_diskann_build_task.cc
-  vector/diskann/vector_diskann_load_task.cc
+  vector/diskann/vector_diskann_reset_by_index_task.cc
+  vector/diskann/vector_diskann_reset_by_region_task.cc
+  vector/diskann/vector_diskann_status_by_index_task.cc
+  vector/diskann/vector_diskann_status_by_region_task.cc
+  vector/diskann/vector_diskann_build_by_index_task.cc
+  vector/diskann/vector_diskann_build_by_region_task.cc
+  vector/diskann/vector_diskann_load_by_index_task.cc
+  vector/diskann/vector_diskann_load_by_region_task.cc
   vector/diskann/vector_diskann_import_task.cc
   vector/diskann/vector_diskann_dump.cc
   document/document_client.cc

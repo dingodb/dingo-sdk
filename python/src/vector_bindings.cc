@@ -52,8 +52,7 @@ void DefineVectorBindings(pybind11::module& m) {
   py::class_<RegionState>(m, "RegionState")
       .def(py::init<>())
       .def_readwrite("region_id", &RegionState::region_id)
-      .def_readwrite("state", &RegionState::state)
-      .def_readwrite("status", &RegionState::status);
+      .def_readwrite("state", &RegionState::state);
 
   py::class_<StateResult>(m, "StateResult")
       .def(py::init<>())
@@ -517,14 +516,36 @@ void DefineVectorBindings(pybind11::module& m) {
              Status status = vectorclient.ResetByRegionIdIndexName(schema_id, index_name, region_ids, result);
              return std::make_tuple(status, result);
            })
+      .def("ImportAddByIndexId",
+           [](VectorClient& vectorclient, int64_t index_id, std::vector<VectorWithId>& vectors) {
+             Status status = vectorclient.ImportAddByIndexId(index_id, vectors);
+             return std::make_tuple(status, vectors);
+           })
+      .def("ImportAddByIndexName",
+           [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name,
+              std::vector<VectorWithId>& vectors) {
+             Status status = vectorclient.ImportAddByIndexName(schema_id, index_name, vectors);
+             return std::make_tuple(status, vectors);
+           })
+      .def("ImportDeleteByIndexId",
+           [](VectorClient& vectorclient, int64_t index_id, const std::vector<int64_t>& vector_ids) {
+             Status status = vectorclient.ImportDeleteByIndexId(index_id, vector_ids);
+             return status;
+           })
+      .def("ImportDeleteByIndexName",
+           [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name,
+              const std::vector<int64_t>& vector_ids) {
+             Status status = vectorclient.ImportDeleteByIndexName(schema_id, index_name, vector_ids);
+             return status;
+           })
       .def("CountMemoryByIndexId",
            [](VectorClient& vectorclient, int64_t index_id) {
-             int64_t count;
+             int64_t count{0};
              Status status = vectorclient.CountMemoryByIndexId(index_id, count);
              return std::make_tuple(status, count);
            })
       .def("CountMemoryByIndexName", [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name) {
-        int64_t count;
+        int64_t count{0};
         Status status = vectorclient.CountMemoryByIndexName(schema_id, index_name, count);
         return std::make_tuple(status, count);
       });

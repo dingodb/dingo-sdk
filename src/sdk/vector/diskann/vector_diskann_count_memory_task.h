@@ -5,7 +5,6 @@
 #include <memory>
 #include <unordered_map>
 
-#include "proto/common.pb.h"
 #include "sdk/client_stub.h"
 #include "sdk/rpc/index_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
@@ -40,6 +39,7 @@ class VectorCountMemoryByIndexTask : public VectorTask {
   std::shared_mutex rw_lock_;
   std::set<int64_t> next_part_ids_;
   Status status_;
+  std::atomic<int> tmp_count_{0};
 
   std::atomic<int> sub_tasks_count_{0};
 };

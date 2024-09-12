@@ -17,13 +17,17 @@
 #include "sdk/client_stub.h"
 #include "sdk/status.h"
 #include "sdk/vector.h"
-#include "sdk/vector/diskann/vector_diskann_build_task.h"
+#include "sdk/vector/diskann/vector_diskann_build_by_index_task.h"
+#include "sdk/vector/diskann/vector_diskann_build_by_region_task.h"
 #include "sdk/vector/diskann/vector_diskann_count_memory_task.h"
 #include "sdk/vector/diskann/vector_diskann_dump.h"
 #include "sdk/vector/diskann/vector_diskann_import_task.h"
-#include "sdk/vector/diskann/vector_diskann_load_task.h"
-#include "sdk/vector/diskann/vector_diskann_reset_task.h"
-#include "sdk/vector/diskann/vector_diskann_status_task.h"
+#include "sdk/vector/diskann/vector_diskann_load_by_index_task.h"
+#include "sdk/vector/diskann/vector_diskann_load_by_region_task.h"
+#include "sdk/vector/diskann/vector_diskann_reset_by_index_task.h"
+#include "sdk/vector/diskann/vector_diskann_reset_by_region_task.h"
+#include "sdk/vector/diskann/vector_diskann_status_by_index_task.h"
+#include "sdk/vector/diskann/vector_diskann_status_by_region_task.h"
 #include "sdk/vector/vector_add_task.h"
 #include "sdk/vector/vector_batch_query_task.h"
 #include "sdk/vector/vector_count_task.h"
@@ -42,17 +46,8 @@ VectorClient::VectorClient(const ClientStub& stub) : stub_(stub) {}
 
 Status VectorClient::AddByIndexId(int64_t index_id, std::vector<VectorWithId>& vectors, bool replace_deleted,
                                   bool is_update) {
-  // DiskANN or other
-  std::shared_ptr<VectorIndex> tmp_vector_index;
-  DINGO_RETURN_NOT_OK(stub_.GetVectorIndexCache()->GetVectorIndexById(index_id, tmp_vector_index));
-  DCHECK_NOTNULL(tmp_vector_index);
-  if (tmp_vector_index->GetVectorIndexType() == kDiskAnn) {
-    VectorImportAddTask task(stub_, index_id, vectors);
-    return task.Run();
-  } else {
-    VectorAddTask task(stub_, index_id, vectors, replace_deleted, is_update);
-    return task.Run();
-  }
+  VectorAddTask task(stub_, index_id, vectors, replace_deleted, is_update);
+  return task.Run();
 }
 
 Status VectorClient::AddByIndexName(int64_t schema_id, const std::string& index_name,
@@ -100,17 +95,8 @@ Status VectorClient::SearchByIndexName(int64_t schema_id, const std::string& ind
 
 Status VectorClient::DeleteByIndexId(int64_t index_id, const std::vector<int64_t>& vector_ids,
                                      std::vector<DeleteResult>& out_result) {
-  // diskann or other
-  std::shared_ptr<VectorIndex> tmp_vector_index;
-  DINGO_RETURN_NOT_OK(stub_.GetVectorIndexCache()->GetVectorIndexById(index_id, tmp_vector_index));
-  DCHECK_NOTNULL(tmp_vector_index);
-  if (tmp_vector_index->GetVectorIndexType() == kDiskAnn) {
-    VectorImportDeleteTask task(stub_, index_id, vector_ids, out_result);
-    return task.Run();
-  } else {
-    VectorDeleteTask task(stub_, index_id, vector_ids, out_result);
-    return task.Run();
-  }
+  VectorDeleteTask task(stub_, index_id, vector_ids, out_result);
+  return task.Run();
 }
 
 Status VectorClient::DeleteByIndexName(int64_t schema_id, const std::string& index_name,
@@ -343,6 +329,36 @@ Status VectorClient::CountMemoryByIndexName(int64_t schema_id, const std::string
       stub_.GetVectorIndexCache()->GetIndexIdByKey(EncodeVectorIndexCacheKey(schema_id, index_name), index_id));
   CHECK_GT(index_id, 0);
   VectorCountMemoryByIndexTask task(stub_, index_id, count);
+  return task.Run();
+}
+
+Status VectorClient::ImportAddByIndexId(int64_t index_id, std::vector<VectorWithId>& vectors) {
+  VectorImportAddTask task(stub_, index_id, vectors);
+  return task.Run();
+}
+
+Status VectorClient::ImportAddByIndexName(int64_t schema_id, const std::string& index_name,
+                                          std::vector<VectorWithId>& vectors) {
+  int64_t index_id{0};
+  DINGO_RETURN_NOT_OK(
+      stub_.GetVectorIndexCache()->GetIndexIdByKey(EncodeVectorIndexCacheKey(schema_id, index_name), index_id));
+  CHECK_GT(index_id, 0);
+  VectorImportAddTask task(stub_, index_id, vectors);
+  return task.Run();
+}
+
+Status VectorClient::ImportDeleteByIndexId(int64_t index_id, const std::vector<int64_t>& vector_ids) {
+  VectorImportDeleteTask task(stub_, index_id, vector_ids);
+  return task.Run();
+}
+
+Status VectorClient::ImportDeleteByIndexName(int64_t schema_id, const std::string& index_name,
+                                             const std::vector<int64_t>& vector_ids) {
+  int64_t index_id{0};
+  DINGO_RETURN_NOT_OK(
+      stub_.GetVectorIndexCache()->GetIndexIdByKey(EncodeVectorIndexCacheKey(schema_id, index_name), index_id));
+  CHECK_GT(index_id, 0);
+  VectorImportDeleteTask task(stub_, index_id, vector_ids);
   return task.Run();
 }
 

@@ -46,9 +46,8 @@ class VectorImportAddTask : public VectorTask {
 
 class VectorImportDeleteTask : public VectorTask {
  public:
-  VectorImportDeleteTask(const ClientStub& stub, int64_t index_id, const std::vector<int64_t>& vector_ids,
-                         std::vector<DeleteResult>& out_result)
-      : VectorTask(stub), index_id_(index_id), vector_ids_(vector_ids), out_result_(out_result) {}
+  VectorImportDeleteTask(const ClientStub& stub, int64_t index_id, const std::vector<int64_t>& vector_ids)
+      : VectorTask(stub), index_id_(index_id), vector_ids_(vector_ids) {}
 
   ~VectorImportDeleteTask() override = default;
 
@@ -62,7 +61,6 @@ class VectorImportDeleteTask : public VectorTask {
 
   const int64_t index_id_;
   const std::vector<int64_t>& vector_ids_;
-  std::vector<DeleteResult>& out_result_;
 
   std::shared_ptr<VectorIndex> vector_index_;
 
