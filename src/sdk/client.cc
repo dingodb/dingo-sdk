@@ -57,6 +57,7 @@
 #include "sdk/vector.h"
 #include "sdk/vector/vector_index_cache.h"
 #include "sdk/vector/vector_index_creator_internal_data.h"
+#include "sdk/vector/vector_index.h"
 
 namespace dingodb {
 namespace sdk {
@@ -191,6 +192,16 @@ Status Client::NewVectorIndexCreator(VectorIndexCreator** index_creator) {
 Status Client::GetVectorIndexId(int64_t schema_id, const std::string& index_name, int64_t& out_index_id) {
   return data_->stub->GetVectorIndexCache()->GetIndexIdByKey(EncodeVectorIndexCacheKey(schema_id, index_name),
                                                              out_index_id);
+}
+
+Status Client::GetVectorIndex(int64_t schema_id, const std::string& index_name,
+                              std::shared_ptr<VectorIndex>& out_vector_index) {
+  return data_->stub->GetVectorIndexCache()->GetVectorIndexByKey(EncodeVectorIndexCacheKey(schema_id, index_name),
+                                                                 out_vector_index);
+}
+
+Status Client::GetVectorIndexById(int64_t index_id, std::shared_ptr<VectorIndex>& out_vector_index) {
+  return data_->stub->GetVectorIndexCache()->GetVectorIndexById(index_id, out_vector_index);
 }
 
 Status Client::DropVectorIndexById(int64_t index_id) {

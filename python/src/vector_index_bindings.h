@@ -12,24 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef DINGODB_PYTHON_SDK_VECTOR_INDEX_BINDINGS_H_
+#define DINGODB_PYTHON_SDK_VECTOR_INDEX_BINDINGS_H_
+
 #include <pybind11/pybind11.h>
 
-#include "client_bindings.h"
-#include "status_bindings.h"
-#include "vector_bindings.h"
-#include "types_bindings.h"
-#include "document_bindings.h"
-#include "document_index_bindings.h"
-#include "vector_index_bindings.h"
+void DefineVectorIndexBindings(pybind11::module& m);
 
-PYBIND11_MODULE(dingosdk, m) {
-  m.doc() = "python sdk for dingo store, from https://github.com/dingodb/dingo-sdk";
-
-  DefineStatusBindings(m);
-  DefineVectorBindings(m);
-  DefineClientBindings(m);
-  DefineTypesBindings(m);
-  DefineDocumentBindings(m);
-  DefineDocumentIndexBindings(m);
-  DefineVectorIndexBindings(m);
-}
+#endif  // DINGODB_PYTHON_SDK_VECTOR_INDEX_BINDINGS_H_

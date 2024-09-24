@@ -22,6 +22,7 @@
 
 #include "sdk/client.h"
 #include "sdk/document/document_index.h"
+#include "sdk/vector/vector_index.h"
 
 void DefineClientBindings(pybind11::module& m) {
   using namespace dingodb;
@@ -89,6 +90,18 @@ void DefineClientBindings(pybind11::module& m) {
              int64_t out_index_id;
              Status status = client.GetVectorIndexId(schema_id, index_name, out_index_id);
              return std::make_tuple(status, out_index_id);
+           })
+      .def("GetVectorIndex",
+           [](Client& client, int64_t schema_id, const std::string& index_name) {
+             std::shared_ptr<VectorIndex> out_vector_index;
+             Status status = client.GetVectorIndex(schema_id, index_name, out_vector_index);
+             return std::make_tuple(status, out_vector_index);
+           })
+      .def("GetVectorIndexById",
+           [](Client& client, int64_t index_id) {
+             std::shared_ptr<VectorIndex> out_vector_index;
+             Status status = client.GetVectorIndexById(index_id, out_vector_index);
+             return std::make_tuple(status, out_vector_index);
            })
       .def("DropVectorIndexById", &Client::DropVectorIndexById)
       .def("DropVectorIndexByName", &Client::DropVectorIndexByName)

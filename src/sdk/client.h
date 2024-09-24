@@ -35,6 +35,7 @@ class VectorIndexCreator;
 class VectorClient;
 class EndPoint;
 class DocumentIndex;
+class VectorIndex;
 
 /// @brief Callers must keep client valid in it's lifetime in order to interact with the cluster,
 class Client {
@@ -79,6 +80,11 @@ class Client {
   Status NewVectorIndexCreator(VectorIndexCreator** index_creator);
 
   Status GetVectorIndexId(int64_t schema_id, const std::string& index_name, int64_t& out_index_id);
+
+  Status GetVectorIndex(int64_t schema_id, const std::string& index_name,
+                        std::shared_ptr<VectorIndex>& out_vector_index);
+
+  Status GetVectorIndexById(int64_t index_id, std::shared_ptr<VectorIndex>& out_vector_index);
 
   Status DropVectorIndexById(int64_t index_id);
 
