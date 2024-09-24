@@ -39,5 +39,5 @@ void DefineDocumentIndexBindings(pybind11::module& m) {
       .def("GetIncrementStartId", &DocumentIndex::GetIncrementStartId)
       .def("GetSchema", &DocumentIndex::GetSchema)
       .def("ToString", &DocumentIndex::ToString);
-
+ 
 }
