@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef DINGODB_SDK_VECTOR_UPDATE_TASK_H_
-#define DINGODB_SDK_VECTOR_UPDATE_TASK_H_
+#ifndef DINGODB_SDK_VECTOR_UPSERT_TASK_H_
+#define DINGODB_SDK_VECTOR_UPSERT_TASK_H_
 
 #include <cstdint>
 #include <memory>
@@ -28,18 +28,18 @@
 namespace dingodb {
 namespace sdk {
 
-class VectorUpdateTask : public VectorTask {
+class VectorUpsertTask : public VectorTask {
  public:
-  VectorUpdateTask(const ClientStub &stub, int64_t index_id, std::vector<VectorWithId> &vectors)
+  VectorUpsertTask(const ClientStub &stub, int64_t index_id, std::vector<VectorWithId> &vectors)
       : VectorTask(stub), index_id_(index_id), vectors_(vectors) {}
 
-  ~VectorUpdateTask() override = default;
+  ~VectorUpsertTask() override = default;
 
  private:
   Status Init() override;
   void DoAsync() override;
 
-  std::string Name() const override { return fmt::format("VectorUpdateTask-{}", index_id_); }
+  std::string Name() const override { return fmt::format("VectorUpsertTask-{}", index_id_); }
 
   void VectorAddRpcCallback(const Status &status, VectorAddRpc *rpc);
 
@@ -60,4 +60,4 @@ class VectorUpdateTask : public VectorTask {
 }  // namespace sdk
 
 }  // namespace dingodb
-#endif  // DINGODB_SDK_VECTOR_UPDATE_TASK_H_
+#endif  // DINGODB_SDK_VECTOR_UPSERT_TASK_H_

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "sdk/vector/vector_update_task.h"
+#include "sdk/vector/vector_upsert_task.h"
 
 #include <cstdint>
 #include <unordered_map>
@@ -28,7 +28,7 @@
 namespace dingodb {
 namespace sdk {
 
-Status VectorUpdateTask::Init() {
+Status VectorUpsertTask::Init() {
   if (vectors_.empty()) {
     return Status::InvalidArgument("vectors is empty, no need update vector");
   }
@@ -58,7 +58,7 @@ Status VectorUpdateTask::Init() {
   return Status::OK();
 }
 
-void VectorUpdateTask::DoAsync() {
+void VectorUpsertTask::DoAsync() {
   std::unordered_map<int64_t, int64_t> next_batch;
   {
     std::unique_lock<std::shared_mutex> w(rw_lock_);
@@ -105,6 +105,7 @@ void VectorUpdateTask::DoAsync() {
 
     auto rpc = std::make_unique<VectorAddRpc>();
     FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->Epoch());
+    rpc->MutableRequest()->set_is_update(true);
 
     for (const auto &id : entry.second) {
       int64_t idx = vector_id_to_idx_[id];
@@ -130,7 +131,7 @@ void VectorUpdateTask::DoAsync() {
   }
 }
 
-void VectorUpdateTask::VectorAddRpcCallback(const Status &status, VectorAddRpc *rpc) {
+void VectorUpsertTask::VectorAddRpcCallback(const Status &status, VectorAddRpc *rpc) {
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();

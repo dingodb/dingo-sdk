@@ -119,8 +119,7 @@ void VectorAddTask::DoAsync() {
 
     auto rpc = std::make_unique<VectorAddRpc>();
     FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->Epoch());
-    rpc->MutableRequest()->set_is_update(is_update_);
-    rpc->MutableRequest()->set_replace_deleted(replace_deleted_);
+    rpc->MutableRequest()->set_is_update(false);
 
     for (const auto& id : entry.second) {
       int64_t idx = vector_id_to_idx_[id];

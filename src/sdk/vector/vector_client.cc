@@ -37,41 +37,40 @@
 #include "sdk/vector/vector_index_cache.h"
 #include "sdk/vector/vector_scan_query_task.h"
 #include "sdk/vector/vector_search_task.h"
-#include "sdk/vector/vector_update_task.h"
+#include "sdk/vector/vector_upsert_task.h"
 
 namespace dingodb {
 namespace sdk {
 
 VectorClient::VectorClient(const ClientStub& stub) : stub_(stub) {}
 
-Status VectorClient::AddByIndexId(int64_t index_id, std::vector<VectorWithId>& vectors, bool replace_deleted,
-                                  bool is_update) {
-  VectorAddTask task(stub_, index_id, vectors, replace_deleted, is_update);
+Status VectorClient::AddByIndexId(int64_t index_id, std::vector<VectorWithId>& vectors) {
+  VectorAddTask task(stub_, index_id, vectors);
   return task.Run();
 }
 
 Status VectorClient::AddByIndexName(int64_t schema_id, const std::string& index_name,
-                                    std::vector<VectorWithId>& vectors, bool replace_deleted, bool is_update) {
+                                    std::vector<VectorWithId>& vectors) {
   int64_t index_id{0};
   DINGO_RETURN_NOT_OK(
       stub_.GetVectorIndexCache()->GetIndexIdByKey(EncodeVectorIndexCacheKey(schema_id, index_name), index_id));
   CHECK_GT(index_id, 0);
-  VectorAddTask task(stub_, index_id, vectors, replace_deleted, is_update);
+  VectorAddTask task(stub_, index_id, vectors);
   return task.Run();
 }
 
-Status VectorClient::UpdateByIndexId(int64_t index_id, std::vector<VectorWithId>& vectors) {
-  VectorUpdateTask task(stub_, index_id, vectors);
+Status VectorClient::UpsertByIndexId(int64_t index_id, std::vector<VectorWithId>& vectors) {
+  VectorUpsertTask task(stub_, index_id, vectors);
   return task.Run();
 }
 
-Status VectorClient::UpdateByIndexName(int64_t schema_id, const std::string& index_name,
+Status VectorClient::UpsertByIndexName(int64_t schema_id, const std::string& index_name,
                                        std::vector<VectorWithId>& vectors) {
   int64_t index_id{0};
   DINGO_RETURN_NOT_OK(
       stub_.GetVectorIndexCache()->GetIndexIdByKey(EncodeVectorIndexCacheKey(schema_id, index_name), index_id));
   CHECK_GT(index_id, 0);
-  VectorUpdateTask task(stub_, index_id, vectors);
+  VectorUpsertTask task(stub_, index_id, vectors);
   return task.Run();
 }
 
