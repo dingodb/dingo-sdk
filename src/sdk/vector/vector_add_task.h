@@ -30,13 +30,10 @@ namespace sdk {
 
 class VectorAddTask : public VectorTask {
  public:
-  VectorAddTask(const ClientStub &stub, int64_t index_id, std::vector<VectorWithId> &vectors,
-                bool replace_deleted = false, bool is_update = false)
+  VectorAddTask(const ClientStub &stub, int64_t index_id, std::vector<VectorWithId> &vectors)
       : VectorTask(stub),
         index_id_(index_id),
-        vectors_(vectors),
-        replace_deleted_(replace_deleted),
-        is_update_(is_update) {}
+        vectors_(vectors){}
 
   ~VectorAddTask() override = default;
 
@@ -52,8 +49,6 @@ class VectorAddTask : public VectorTask {
 
   const int64_t index_id_;
   std::vector<VectorWithId> &vectors_;
-  const bool replace_deleted_;
-  const bool is_update_;
 
   std::shared_ptr<VectorIndex> vector_index_;
 
