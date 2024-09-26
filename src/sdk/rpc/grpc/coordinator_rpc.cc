@@ -33,6 +33,7 @@ DEFINE_COORDINATOR_RPC(DropRegion);
 DEFINE_COORDINATOR_RPC(ScanRegions);
 
 DEFINE_META_RPC(GenerateAutoIncrement);
+DEFINE_META_RPC(UpdateAutoIncrement);
 DEFINE_META_RPC(CreateIndex);
 DEFINE_META_RPC(GetIndexByName);
 DEFINE_META_RPC(DropIndex);

@@ -57,6 +57,8 @@ set(SDK_SRCS
   vector/vector_scan_query_task.cc
   vector/vector_search_task.cc
   vector/vector_upsert_task.cc
+  vector/vector_get_auto_increment_id_task.cc
+  vector/vector_update_auto_increment_task.cc
   vector/diskann/vector_diskann_count_memory_task.cc
   vector/diskann/vector_diskann_reset_by_index_task.cc
   vector/diskann/vector_diskann_reset_by_region_task.cc
@@ -83,6 +85,8 @@ set(SDK_SRCS
   document/document_scan_query_task.cc
   document/document_search_task.cc
   document/document_update_task.cc
+  document/document_get_auto_increment_id_task.cc
+  document/document_update_auto_increment_task.cc
   utils/thread_pool_actuator.cc
   utils/thread_pool_impl.cc
   common/param_config.cc

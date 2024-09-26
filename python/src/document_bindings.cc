@@ -141,120 +141,150 @@ void DefineDocumentBindings(pybind11::module& m) {
       .def("ToString", &DocIndexMetricsResult::ToString);
 
   py::class_<DocumentClient>(m, "DocumentClient")
-      .def("AddByIndexId", 
-           [](DocumentClient& documentclient, int64_t index_id, std::vector<DocWithId>& docs){
+      .def("AddByIndexId",
+           [](DocumentClient& documentclient, int64_t index_id, std::vector<DocWithId>& docs) {
              Status status = documentclient.AddByIndexId(index_id, docs);
-             return std::make_tuple(status, docs);    
+             return std::make_tuple(status, docs);
            })
       .def("AddByIndexName",
-           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name, std::vector<DocWithId>& docs){
+           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name,
+              std::vector<DocWithId>& docs) {
              Status status = documentclient.AddByIndexName(schema_id, index_name, docs);
-             return std::make_tuple(status, docs); 
-            })
-      .def("UpdateByIndexId", 
-           [](DocumentClient& documentclient, int64_t index_id, std::vector<DocWithId>& docs){
+             return std::make_tuple(status, docs);
+           })
+      .def("UpdateByIndexId",
+           [](DocumentClient& documentclient, int64_t index_id, std::vector<DocWithId>& docs) {
              Status status = documentclient.UpdateByIndexId(index_id, docs);
-             return std::make_tuple(status, docs);    
+             return std::make_tuple(status, docs);
            })
       .def("UpdateByIndexName",
-           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name, std::vector<DocWithId>& docs){
+           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name,
+              std::vector<DocWithId>& docs) {
              Status status = documentclient.UpdateByIndexName(schema_id, index_name, docs);
-             return std::make_tuple(status, docs); 
-            })
-      .def("SearchByIndexId", 
-           [](DocumentClient& documentclient, int64_t index_id, const DocSearchParam& search_param){
-            DocSearchResult out_result;
+             return std::make_tuple(status, docs);
+           })
+      .def("SearchByIndexId",
+           [](DocumentClient& documentclient, int64_t index_id, const DocSearchParam& search_param) {
+             DocSearchResult out_result;
              Status status = documentclient.SearchByIndexId(index_id, search_param, out_result);
-             return std::make_tuple(status, out_result);    
+             return std::make_tuple(status, out_result);
            })
       .def("SearchByIndexName",
-           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name, const DocSearchParam& search_param){
-            DocSearchResult out_result;
+           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name,
+              const DocSearchParam& search_param) {
+             DocSearchResult out_result;
              Status status = documentclient.SearchByIndexName(schema_id, index_name, search_param, out_result);
-             return std::make_tuple(status, out_result); 
-            })
-      .def("DeleteByIndexId", 
-           [](DocumentClient& documentclient, int64_t index_id, const std::vector<int64_t>& doc_ids){
-            std::vector<DocDeleteResult> out_result;
+             return std::make_tuple(status, out_result);
+           })
+      .def("DeleteByIndexId",
+           [](DocumentClient& documentclient, int64_t index_id, const std::vector<int64_t>& doc_ids) {
+             std::vector<DocDeleteResult> out_result;
              Status status = documentclient.DeleteByIndexId(index_id, doc_ids, out_result);
-             return std::make_tuple(status, out_result);    
+             return std::make_tuple(status, out_result);
            })
       .def("DeleteByIndexName",
-           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name, const std::vector<int64_t>& doc_ids){
-            std::vector<DocDeleteResult> out_result;
+           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name,
+              const std::vector<int64_t>& doc_ids) {
+             std::vector<DocDeleteResult> out_result;
              Status status = documentclient.DeleteByIndexName(schema_id, index_name, doc_ids, out_result);
-             return std::make_tuple(status, out_result); 
-            })
-      .def("BatchQueryByIndexId", 
-           [](DocumentClient& documentclient, int64_t index_id, const DocQueryParam& query_param){
-            DocQueryResult out_result;
+             return std::make_tuple(status, out_result);
+           })
+      .def("BatchQueryByIndexId",
+           [](DocumentClient& documentclient, int64_t index_id, const DocQueryParam& query_param) {
+             DocQueryResult out_result;
              Status status = documentclient.BatchQueryByIndexId(index_id, query_param, out_result);
-             return std::make_tuple(status, out_result);    
+             return std::make_tuple(status, out_result);
            })
       .def("BatchQueryByIndexName",
-           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name, const DocQueryParam& query_param){
-            DocQueryResult out_result;
+           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name,
+              const DocQueryParam& query_param) {
+             DocQueryResult out_result;
              Status status = documentclient.BatchQueryByIndexName(schema_id, index_name, query_param, out_result);
-             return std::make_tuple(status, out_result); 
-            })
-      .def("GetBorderByIndexId", 
-           [](DocumentClient& documentclient, int64_t index_id, bool is_max){
-            int64_t out_doc_id;
+             return std::make_tuple(status, out_result);
+           })
+      .def("GetBorderByIndexId",
+           [](DocumentClient& documentclient, int64_t index_id, bool is_max) {
+             int64_t out_doc_id;
              Status status = documentclient.GetBorderByIndexId(index_id, is_max, out_doc_id);
-             return std::make_tuple(status, out_doc_id);    
+             return std::make_tuple(status, out_doc_id);
            })
       .def("GetBorderByIndexName",
-           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name, bool is_max){
-            int64_t out_doc_id;
+           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name, bool is_max) {
+             int64_t out_doc_id;
              Status status = documentclient.GetBorderByIndexName(schema_id, index_name, is_max, out_doc_id);
-             return std::make_tuple(status, out_doc_id); 
-            })
-      .def("ScanQueryByIndexId", 
-           [](DocumentClient& documentclient, int64_t index_id, const DocScanQueryParam& query_param){
-            DocScanQueryResult out_result;
+             return std::make_tuple(status, out_doc_id);
+           })
+      .def("ScanQueryByIndexId",
+           [](DocumentClient& documentclient, int64_t index_id, const DocScanQueryParam& query_param) {
+             DocScanQueryResult out_result;
              Status status = documentclient.ScanQueryByIndexId(index_id, query_param, out_result);
-             return std::make_tuple(status, out_result);    
+             return std::make_tuple(status, out_result);
            })
       .def("ScanQueryByIndexName",
-           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name, const DocScanQueryParam& query_param){
-            DocScanQueryResult out_result;
+           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name,
+              const DocScanQueryParam& query_param) {
+             DocScanQueryResult out_result;
              Status status = documentclient.ScanQueryByIndexName(schema_id, index_name, query_param, out_result);
-             return std::make_tuple(status, out_result); 
-            })
-      .def("GetIndexMetricsByIndexId", 
-           [](DocumentClient& documentclient, int64_t index_id){
-            DocIndexMetricsResult out_result;
+             return std::make_tuple(status, out_result);
+           })
+      .def("GetIndexMetricsByIndexId",
+           [](DocumentClient& documentclient, int64_t index_id) {
+             DocIndexMetricsResult out_result;
              Status status = documentclient.GetIndexMetricsByIndexId(index_id, out_result);
-             return std::make_tuple(status, out_result);    
+             return std::make_tuple(status, out_result);
            })
       .def("GetIndexMetricsByIndexName",
-           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name){
-            DocIndexMetricsResult out_result;
+           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name) {
+             DocIndexMetricsResult out_result;
              Status status = documentclient.GetIndexMetricsByIndexName(schema_id, index_name, out_result);
-             return std::make_tuple(status, out_result); 
-            })
-      .def("CountAllByIndexId", 
-           [](DocumentClient& documentclient, int64_t index_id){
-            int64_t out_count;
+             return std::make_tuple(status, out_result);
+           })
+      .def("CountAllByIndexId",
+           [](DocumentClient& documentclient, int64_t index_id) {
+             int64_t out_count;
              Status status = documentclient.CountAllByIndexId(index_id, out_count);
-             return std::make_tuple(status, out_count);    
+             return std::make_tuple(status, out_count);
            })
       .def("CountallByIndexName",
-           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name){
-            int64_t out_count;
+           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name) {
+             int64_t out_count;
              Status status = documentclient.CountallByIndexName(schema_id, index_name, out_count);
-             return std::make_tuple(status, out_count); 
-            })
-      .def("CountByIndexId", 
-           [](DocumentClient& documentclient, int64_t index_id, int64_t start_doc_id, int64_t end_doc_id){
-            int64_t out_count;
+             return std::make_tuple(status, out_count);
+           })
+      .def("CountByIndexId",
+           [](DocumentClient& documentclient, int64_t index_id, int64_t start_doc_id, int64_t end_doc_id) {
+             int64_t out_count{0};
              Status status = documentclient.CountByIndexId(index_id, start_doc_id, end_doc_id, out_count);
-             return std::make_tuple(status, out_count);    
+             return std::make_tuple(status, out_count);
            })
       .def("CountByIndexName",
-           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name, int64_t start_doc_id, int64_t end_doc_id){
-            int64_t out_count;
-             Status status = documentclient.CountByIndexName(schema_id, index_name, start_doc_id, end_doc_id, out_count);
-             return std::make_tuple(status, out_count); 
-            });
+           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name, int64_t start_doc_id,
+              int64_t end_doc_id) {
+             int64_t out_count{0};
+             Status status =
+                 documentclient.CountByIndexName(schema_id, index_name, start_doc_id, end_doc_id, out_count);
+             return std::make_tuple(status, out_count);
+           })
+      .def("GetAutoIncrementIdByIndexId",
+           [](DocumentClient& documentclient, int64_t index_id) {
+             int64_t start_id{0};
+             Status status = documentclient.GetAutoIncrementIdByIndexId(index_id, start_id);
+             return std::make_tuple(status, start_id);
+           })
+      .def("GetAutoIncrementIdByIndexName",
+           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name) {
+             int64_t start_id{0};
+             Status status = documentclient.GetAutoIncrementIdByIndexName(schema_id, index_name, start_id);
+             return std::make_tuple(status, start_id);
+           })
+      .def("UpdateAutoIncrementIdByIndexId",
+           [](DocumentClient& documentclient, int64_t index_id, int64_t start_id) {
+             Status status = documentclient.UpdateAutoIncrementIdByIndexId(index_id, start_id);
+             return status;
+           })
+      .def("UpdateAutoIncrementIdByIndexName",
+           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name, int64_t start_id) {
+             Status status = documentclient.UpdateAutoIncrementIdByIndexName(schema_id, index_name, start_id);
+             return status;
+           });
 }
