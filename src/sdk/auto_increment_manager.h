@@ -42,12 +42,18 @@ class AutoInrementer {
 
   Status GetNextIds(std::vector<int64_t>& to_fill, int64_t count);
 
+  Status GetAutoIncrementId(int64_t& start_id);
+
+  Status UpdateAutoIncrementId(int64_t start_id);
+
  protected:
-  virtual void PrepareRequest(pb::meta::GenerateAutoIncrementRequest& request) = 0;
+  virtual void PrepareGenerateAutoIncrementRequest(pb::meta::GenerateAutoIncrementRequest& request) = 0;
+  virtual void PrepareUpdateAutoIncrementRequest(pb::meta::UpdateAutoIncrementRequest& request, int64_t start_id) = 0;
 
  private:
   friend class AutoIncrementerManager;
   Status RefillCache();
+  Status RunOperation(std::function<Status()> operation);
 
   const ClientStub& stub_;
 
@@ -66,7 +72,8 @@ class VectorIndexAutoInrementer : public AutoInrementer {
 
  private:
   friend class AutoIncrementerManager;
-  void PrepareRequest(pb::meta::GenerateAutoIncrementRequest& request) override;
+  void PrepareGenerateAutoIncrementRequest(pb::meta::GenerateAutoIncrementRequest& request) override;
+  void PrepareUpdateAutoIncrementRequest(pb::meta::UpdateAutoIncrementRequest& request, int64_t start_id) override;
   // NOTE: when delete index,  we should delete the auto incrementer
   // TODO: use index_id instead of vector_index
   const std::shared_ptr<VectorIndex> vector_index_;
@@ -81,7 +88,8 @@ class DocumentIndexAutoInrementer : public AutoInrementer {
 
  private:
   friend class AutoIncrementerManager;
-  void PrepareRequest(pb::meta::GenerateAutoIncrementRequest& request) override;
+  void PrepareGenerateAutoIncrementRequest(pb::meta::GenerateAutoIncrementRequest& request) override;
+  void PrepareUpdateAutoIncrementRequest(pb::meta::UpdateAutoIncrementRequest& request, int64_t start_id) override;
   const std::shared_ptr<DocumentIndex> doc_index_;
 };
 

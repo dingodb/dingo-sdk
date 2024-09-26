@@ -20,11 +20,13 @@
 #include "sdk/document/document_batch_query_task.h"
 #include "sdk/document/document_count_task.h"
 #include "sdk/document/document_delete_task.h"
+#include "sdk/document/document_get_auto_increment_id_task.h"
 #include "sdk/document/document_get_border_task.h"
 #include "sdk/document/document_get_index_metrics_task.h"
 #include "sdk/document/document_index_cache.h"
 #include "sdk/document/document_scan_query_task.h"
 #include "sdk/document/document_search_task.h"
+#include "sdk/document/document_update_auto_increment_task.h"
 #include "sdk/document/document_update_task.h"
 #include "sdk/status.h"
 
@@ -185,6 +187,35 @@ Status DocumentClient::CountByIndexName(int64_t schema_id, const std::string& in
       stub_.GetDocumentIndexCache()->GetIndexIdByKey(EncodeDocumentIndexCacheKey(schema_id, index_name), index_id));
   CHECK_GT(index_id, 0);
   DocumentCountTask task(stub_, index_id, start_doc_id, end_doc_id, out_count);
+  return task.Run();
+}
+
+Status DocumentClient::GetAutoIncrementIdByIndexId(int64_t index_id, int64_t& start_id) {
+  DocumentGetAutoIncrementIdTask task(stub_, index_id, start_id);
+  return task.Run();
+}
+Status DocumentClient::GetAutoIncrementIdByIndexName(int64_t schema_id, const std::string& index_name,
+                                                     int64_t& start_id) {
+  int64_t index_id{0};
+  DINGO_RETURN_NOT_OK(
+      stub_.GetDocumentIndexCache()->GetIndexIdByKey(EncodeDocumentIndexCacheKey(schema_id, index_name), index_id));
+  CHECK_GT(index_id, 0);
+  DocumentGetAutoIncrementIdTask task(stub_, index_id, start_id);
+  return task.Run();
+}
+
+Status DocumentClient::UpdateAutoIncrementIdByIndexId(int64_t index_id, int64_t start_id) {
+  DocumentUpdateAutoIncrementTask task(stub_, index_id, start_id);
+  return task.Run();
+}
+
+Status DocumentClient::UpdateAutoIncrementIdByIndexName(int64_t schema_id, const std::string& index_name,
+                                                        int64_t& start_id) {
+  int64_t index_id{0};
+  DINGO_RETURN_NOT_OK(
+      stub_.GetDocumentIndexCache()->GetIndexIdByKey(EncodeDocumentIndexCacheKey(schema_id, index_name), index_id));
+  CHECK_GT(index_id, 0);
+  DocumentUpdateAutoIncrementTask task(stub_, index_id, start_id);
   return task.Run();
 }
 

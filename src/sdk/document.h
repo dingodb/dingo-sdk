@@ -252,6 +252,12 @@ class DocumentClient {
   Status CountByIndexName(int64_t schema_id, const std::string& index_name, int64_t start_doc_id, int64_t end_doc_id,
                           int64_t& out_count);
 
+  Status GetAutoIncrementIdByIndexId(int64_t index_id, int64_t& start_id);
+  Status GetAutoIncrementIdByIndexName(int64_t schema_id, const std::string& index_name, int64_t& start_id);
+
+  Status UpdateAutoIncrementIdByIndexId(int64_t index_id, int64_t start_id);
+  Status UpdateAutoIncrementIdByIndexName(int64_t schema_id, const std::string& index_name, int64_t& start_id);
+
  private:
   friend class Client;
 

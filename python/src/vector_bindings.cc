@@ -296,12 +296,11 @@ void DefineVectorBindings(pybind11::module& m) {
       });
 
   py::class_<VectorClient>(m, "VectorClient")
-      .def(
-          "AddByIndexId",
-          [](VectorClient& vectorclient, int64_t index_id, std::vector<VectorWithId>& vectors) {
-            Status status = vectorclient.AddByIndexId(index_id, vectors);
-            return std::make_tuple(status, vectors);
-          })
+      .def("AddByIndexId",
+           [](VectorClient& vectorclient, int64_t index_id, std::vector<VectorWithId>& vectors) {
+             Status status = vectorclient.AddByIndexId(index_id, vectors);
+             return std::make_tuple(status, vectors);
+           })
       .def("AddByIndexName",
            [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name,
               std::vector<VectorWithId>& vectors) {
@@ -551,9 +550,32 @@ void DefineVectorBindings(pybind11::module& m) {
              Status status = vectorclient.CountMemoryByIndexId(index_id, count);
              return std::make_tuple(status, count);
            })
-      .def("CountMemoryByIndexName", [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name) {
-        int64_t count{0};
-        Status status = vectorclient.CountMemoryByIndexName(schema_id, index_name, count);
-        return std::make_tuple(status, count);
-      });
+      .def("CountMemoryByIndexName",
+           [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name) {
+             int64_t count{0};
+             Status status = vectorclient.CountMemoryByIndexName(schema_id, index_name, count);
+             return std::make_tuple(status, count);
+           })
+      .def("GetAutoIncrementIdByIndexId",
+           [](VectorClient& vectorclient, int64_t index_id) {
+             int64_t start_id{0};
+             Status status = vectorclient.GetAutoIncrementIdByIndexId(index_id, start_id);
+             return std::make_tuple(status, start_id);
+           })
+      .def("GetAutoIncrementIdByIndexName",
+           [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name) {
+             int64_t start_id{0};
+             Status status = vectorclient.GetAutoIncrementIdByIndexName(schema_id, index_name, start_id);
+             return std::make_tuple(status, start_id);
+           })
+      .def("UpdateAutoIncrementIdByIndexId",
+           [](VectorClient& vectorclient, int64_t index_id, int64_t start_id) {
+             Status status = vectorclient.UpdateAutoIncrementIdByIndexId(index_id, start_id);
+             return status;
+           })
+      .def("UpdateAutoIncrementIdByIndexName",
+           [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name, int64_t start_id) {
+             Status status = vectorclient.UpdateAutoIncrementIdByIndexName(schema_id, index_name, start_id);
+             return status;
+           });
 }

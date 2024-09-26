@@ -32,11 +32,13 @@
 #include "sdk/vector/vector_batch_query_task.h"
 #include "sdk/vector/vector_count_task.h"
 #include "sdk/vector/vector_delete_task.h"
+#include "sdk/vector/vector_get_auto_increment_id_task.h"
 #include "sdk/vector/vector_get_border_task.h"
 #include "sdk/vector/vector_get_index_metrics_task.h"
 #include "sdk/vector/vector_index_cache.h"
 #include "sdk/vector/vector_scan_query_task.h"
 #include "sdk/vector/vector_search_task.h"
+#include "sdk/vector/vector_update_auto_increment_task.h"
 #include "sdk/vector/vector_upsert_task.h"
 
 namespace dingodb {
@@ -373,6 +375,34 @@ Status VectorClient::DumpByIndexName(int64_t schema_id, const std::string& index
       stub_.GetVectorIndexCache()->GetIndexIdByKey(EncodeVectorIndexCacheKey(schema_id, index_name), index_id));
   CHECK_GT(index_id, 0);
   VectorDumpTask task(stub_, index_id);
+  return task.Run();
+}
+
+Status VectorClient::GetAutoIncrementIdByIndexId(int64_t index_id, int64_t& start_id) {
+  VectorGetAutoIncrementIdTask task(stub_, index_id, start_id);
+  return task.Run();
+}
+
+Status VectorClient::GetAutoIncrementIdByIndexName(int64_t schema_id, const std::string& index_name, int64_t& start_id) {
+  int64_t index_id{0};
+  DINGO_RETURN_NOT_OK(
+      stub_.GetVectorIndexCache()->GetIndexIdByKey(EncodeVectorIndexCacheKey(schema_id, index_name), index_id));
+  CHECK_GT(index_id, 0);
+  VectorGetAutoIncrementIdTask task(stub_, index_id, start_id);
+  return task.Run();
+}
+
+Status VectorClient::UpdateAutoIncrementIdByIndexId(int64_t index_id, int64_t start_id) {
+  VectorUpdateAutoIncrementTask task(stub_, index_id, start_id);
+  return task.Run();
+}
+
+Status VectorClient::UpdateAutoIncrementIdByIndexName(int64_t schema_id, const std::string& index_name, int64_t start_id) {
+  int64_t index_id{0};
+  DINGO_RETURN_NOT_OK(
+      stub_.GetVectorIndexCache()->GetIndexIdByKey(EncodeVectorIndexCacheKey(schema_id, index_name), index_id));
+  CHECK_GT(index_id, 0);
+  VectorUpdateAutoIncrementTask task(stub_, index_id, start_id);
   return task.Run();
 }
 

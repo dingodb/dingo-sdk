@@ -41,6 +41,7 @@ static int32_t g_dimension = 2;
 static dingodb::sdk::FlatParam g_flat_param(g_dimension, dingodb::sdk::MetricType::kL2);
 static std::vector<int64_t> g_vector_ids;
 static dingodb::sdk::VectorClient* g_vector_client;
+static int64_t update_id{55};
 
 static const dingodb::sdk::Type kDefaultType = dingodb::sdk::Type::kINT64;
 static std::vector<std::string> g_scalar_col{"id", "fake_id"};
@@ -65,7 +66,7 @@ static void PrepareVectorIndex() {
                       .SetScalarSchema(schema)
                       .Create(g_index_id);
   DINGO_LOG(INFO) << "Create index status: " << create.ToString() << ", index_id:" << g_index_id;
-  sleep(20);
+  sleep(5);
 }
 
 void PostClean(bool use_index_name = false) {
@@ -134,9 +135,9 @@ static void VectorAdd(bool use_index_name = false) {
   }
   Status add;
   if (use_index_name) {
-    add = g_vector_client->AddByIndexName(g_schema_id, g_index_name, vectors, false, false);
+    add = g_vector_client->AddByIndexName(g_schema_id, g_index_name, vectors);
   } else {
-    add = g_vector_client->AddByIndexId(g_index_id, vectors, false, false);
+    add = g_vector_client->AddByIndexId(g_index_id, vectors);
   }
 
   DINGO_LOG(INFO) << "vector add:" << add.ToString();
@@ -601,7 +602,7 @@ static void VectorAddWithAutoId(int64_t start_id) {
       delta++;
     }
 
-    add = g_vector_client->AddByIndexId(g_index_id, vectors, false, false);
+    add = g_vector_client->AddByIndexId(g_index_id, vectors);
 
     DINGO_LOG(INFO) << "vector add:" << add.ToString();
   }
@@ -631,6 +632,22 @@ static void VectorAddWithAutoId(int64_t start_id) {
       }
     }
   }
+}
+
+static void VectorGetAutoId() {
+  Status tmp;
+  int64_t start_id = 0;
+  tmp = g_vector_client->GetAutoIncrementIdByIndexId(g_index_id, start_id);
+  DINGO_LOG(INFO) << "VectorGetAutoId : " << tmp.ToString();
+  if (tmp.ok()) {
+    DINGO_LOG(INFO) << "VectorGetAutoId result : " << start_id;
+  }
+}
+
+static void VectorupdateAutoId(int64_t start_id) {
+  Status tmp;
+  tmp = g_vector_client->UpdateAutoIncrementIdByIndexId(g_index_id, start_id);
+  DINGO_LOG(INFO) << "UpdateAutoIncrementId : " << tmp.ToString();
 }
 
 int main(int argc, char* argv[]) {
@@ -715,11 +732,15 @@ int main(int argc, char* argv[]) {
                           .SetAutoIncrementStart(start_id)
                           .Create(g_index_id);
       DINGO_LOG(INFO) << "Create index status: " << create.ToString() << ", index_id:" << g_index_id;
-      sleep(20);
+      sleep(5);
     }
 
     PrepareVectorClient();
     VectorAddWithAutoId(start_id);
+    VectorGetAutoId();
+    VectorupdateAutoId(update_id);
+    VectorGetAutoId();
+
     PostClean(true);
   }
 }

@@ -45,8 +45,53 @@ Status AutoInrementer::GetNextId(int64_t& next) {
 
 Status AutoInrementer::GetNextIds(std::vector<int64_t>& to_fill, int64_t count) {
   CHECK_GT(count, 0);
-  Req req;
 
+  return RunOperation([this, &to_fill, &count]() {
+    Status s;
+    while (s.ok() && count > 0) {
+      if (id_cache_.size() < count) {
+        s = RefillCache();
+      } else {
+        to_fill.insert(to_fill.end(), id_cache_.begin(), id_cache_.begin() + count);
+        id_cache_.erase(id_cache_.begin(), id_cache_.begin() + count);
+        count = 0;
+      }
+    }
+    return s;
+  });
+}
+
+Status AutoInrementer::GetAutoIncrementId(int64_t& start_id) {
+  return RunOperation([this, &start_id]() {
+    Status s;
+    while (s.ok()) {
+      if (id_cache_.empty()) {
+        s = RefillCache();
+      } else {
+        start_id = id_cache_.front();
+        break;
+      }
+    }
+    return s;
+  });
+}
+
+Status AutoInrementer::UpdateAutoIncrementId(int64_t start_id) {
+  CHECK_GT(start_id, 0);
+
+  return RunOperation([this, start_id]() {
+    UpdateAutoIncrementRpc rpc;
+    PrepareUpdateAutoIncrementRequest(*rpc.MutableRequest(), start_id);
+    DINGO_RETURN_NOT_OK(stub_.GetMetaRpcController()->SyncCall(rpc));
+    VLOG(kSdkVlogLevel) << "UpdateAutoIncrement request:" << rpc.Request()->DebugString()
+                        << " response:" << rpc.Response()->DebugString();
+    id_cache_.clear();
+    return Status::OK();
+  });
+}
+
+Status AutoInrementer::RunOperation(std::function<Status()> operation) {
+  Req req;
   {
     std::unique_lock<std::mutex> lk(mutex_);
     queue_.push_back(&req);
@@ -54,18 +99,7 @@ Status AutoInrementer::GetNextIds(std::vector<int64_t>& to_fill, int64_t count) 
       req.cv.wait(lk);
     }
   }
-
-  Status s;
-  while (s.ok() && count > 0) {
-    if (id_cache_.size() < count) {
-      s = RefillCache();
-    } else {
-      to_fill.insert(to_fill.end(), id_cache_.begin(), id_cache_.begin() + count);
-      id_cache_.erase(id_cache_.begin(), id_cache_.begin() + count);
-      count = 0;
-    }
-  }
-
+  Status s = operation();
   {
     std::unique_lock<std::mutex> lk(mutex_);
     queue_.pop_front();
@@ -73,18 +107,16 @@ Status AutoInrementer::GetNextIds(std::vector<int64_t>& to_fill, int64_t count) 
       queue_.front()->cv.notify_one();
     }
   }
-
   return s;
 }
 
 Status AutoInrementer::RefillCache() {
   GenerateAutoIncrementRpc rpc;
-  PrepareRequest(*rpc.MutableRequest());
-
-  VLOG(kSdkVlogLevel) << "GenerateAutoIncrement request:" << rpc.Request()->DebugString()
-                      << " response:" << rpc.Response()->DebugString();
+  PrepareGenerateAutoIncrementRequest(*rpc.MutableRequest());
 
   DINGO_RETURN_NOT_OK(stub_.GetMetaRpcController()->SyncCall(rpc));
+  VLOG(kSdkVlogLevel) << "GenerateAutoIncrement request:" << rpc.Request()->DebugString()
+                      << " response:" << rpc.Response()->DebugString();
   // TODO: maybe not crash just return error msg
   const auto* response = rpc.Response();
   const auto* request = rpc.Request();
@@ -96,18 +128,32 @@ Status AutoInrementer::RefillCache() {
   return Status::OK();
 }
 
-void VectorIndexAutoInrementer::PrepareRequest(pb::meta::GenerateAutoIncrementRequest& request) {
+void VectorIndexAutoInrementer::PrepareGenerateAutoIncrementRequest(pb::meta::GenerateAutoIncrementRequest& request) {
   *request.mutable_table_id() = vector_index_->GetIndexDefWithId().index_id();
   request.set_count(FLAGS_auto_incre_req_count);
   request.set_auto_increment_increment(1);
   request.set_auto_increment_offset(vector_index_->GetIncrementStartId());
 }
 
-void DocumentIndexAutoInrementer::PrepareRequest(pb::meta::GenerateAutoIncrementRequest& request) {
+void VectorIndexAutoInrementer::PrepareUpdateAutoIncrementRequest(pb::meta::UpdateAutoIncrementRequest& request,
+                                                                  int64_t start_id) {
+  *request.mutable_table_id() = vector_index_->GetIndexDefWithId().index_id();
+  request.set_start_id(start_id);
+  request.set_force(true);
+}
+
+void DocumentIndexAutoInrementer::PrepareGenerateAutoIncrementRequest(pb::meta::GenerateAutoIncrementRequest& request) {
   *request.mutable_table_id() = doc_index_->GetIndexDefWithId().index_id();
   request.set_count(FLAGS_auto_incre_req_count);
   request.set_auto_increment_increment(1);
   request.set_auto_increment_offset(doc_index_->GetIncrementStartId());
+}
+
+void DocumentIndexAutoInrementer::PrepareUpdateAutoIncrementRequest(pb::meta::UpdateAutoIncrementRequest& request,
+                                                                    int64_t start_id) {
+  *request.mutable_table_id() = doc_index_->GetIndexDefWithId().index_id();
+  request.set_start_id(start_id);
+  request.set_force(true);
 }
 
 std::shared_ptr<AutoInrementer> AutoIncrementerManager::GetOrCreateVectorIndexIncrementer(
