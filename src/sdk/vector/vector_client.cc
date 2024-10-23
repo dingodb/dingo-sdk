@@ -13,6 +13,8 @@
 // limitations under the License.
 
 #include <cstdint>
+#include <string>
+#include <vector>
 
 #include "sdk/client_stub.h"
 #include "sdk/status.h"
@@ -364,17 +366,18 @@ Status VectorClient::ImportDeleteByIndexName(int64_t schema_id, const std::strin
 }
 
 // dump
-Status VectorClient::DumpByIndexId(int64_t index_id) {
-  VectorDumpTask task(stub_, index_id);
+Status VectorClient::DumpByIndexId(int64_t index_id, std::vector<std::string>& datas) {
+  VectorDumpTask task(stub_, index_id, datas);
   return task.Run();
 }
 
-Status VectorClient::DumpByIndexName(int64_t schema_id, const std::string& index_name) {
+Status VectorClient::DumpByIndexName(int64_t schema_id, const std::string& index_name,
+                                     std::vector<std::string>& datas) {
   int64_t index_id{0};
   DINGO_RETURN_NOT_OK(
       stub_.GetVectorIndexCache()->GetIndexIdByKey(EncodeVectorIndexCacheKey(schema_id, index_name), index_id));
   CHECK_GT(index_id, 0);
-  VectorDumpTask task(stub_, index_id);
+  VectorDumpTask task(stub_, index_id, datas);
   return task.Run();
 }
 
@@ -383,7 +386,8 @@ Status VectorClient::GetAutoIncrementIdByIndexId(int64_t index_id, int64_t& star
   return task.Run();
 }
 
-Status VectorClient::GetAutoIncrementIdByIndexName(int64_t schema_id, const std::string& index_name, int64_t& start_id) {
+Status VectorClient::GetAutoIncrementIdByIndexName(int64_t schema_id, const std::string& index_name,
+                                                   int64_t& start_id) {
   int64_t index_id{0};
   DINGO_RETURN_NOT_OK(
       stub_.GetVectorIndexCache()->GetIndexIdByKey(EncodeVectorIndexCacheKey(schema_id, index_name), index_id));
@@ -397,7 +401,8 @@ Status VectorClient::UpdateAutoIncrementIdByIndexId(int64_t index_id, int64_t st
   return task.Run();
 }
 
-Status VectorClient::UpdateAutoIncrementIdByIndexName(int64_t schema_id, const std::string& index_name, int64_t start_id) {
+Status VectorClient::UpdateAutoIncrementIdByIndexName(int64_t schema_id, const std::string& index_name,
+                                                      int64_t start_id) {
   int64_t index_id{0};
   DINGO_RETURN_NOT_OK(
       stub_.GetVectorIndexCache()->GetIndexIdByKey(EncodeVectorIndexCacheKey(schema_id, index_name), index_id));

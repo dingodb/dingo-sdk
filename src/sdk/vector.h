@@ -609,8 +609,8 @@ class VectorClient {
   Status CountMemoryByIndexName(int64_t schema_id, const std::string& index_name, int64_t& count);
 
   // dump
-  Status DumpByIndexId(int64_t index_id);
-  Status DumpByIndexName(int64_t schema_id, const std::string& index_name);
+  Status DumpByIndexId(int64_t index_id, std::vector<std::string>& datas);
+  Status DumpByIndexName(int64_t schema_id, const std::string& index_name, std::vector<std::string>& datas);
 
   Status GetAutoIncrementIdByIndexId(int64_t index_id, int64_t& start_id);
   Status GetAutoIncrementIdByIndexName(int64_t schema_id, const std::string& index_name, int64_t& start_id);

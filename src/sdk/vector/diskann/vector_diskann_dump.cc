@@ -67,6 +67,9 @@ void VectorDumpTask::SubTaskCallback(Status status, VectorDumpPartTask* sub_task
   } else {
     std::unique_lock<std::shared_mutex> w(rw_lock_);
     next_part_ids_.erase(sub_task->part_id_);
+    for (auto& data : sub_task->GetPartDatas()) {
+      datas_.push_back(data);
+    }
   }
 
   if (sub_tasks_count_.fetch_sub(1) == 1) {
@@ -130,11 +133,9 @@ void VectorDumpPartTask::VectorDumpRpcCallback(const Status& status, VectorDumpR
       status_ = status;
     }
   } else {
-    std::string str;
     for (int i = 0; i < rpc->Response()->dump_datas_size(); i++) {
-      str += rpc->Response()->dump_datas()[i];
+      part_datas_.push_back(rpc->Response()->dump_datas()[i]);
     }
-    DINGO_LOG(INFO) << str;
   }
 
   if (sub_tasks_count_.fetch_sub(1) == 1) {
