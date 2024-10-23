@@ -577,5 +577,16 @@ void DefineVectorBindings(pybind11::module& m) {
            [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name, int64_t start_id) {
              Status status = vectorclient.UpdateAutoIncrementIdByIndexName(schema_id, index_name, start_id);
              return status;
-           });
+           })
+      .def("DumpByIndexId",
+           [](VectorClient& vectorclient, int64_t index_id) {
+             std::vector<std::string> datas;
+             Status status = vectorclient.DumpByIndexId(index_id, datas);
+             return std::make_tuple(status, datas);
+           })
+      .def("DumpByIndexName", [](VectorClient& vectorclient, int64_t schema_id, const std::string& index_name) {
+        std::vector<std::string> datas;
+        Status status = vectorclient.DumpByIndexName(schema_id, index_name, datas);
+        return std::make_tuple(status, datas);
+      });
 }

@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <unordered_map>
 
 #include "proto/common.pb.h"
@@ -19,7 +20,8 @@ namespace sdk {
 class VectorDumpPartTask;
 class VectorDumpTask : public VectorTask {
  public:
-  VectorDumpTask(const ClientStub& stub, int64_t index_id) : VectorTask(stub), index_id_(index_id) {}
+  VectorDumpTask(const ClientStub& stub, int64_t index_id, std::vector<std::string>& datas)
+      : VectorTask(stub), index_id_(index_id), datas_(datas) {}
 
   ~VectorDumpTask() override = default;
 
@@ -34,6 +36,7 @@ class VectorDumpTask : public VectorTask {
   const int64_t index_id_;
 
   std::shared_ptr<VectorIndex> vector_index_;
+  std::vector<std::string>& datas_;
 
   std::shared_mutex rw_lock_;
   std::set<int64_t> next_part_ids_;
@@ -49,8 +52,11 @@ class VectorDumpPartTask : public VectorTask {
 
   ~VectorDumpPartTask() override = default;
 
+  std::vector<std::string> GetPartDatas() { return part_datas_; };
+
  private:
   friend class VectorDumpTask;
+  std::vector<std::string> part_datas_;
 
   void DoAsync() override;
 
