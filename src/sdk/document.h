@@ -87,12 +87,14 @@ class DocValue {
   static DocValue FromDouble(double val);
   static DocValue FromString(const std::string& val);
   static DocValue FromBytes(const std::string& val);
+  static DocValue FromBool(bool val);
 
   Type GetType() const;
   int64_t IntValue() const;
   double DoubleValue() const;
   std::string StringValue() const;
   std::string BytesValue() const;
+  bool BoolValue()const;
 
   std::string ToString() const;
 

@@ -57,11 +57,13 @@ void DefineDocumentBindings(pybind11::module& m) {
       .def_static("FromDouble", &DocValue::FromDouble)
       .def_static("FromString", &DocValue::FromString)
       .def_static("FromBytes", &DocValue::FromBytes)
+      .def_static("FromBool",&DocValue::FromBool)
       .def("GetType", &DocValue::GetType)
       .def("IntValue", &DocValue::IntValue)
       .def("DoubleValue", &DocValue::DoubleValue)
       .def("StringValue", &DocValue::StringValue)
       .def("BytesValue", &DocValue::BytesValue)
+      .def("BoolValue",&DocValue::BoolValue)
       .def("ToString", &DocValue::ToString);
 
   py::class_<Document>(m, "Document")
