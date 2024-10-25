@@ -55,9 +55,10 @@
 #include "sdk/transaction/txn_impl.h"
 #include "sdk/utils/net_util.h"
 #include "sdk/vector.h"
+#include "sdk/vector/diskann/vector_diskann_status_by_index_task.h"
+#include "sdk/vector/vector_index.h"
 #include "sdk/vector/vector_index_cache.h"
 #include "sdk/vector/vector_index_creator_internal_data.h"
-#include "sdk/vector/vector_index.h"
 
 namespace dingodb {
 namespace sdk {
@@ -205,6 +206,23 @@ Status Client::GetVectorIndexById(int64_t index_id, std::shared_ptr<VectorIndex>
 }
 
 Status Client::DropVectorIndexById(int64_t index_id) {
+  // check diskann region status
+  std::shared_ptr<VectorIndex> tmp;
+  DINGO_RETURN_NOT_OK(data_->stub->GetVectorIndexCache()->GetVectorIndexById(index_id, tmp));
+  if (tmp->GetVectorIndexType() == kDiskAnn) {
+    StateResult result;
+    VectorStatusByIndexTask task(*data_->stub, index_id, result);
+    DINGO_RETURN_NOT_OK(task.Run());
+    for (auto& res : result.region_states) {
+      if (res.state == kLoading || res.state == kBuilding) {
+        std::string msg = "region id : " + std::to_string(res.region_id) +
+                          " status : " + RegionStateToString(res.state) + " cannot delete index";
+        DINGO_LOG(WARNING) << msg;
+        return Status::Incomplete(msg);
+      }
+    }
+  }
+
   data_->stub->GetVectorIndexCache()->RemoveVectorIndexById(index_id);
   data_->stub->GetAutoIncrementerManager()->RemoveIndexIncrementerById(index_id);
   return data_->stub->GetAdminTool()->DropIndex(index_id);
