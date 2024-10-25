@@ -169,7 +169,7 @@ std::string RegionStateToString(DiskANNRegionState state) {
     case DiskANNRegionState::kBuildFailed:
       return "BuildFailed";
     case DiskANNRegionState::kInittialized:
-      return "Inittialized";
+      return "Initialized";
     case DiskANNRegionState::kBuilding:
       return "Building";
     case DiskANNRegionState::kBuilded:
