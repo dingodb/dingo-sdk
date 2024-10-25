@@ -31,6 +31,7 @@ class DocValue::Data {
   union {
     int64_t int_val;
     double double_val;
+    bool bool_val;
   };
   std::string string_val;
 };

@@ -76,6 +76,13 @@ DocValue DocValue::FromBytes(const std::string& val) {
   return value;
 }
 
+DocValue DocValue::FromBool(bool val) {
+  DocValue value;
+  value.data_->type = Type::kBOOL;
+  value.data_->bool_val = val;
+  return value;
+}
+
 Type DocValue::GetType() const { return data_->type; }
 
 int64_t DocValue::IntValue() const { return data_->int_val; }
@@ -85,6 +92,8 @@ double DocValue::DoubleValue() const { return data_->double_val; }
 std::string DocValue::StringValue() const { return data_->string_val; }
 
 std::string DocValue::BytesValue() const { return data_->string_val; }
+
+bool DocValue::BoolValue() const { return data_->bool_val; }
 
 std::string DocValue::ToString() const {
   std::stringstream ss;
@@ -99,6 +108,8 @@ std::string DocValue::ToString() const {
       ss << data_->string_val;
     case Type::kBYTES:
       ss << data_->string_val;
+    case Type::kBOOL:
+      ss << data_->bool_val;
     default:
       ss << "";
   }
@@ -180,10 +191,9 @@ std::string DocScanQueryResult::ToString() const {
 
 std::string DocIndexMetricsResult::ToString() const {
   std::ostringstream oss;
-  oss << "DocIndexMetricsResult {"
-      << " total_num_docs: " << total_num_docs << ", total_num_tokens: " << total_num_tokens
-      << ", max_doc_id: " << max_doc_id << ", min_doc_id: " << min_doc_id << ", meta_json: " << meta_json
-      << ", json_parameter: " << json_parameter << " }";
+  oss << "DocIndexMetricsResult {" << " total_num_docs: " << total_num_docs
+      << ", total_num_tokens: " << total_num_tokens << ", max_doc_id: " << max_doc_id << ", min_doc_id: " << min_doc_id
+      << ", meta_json: " << meta_json << ", json_parameter: " << json_parameter << " }";
   return oss.str();
 }
 

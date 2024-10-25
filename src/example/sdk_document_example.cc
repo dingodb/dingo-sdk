@@ -53,6 +53,7 @@ static void PrepareDocumentIndex(int64_t start_id = 0) {
   schema.AddColumn({"i64", Type::kINT64});
   schema.AddColumn({"f64", Type::kDOUBLE});
   schema.AddColumn({"bytes", Type::kBYTES});
+  schema.AddColumn({"bool", Type::kBOOL});
 
   creator->SetSchemaId(g_schema_id)
       .SetName(g_index_name)
@@ -123,6 +124,7 @@ static void DocumentAdd(bool use_index_name = false) {
     tmp_doc.AddField("i64", dingodb::sdk::DocValue::FromInt(1000 + id));
     tmp_doc.AddField("f64", dingodb::sdk::DocValue::FromDouble(1000.0 + id));
     tmp_doc.AddField("bytes", dingodb::sdk::DocValue::FromBytes("bytes_data_" + std::to_string(id)));
+    tmp_doc.AddField("bool", dingodb::sdk::DocValue::FromBool(id%3));
 
     dingodb::sdk::DocWithId tmp(id, std::move(tmp_doc));
 
@@ -273,6 +275,35 @@ static void DocumentSearch(bool use_index_name = false) {
       CHECK_EQ(result.doc_sores.size(), 2);
     }
   }
+
+   {
+    dingodb::sdk::DocSearchParam param;
+    param.top_n = 5;
+    param.with_scalar_data = true;
+    param.query_string = R"( bool:true)";
+    param.use_id_filter = true;
+    param.doc_ids = {
+        15,
+        17,
+        19,
+        21
+    };
+
+    Status tmp;
+    DocSearchResult result;
+    if (use_index_name) {
+      tmp = g_doc_client->SearchByIndexName(g_schema_id, g_index_name, param, result);
+    } else {
+      tmp = g_doc_client->SearchByIndexId(g_index_id, param, result);
+    }
+
+    DINGO_LOG(INFO) << "vector search of with id filter status: " << tmp.ToString();
+    DINGO_LOG(INFO) << "vector search of with id filter result:" << result.ToString();
+    if (tmp.ok()) {
+      CHECK_EQ(result.doc_sores.size(), 2);
+    }
+  }
+
 }
 
 static void DocumentQuey(bool use_index_name = false) {
