@@ -350,12 +350,19 @@ static void VectorCountMemory(bool use_index_name = false) {
 
 static void VectorDump(bool use_index_name = false) {
   Status dump;
+  std::vector<std::string> datas;
   if (use_index_name) {
-    dump = g_vector_client->DumpByIndexName(g_schema_id, g_index_name);
+    dump = g_vector_client->DumpByIndexName(g_schema_id, g_index_name, datas);
   } else {
-    dump = g_vector_client->DumpByIndexId(g_index_id);
+    dump = g_vector_client->DumpByIndexId(g_index_id, datas);
   }
-  DINGO_LOG(INFO) << "vector dump:" << dump.ToString();
+  if (dump.ok()) {
+    for (auto& data : datas) {
+      DINGO_LOG(INFO) << data;
+    }
+  } else {
+    DINGO_LOG(ERROR) << "vector dump error:" << dump.ToString();
+  }
 }
 
 static void CheckBuildedByIndex(bool use_index_name = false) {
