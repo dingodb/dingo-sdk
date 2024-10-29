@@ -1,10 +1,11 @@
 
-name: Build wheel through cibuildwheel on manylinux
+name: Build_wheel
 
 on:  
-  push:  
-    tags:  
-      - '*'
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   build_wheels:
@@ -16,7 +17,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - name: Download the submodule
         run: |
           git submodule sync --recursive
