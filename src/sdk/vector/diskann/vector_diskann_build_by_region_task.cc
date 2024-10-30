@@ -74,7 +74,7 @@ void VectorBuildByRegionTask::DoAsync() {
     if (!vector_index_->ExistRegion(region)) {
       RegionStatus region_status;
       region_status.region_id = region_id;
-      region_status.status = Status::InvalidArgument("region is not in DiskANN Index Region");
+      region_status.status = Status::InvalidArgument("region is not DiskANN Index Region");
       tmp_result.region_status.push_back(std::move(region_status));
       DINGO_LOG(WARNING) << "region_id : " << region_id << "dose not exist in "
                          << " index_id :" << vector_index_->GetId();
