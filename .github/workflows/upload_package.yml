@@ -26,12 +26,14 @@ jobs:
       with:
             github_token: ${{secrets.GITHUB_TOKEN}}
             workflow: wheels.yml
-            name: '*.whl'
+            name: sdk_whl
+    - name: Uzip 
+      run: unzip sdk_whl -d sdk_whl
     - name: Install Twine
       run: pip install twine
     - name: Upload package to PyPI
       run: |
-        twine upload *.whl
+        twine upload ./sdk_whl/*.whl
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
