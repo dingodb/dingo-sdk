@@ -23,10 +23,10 @@ jobs:
     steps:
     - name: Download artifact
       uses: dawidd6/action-download-artifact@v2
-      with:
+      with:   
             github_token: ${{secrets.GITHUB_TOKEN}}
             workflow: wheels.yml
-            name: '*.whl'
+            name: sdk_whl
     - name: Install Twine
       run: pip install twine
     - name: Upload package to PyPI
