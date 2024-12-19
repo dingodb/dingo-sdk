@@ -61,11 +61,21 @@ struct StateResult {
 
 std::string RegionStateToString(DiskANNRegionState state);
 
-enum VectorIndexType : uint8_t { kNoneIndexType, kFlat, kIvfFlat, kIvfPq, kHnsw, kDiskAnn, kBruteForce };
+enum VectorIndexType : uint8_t {
+  kNoneIndexType,
+  kFlat,
+  kIvfFlat,
+  kIvfPq,
+  kHnsw,
+  kDiskAnn,
+  kBruteForce,
+  kBinaryFlat,
+  kBinaryIvfFlat
+};
 
 std::string VectorIndexTypeToString(VectorIndexType type);
 
-enum MetricType : uint8_t { kNoneMetricType, kL2, kInnerProduct, kCosine };
+enum MetricType : uint8_t { kNoneMetricType, kL2, kInnerProduct, kCosine, kHamming };
 
 std::string MetricTypeToString(MetricType type);
 
@@ -183,6 +193,32 @@ struct BruteForceParam {
   static VectorIndexType Type() { return VectorIndexType::kBruteForce; }
 };
 
+struct BinaryFlatParam {
+  // dimensions required
+  int32_t dimension;
+  // distance calculation method (hamming) required
+  MetricType metric_type;
+
+  explicit BinaryFlatParam(int32_t p_dimension, MetricType p_metric_type)
+      : dimension(p_dimension), metric_type(p_metric_type) {}
+
+  static VectorIndexType Type() { return VectorIndexType::kBinaryFlat; }
+};
+
+struct BinaryIvfFlatParam {
+  // dimensions required
+  int32_t dimension;
+  // distance calculation method (hamming) required
+  MetricType metric_type;
+  // Number of cluster centers Default 2048
+  int32_t ncentroids{2048};
+
+  explicit BinaryIvfFlatParam(int32_t p_dimension, MetricType p_metric_type)
+      : dimension(p_dimension), metric_type(p_metric_type) {}
+
+  static VectorIndexType Type() { return VectorIndexType::kBinaryIvfFlat; }
+};
+
 struct VectorScalarColumnSchema {
   std::string key;
   Type type;
@@ -209,7 +245,6 @@ struct Vector {
   int32_t dimension;
   ValueType value_type;
   std::vector<float> float_values;
-  // TODO: support
   std::vector<uint8_t> binary_values;
 
   explicit Vector() : value_type(kNoneValueType), dimension(0) {}
@@ -505,13 +540,16 @@ class VectorIndexCreator {
 
   VectorIndexCreator& SetReplicaNum(int64_t num);
 
-  // one of FlatParam/IvfFlatParam/HnswParam/DiskAnnParam/BruteForceParam, if set multiple, the last one will effective
+  // one of FlatParam/IvfFlatParam/HnswParam/DiskAnnParam/BruteForceParam/BinaryFlat/BinaryIvfFlat, if set multiple, the
+  // last one will effective
   VectorIndexCreator& SetFlatParam(const FlatParam& params);
   VectorIndexCreator& SetIvfFlatParam(const IvfFlatParam& params);
   VectorIndexCreator& SetIvfPqParam(const IvfPqParam& params);
   VectorIndexCreator& SetHnswParam(const HnswParam& params);
   VectorIndexCreator& SetDiskAnnParam(const DiskAnnParam& params);
   VectorIndexCreator& SetBruteForceParam(const BruteForceParam& params);
+  VectorIndexCreator& SetBinaryFlatParam(const BinaryFlatParam& params);
+  VectorIndexCreator& SetBinaryIvfFlatParam(const BinaryIvfFlatParam& params);
 
   // when start_id greater than 0, index is enable auto_increment
   VectorIndexCreator& SetAutoIncrementStart(int64_t start_id);

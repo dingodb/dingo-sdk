@@ -16,6 +16,7 @@
 #define DINGODB_SDK_VECTOR_COMMON_H_
 
 #include <cstdint>
+#include <string>
 
 #include "glog/logging.h"
 #include "proto/common.pb.h"
@@ -38,6 +39,8 @@ static pb::common::MetricType MetricType2InternalMetricTypePB(MetricType metric_
       return pb::common::MetricType::METRIC_TYPE_INNER_PRODUCT;
     case MetricType::kCosine:
       return pb::common::MetricType::METRIC_TYPE_COSINE;
+    case MetricType::kHamming:
+      return pb::common::MetricType::METRIC_TYPE_HAMMING;
     default:
       CHECK(false) << "unsupported metric type:" << metric_type;
   }
@@ -53,6 +56,8 @@ static MetricType InternalMetricTypePB2MetricType(pb::common::MetricType metric_
       return MetricType::kInnerProduct;
     case pb::common::MetricType::METRIC_TYPE_COSINE:
       return MetricType::kCosine;
+    case pb::common::MetricType::METRIC_TYPE_HAMMING:
+      return MetricType::kHamming;
     default:
       CHECK(false) << "unsupported metric type:" << pb::common::MetricType_Name(metric_type);
   }
@@ -74,6 +79,10 @@ static pb::common::VectorIndexType VectorIndexType2InternalVectorIndexTypePB(Vec
       return pb::common::VECTOR_INDEX_TYPE_DISKANN;
     case VectorIndexType::kBruteForce:
       return pb::common::VECTOR_INDEX_TYPE_BRUTEFORCE;
+    case VectorIndexType::kBinaryFlat:
+      return pb::common::VECTOR_INDEX_TYPE_BINARY_FLAT;
+    case VectorIndexType::kBinaryIvfFlat:
+      return pb::common::VECTOR_INDEX_TYPE_BINARY_IVF_FLAT;
     default:
       CHECK(false) << "unsupported vector index type:" << type;
   }
@@ -95,6 +104,10 @@ static VectorIndexType InternalVectorIndexTypePB2VectorIndexType(pb::common::Vec
       return VectorIndexType::kDiskAnn;
     case pb::common::VECTOR_INDEX_TYPE_BRUTEFORCE:
       return VectorIndexType::kBruteForce;
+    case pb::common::VECTOR_INDEX_TYPE_BINARY_FLAT:
+      return VectorIndexType::kBinaryFlat;
+    case pb::common::VECTOR_INDEX_TYPE_BINARY_IVF_FLAT:
+      return VectorIndexType::kBinaryIvfFlat;
     default:
       CHECK(false) << "unsupported vector index type:" << pb::common::VectorIndexType_Name(type);
   }
@@ -186,6 +199,21 @@ static void FillDiskAnnParmeter(pb::common::VectorIndexParameter* parameter, con
   diskann->set_value_type(ValueType2InternalValueTypePB(param.value_type));
   diskann->set_max_degree(param.max_degree);
   diskann->set_search_list_size(param.search_list_size);
+}
+
+static void FillBinaryFlatParmeter(pb::common::VectorIndexParameter* parameter, const BinaryFlatParam& param) {
+  parameter->set_vector_index_type(pb::common::VECTOR_INDEX_TYPE_BINARY_FLAT);
+  auto* binary_flat = parameter->mutable_binary_flat_parameter();
+  binary_flat->set_dimension(param.dimension);
+  binary_flat->set_metric_type(MetricType2InternalMetricTypePB(param.metric_type));
+}
+
+static void FillBinaryIvfFlatParmeter(pb::common::VectorIndexParameter* parameter, const BinaryIvfFlatParam& param) {
+  parameter->set_vector_index_type(pb::common::VECTOR_INDEX_TYPE_BINARY_IVF_FLAT);
+  auto* binary_ivf_flat = parameter->mutable_binary_ivf_flat_parameter();
+  binary_ivf_flat->set_dimension(param.dimension);
+  binary_ivf_flat->set_metric_type(MetricType2InternalMetricTypePB(param.metric_type));
+  binary_ivf_flat->set_ncentroids(param.ncentroids);
 }
 
 static void FillRangePartitionRule(pb::meta::PartitionRule* partition_rule, const std::vector<int64_t>& seperator_ids,
@@ -289,7 +317,10 @@ static void FillVectorWithIdPB(pb::common::VectorWithId* pb, const VectorWithId&
   const auto& vector = vector_with_id.vector;
   vector_pb->set_dimension(vector.dimension);
   vector_pb->set_value_type(ValueType2InternalValueTypePB(vector.value_type));
-  // TODO: support uint
+  for (const auto& binary_value : vector.binary_values) {
+    std::string byte_code(1, static_cast<char>(binary_value));
+    vector_pb->add_binary_values(byte_code);
+  }
   for (const auto& float_value : vector.float_values) {
     vector_pb->add_float_values(float_value);
   }
@@ -306,8 +337,19 @@ static VectorWithId InternalVectorIdPB2VectorWithId(const pb::common::VectorWith
 
   const auto& vector_pb = pb.vector();
   to_return.vector.dimension = vector_pb.dimension();
-  to_return.vector.value_type = ValueType::kFloat;
-  // TODO: support uint
+  if (vector_pb.value_type() == pb::common::ValueType::UINT8) {
+    to_return.vector.value_type = ValueType::kUint8;
+  } else if (vector_pb.value_type() == pb::common::ValueType::INT8_T) {
+    to_return.vector.value_type = ValueType::kInt8;
+  } else if (vector_pb.value_type() == pb::common::ValueType::FLOAT) {
+    to_return.vector.value_type = ValueType::kFloat;
+  } else {
+    CHECK(false) << "unsupported value type:" << pb::common::ValueType_Name(vector_pb.value_type());
+  }
+  for (const auto& binary_value : vector_pb.binary_values()) {
+    uint8_t value = static_cast<uint8_t>(binary_value[0]);
+    to_return.vector.binary_values.push_back(value);
+  }
   for (const auto& float_value : vector_pb.float_values()) {
     to_return.vector.float_values.push_back(float_value);
   }
@@ -376,6 +418,21 @@ static void FillSearchDiskAnnParamPB(pb::common::SearchDiskAnnParam* pb, const S
   pb->set_beamwidth(parameter.beamwidth);
 }
 
+static void FillSearchBinaryFlatParamPB(pb::common::SearchBinaryFlatParam* pb, const SearchParam& parameter) {
+  if (parameter.extra_params.find(SearchExtraParamType::kParallelOnQueries) != parameter.extra_params.end()) {
+    pb->set_parallel_on_queries(parameter.extra_params.at(SearchExtraParamType::kParallelOnQueries));
+  }
+}
+
+static void FillSearchBinaryIvfFlatParamPB(pb::common::SearchBinaryIvfFlatParam* pb, const SearchParam& parameter) {
+  if (parameter.extra_params.find(SearchExtraParamType::kNprobe) != parameter.extra_params.end()) {
+    pb->set_nprobe(parameter.extra_params.at(SearchExtraParamType::kNprobe));
+  }
+  if (parameter.extra_params.find(SearchExtraParamType::kParallelOnQueries) != parameter.extra_params.end()) {
+    pb->set_parallel_on_queries(parameter.extra_params.at(SearchExtraParamType::kParallelOnQueries));
+  }
+}
+
 static void FillInternalSearchParams(pb::common::VectorSearchParameter* internal_parameter, VectorIndexType type,
                                      const SearchParam& parameter) {
   internal_parameter->set_top_n(parameter.topk);
@@ -406,6 +463,12 @@ static void FillInternalSearchParams(pb::common::VectorSearchParameter* internal
       break;
     case VectorIndexType::kDiskAnn:
       FillSearchDiskAnnParamPB(internal_parameter->mutable_diskann(), parameter);
+      break;
+    case VectorIndexType::kBinaryFlat:
+      FillSearchBinaryFlatParamPB(internal_parameter->mutable_binary_flat(), parameter);
+      break;
+    case VectorIndexType::kBinaryIvfFlat:
+      FillSearchBinaryIvfFlatParamPB(internal_parameter->mutable_binary_ivf_flat(), parameter);
       break;
     default:
       CHECK(false) << "not support index type: " << static_cast<int>(type);
