@@ -18,8 +18,8 @@
 #include <optional>
 #include <utility>
 
-#include "sdk/client_stub.h"
 #include "proto/common.pb.h"
+#include "sdk/client_stub.h"
 #include "sdk/vector.h"
 #include "sdk/vector/vector_common.h"
 
@@ -59,12 +59,19 @@ class VectorIndexCreator::Data {
       DCHECK(brute_force_param.has_value());
       auto& param = brute_force_param.value();
       FillButeForceParmeter(parameter, param);
-    }else if(index_type == kDiskAnn){
+    } else if (index_type == kDiskAnn) {
       DCHECK(diskann_param.has_value());
       auto& param = diskann_param.value();
       FillDiskAnnParmeter(parameter, param);
-    } 
-    else {
+    } else if (index_type == kBinaryFlat) {
+      DCHECK(binary_flat_param.has_value());
+      auto& param = binary_flat_param.value();
+      FillBinaryFlatParmeter(parameter, param);
+    } else if (index_type == kBinaryIvfFlat) {
+      DCHECK(binary_ivf_flat_param.has_value());
+      auto& param = binary_ivf_flat_param.value();
+      FillBinaryIvfFlatParmeter(parameter, param);
+    } else {
       CHECK(false) << "unsupported index type, " << index_type;
     }
 
@@ -89,6 +96,8 @@ class VectorIndexCreator::Data {
   std::optional<HnswParam> hnsw_param;
   std::optional<DiskAnnParam> diskann_param;
   std::optional<BruteForceParam> brute_force_param;
+  std::optional<BinaryFlatParam> binary_flat_param;
+  std::optional<BinaryIvfFlatParam> binary_ivf_flat_param;
 
   std::optional<int64_t> auto_incr_start;
 

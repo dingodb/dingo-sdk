@@ -18,6 +18,7 @@
 
 #include <glog/logging.h>
 
+#include <iomanip>
 #include <ostream>
 #include <sstream>
 
@@ -40,10 +41,10 @@ std::string Vector::ToString() const {
 
   std::stringstream binary_ss;
   for (size_t i = 0; i < binary_values.size(); ++i) {
-    binary_ss << binary_values[i];
-    if (i != binary_values.size() - 1) {
-      binary_ss << ", ";
+    if (i == 0) {
+      binary_ss << "0x";
     }
+    binary_ss << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(binary_values[i]);
   }
 
   return fmt::format("Vector {{ dimension: {}, value_type: {}, float_values: [{}], binary_values: [{}] }}", dimension,
@@ -79,8 +80,7 @@ std::string StateResult::ToString() const {
   std::stringstream ss;
   ss << " State Result : \n";
   for (const auto& region_state : region_states) {
-      ss << "region_id : " << region_state.region_id << " state : " << RegionStateToString(region_state.state) << "\n";
-    
+    ss << "region_id : " << region_state.region_id << " state : " << RegionStateToString(region_state.state) << "\n";
   }
 
   return ss.str();
@@ -201,6 +201,10 @@ std::string VectorIndexTypeToString(VectorIndexType type) {
       return "DiskAnn";
     case VectorIndexType::kBruteForce:
       return "BruteForce";
+    case VectorIndexType::kBinaryFlat:
+      return "BinaryFlat";
+    case VectorIndexType::kBinaryIvfFlat:
+      return "BinaryIvfFlat";
     default:
       return "Unknown";
   }
@@ -216,6 +220,8 @@ std::string MetricTypeToString(MetricType type) {
       return "InnerProduct";
     case MetricType::kCosine:
       return "Cosine";
+    case MetricType::kHamming:
+      return "Hamming";
     default:
       return "Unknown";
   }

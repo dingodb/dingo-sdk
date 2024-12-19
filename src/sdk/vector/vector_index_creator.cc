@@ -85,6 +85,18 @@ VectorIndexCreator& VectorIndexCreator::SetBruteForceParam(const BruteForceParam
   return *this;
 }
 
+VectorIndexCreator& VectorIndexCreator::SetBinaryFlatParam(const BinaryFlatParam& params) {
+  data_->index_type = kBinaryFlat;
+  data_->binary_flat_param = params;
+  return *this;
+}
+
+VectorIndexCreator& VectorIndexCreator::SetBinaryIvfFlatParam(const BinaryIvfFlatParam& params) {
+  data_->index_type = kBinaryIvfFlat;
+  data_->binary_ivf_flat_param = params;
+  return *this;
+}
+
 VectorIndexCreator& VectorIndexCreator::SetScalarSchema(const VectorScalarSchema& schema) {
   data_->schema = schema;
   return *this;

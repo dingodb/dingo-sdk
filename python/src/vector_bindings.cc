@@ -68,7 +68,9 @@ void DefineVectorBindings(pybind11::module& m) {
       .value("kIvfPq", VectorIndexType::kIvfPq)
       .value("kHnsw", VectorIndexType::kHnsw)
       .value("kDiskAnn", VectorIndexType::kDiskAnn)
-      .value("kBruteForce", VectorIndexType::kBruteForce);
+      .value("kBruteForce", VectorIndexType::kBruteForce)
+      .value("kBinaryFlat", VectorIndexType::kBinaryFlat)
+      .value("kBinaryIvfFlat", VectorIndexType::kBinaryIvfFlat);
 
   m.def("VectorIndexTypeToString", &VectorIndexTypeToString, "description: VectorIndexTypeToString");
 
@@ -76,7 +78,8 @@ void DefineVectorBindings(pybind11::module& m) {
       .value("kNoneMetricType", MetricType::kNoneMetricType)
       .value("kL2", MetricType::kL2)
       .value("kInnerProduct", MetricType::kInnerProduct)
-      .value("kCosine", MetricType::kCosine);
+      .value("kCosine", MetricType::kCosine)
+      .value("kHamming",MetricType::kHamming);
 
   m.def("MetricTypeToString", &MetricTypeToString, "description: MetricTypeToString");
 
@@ -135,6 +138,19 @@ void DefineVectorBindings(pybind11::module& m) {
       .def_static("Type", &BruteForceParam::Type)
       .def_readwrite("dimension", &BruteForceParam::dimension)
       .def_readwrite("metric_type", &BruteForceParam::metric_type);
+     
+py::class_< BinaryFlatParam>(m, "BinaryFlatParam")
+      .def(py::init<int32_t, MetricType>())
+      .def_static("Type", &BinaryFlatParam::Type)
+      .def_readwrite("dimension", &BinaryFlatParam::dimension)
+      .def_readwrite("metric_type", &BinaryFlatParam::metric_type);
+     
+py::class_<BinaryIvfFlatParam>(m, "BinaryIvfFlatParam")
+      .def(py::init<int32_t, MetricType>())
+      .def_static("Type", &BinaryIvfFlatParam::Type)
+      .def_readwrite("dimension", &BinaryIvfFlatParam::dimension)
+      .def_readwrite("metric_type", &BinaryIvfFlatParam::metric_type)
+      .def_readwrite("ncentroids", &BinaryIvfFlatParam::ncentroids);
 
   py::class_<VectorScalarColumnSchema>(m, "VectorScalarColumnSchema")
       .def(py::init<const std::string&, Type, bool>(), py::arg(), py::arg(), py::arg() = false)
@@ -287,6 +303,8 @@ void DefineVectorBindings(pybind11::module& m) {
       .def("SetHnswParam", &VectorIndexCreator::SetHnswParam)
       .def("SetDiskAnnParam", &VectorIndexCreator::SetDiskAnnParam)
       .def("SetBruteForceParam", &VectorIndexCreator::SetBruteForceParam)
+      .def("SetBinaryFlatParam", &VectorIndexCreator::SetBinaryFlatParam)
+      .def("SetBinaryIvfFlatParam", &VectorIndexCreator::SetBinaryIvfFlatParam)
       .def("SetAutoIncrementStart", &VectorIndexCreator::SetAutoIncrementStart)
       .def("SetScalarSchema", &VectorIndexCreator::SetScalarSchema)
       .def("Create", [](VectorIndexCreator& vectorindexcreator) -> std::tuple<Status, int64_t> {
