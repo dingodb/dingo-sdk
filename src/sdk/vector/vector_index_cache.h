@@ -20,7 +20,7 @@
 #include <unordered_map>
 
 #include "common/logging.h"
-#include "sdk/vector.h"
+#include "dingosdk/vector.h"
 #include "sdk/vector/vector_index.h"
 
 namespace dingodb {

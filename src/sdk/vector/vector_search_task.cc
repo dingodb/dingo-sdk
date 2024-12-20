@@ -27,9 +27,9 @@
 #include "sdk/expression/langchain_expr.h"
 #include "sdk/expression/langchain_expr_encoder.h"
 #include "sdk/expression/langchain_expr_factory.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/utils/scoped_cleanup.h"
-#include "sdk/vector.h"
+#include "dingosdk/vector.h"
 #include "sdk/vector/vector_common.h"
 
 namespace dingodb {

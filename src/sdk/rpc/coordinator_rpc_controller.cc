@@ -19,7 +19,7 @@
 #include "sdk/client_stub.h"
 #include "sdk/common/common.h"
 #include "sdk/common/param_config.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/utils/async_util.h"
 #include "sdk/utils/net_util.h"
 

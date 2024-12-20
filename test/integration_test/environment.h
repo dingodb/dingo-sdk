@@ -22,7 +22,7 @@
 #include "gflags/gflags.h"
 #include "glog/logging.h"
 #include "gtest/gtest.h"
-#include "sdk/client.h"
+#include "dingosdk/client.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/helper.h"
 #include "sdk/rpc/coordinator_rpc.h"

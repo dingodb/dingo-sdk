@@ -24,7 +24,7 @@
 #include "sdk/rpc/rpc.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "test_base.h"
 #include "test_common.h"
 

@@ -20,7 +20,7 @@
 
 #include "proto/common.pb.h"
 #include "sdk/client_stub.h"
-#include "sdk/vector.h"
+#include "dingosdk/vector.h"
 #include "sdk/vector/vector_common.h"
 
 namespace dingodb {

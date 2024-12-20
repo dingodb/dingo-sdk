@@ -17,7 +17,7 @@
 
 #include "gtest/gtest.h"
 #include "sdk/rpc/coordinator_rpc.h"
-#include "sdk/vector.h"
+#include "dingosdk/vector.h"
 #include "sdk/vector/vector_common.h"
 #include "sdk/vector/vector_index_cache.h"
 #include "test_base.h"

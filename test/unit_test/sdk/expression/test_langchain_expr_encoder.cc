@@ -18,7 +18,7 @@
 
 #include "sdk/expression/langchain_expr_encoder.h"
 #include "sdk/expression/langchain_expr_factory.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/utils/codec.h"
 
 namespace dingodb {

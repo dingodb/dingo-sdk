@@ -21,7 +21,7 @@
 #include <cstdint>
 #include <tuple>
 
-#include "sdk/document.h"
+#include "dingosdk/document.h"
 
 void DefineDocumentBindings(pybind11::module& m) {
   using namespace dingodb;

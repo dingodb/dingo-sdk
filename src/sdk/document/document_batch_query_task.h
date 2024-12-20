@@ -19,11 +19,11 @@
 #include <set>
 #include <vector>
 
-#include "sdk/document.h"
+#include "dingosdk/document.h"
 #include "sdk/document/document_task.h"
 #include "sdk/rpc/document_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {

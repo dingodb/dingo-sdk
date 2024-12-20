@@ -20,7 +20,7 @@
 #include <cstdint>
 #include <tuple>
 
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 
 void DefineStatusBindings(pybind11::module& m) {
   using namespace dingodb;

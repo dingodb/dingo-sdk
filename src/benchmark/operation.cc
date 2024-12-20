@@ -33,7 +33,7 @@
 #include "gflags/gflags.h"
 #include "gflags/gflags_declare.h"
 #include "glog/logging.h"
-#include "sdk/vector.h"
+#include "dingosdk/vector.h"
 #include "util.h"
 
 DEFINE_string(benchmark, "fillseq", "Benchmark type");

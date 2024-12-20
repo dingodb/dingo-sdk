@@ -24,9 +24,9 @@
 #include "proto/document.pb.h"
 #include "sdk/common/common.h"
 #include "sdk/common/param_config.h"
-#include "sdk/document.h"
+#include "dingosdk/document.h"
 #include "sdk/document/document_translater.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/utils/scoped_cleanup.h"
 
 namespace dingodb {

@@ -22,7 +22,7 @@
 
 #include "proto/meta.pb.h"
 #include "sdk/region.h"
-#include "sdk/vector.h"
+#include "dingosdk/vector.h"
 
 namespace dingodb {
 namespace sdk {

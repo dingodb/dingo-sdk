@@ -24,7 +24,7 @@
 
 #include "proto/meta.pb.h"
 #include "sdk/document/document_index.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/vector/vector_index.h"
 
 namespace dingodb {

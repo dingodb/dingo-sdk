@@ -30,7 +30,7 @@
 #include "google/protobuf/message.h"
 #include "sdk/common/param_config.h"
 #include "sdk/rpc/rpc.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/utils/callback.h"
 
 namespace dingodb {

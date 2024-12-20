@@ -21,7 +21,7 @@
 
 #include "fmt/core.h"
 #include "sdk/client_stub.h"
-#include "sdk/document.h"
+#include "dingosdk/document.h"
 #include "sdk/document/document_task.h"
 #include "sdk/rpc/document_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"

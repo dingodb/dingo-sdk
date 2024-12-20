@@ -21,8 +21,8 @@
 
 #include "sdk/rpc/index_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
-#include "sdk/status.h"
-#include "sdk/vector.h"
+#include "dingosdk/status.h"
+#include "dingosdk/vector.h"
 #include "sdk/vector/vector_task.h"
 
 namespace dingodb {

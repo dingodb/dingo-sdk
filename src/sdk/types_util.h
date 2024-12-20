@@ -17,7 +17,7 @@
 
 #include "glog/logging.h"
 #include "proto/common.pb.h"
-#include "sdk/types.h"
+#include "dingosdk/types.h"
 
 namespace dingodb {
 namespace sdk {

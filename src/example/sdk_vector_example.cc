@@ -23,11 +23,11 @@
 #include "common/logging.h"
 #include "gflags/gflags.h"
 #include "glog/logging.h"
-#include "sdk/client.h"
-#include "sdk/status.h"
-#include "sdk/types.h"
+#include "dingosdk/client.h"
+#include "dingosdk/status.h"
+#include "dingosdk/types.h"
 #include "sdk/utils/scoped_cleanup.h"
-#include "sdk/vector.h"
+#include "dingosdk/vector.h"
 
 using namespace dingodb::sdk;
 

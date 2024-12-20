@@ -20,8 +20,8 @@
 #include <unordered_map>
 
 #include "proto/meta.pb.h"
-#include "sdk/document.h"
-#include "sdk/types.h"
+#include "dingosdk/document.h"
+#include "dingosdk/types.h"
 
 namespace dingodb {
 

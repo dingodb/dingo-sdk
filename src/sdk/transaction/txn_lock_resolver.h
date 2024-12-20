@@ -19,7 +19,7 @@
 
 #include "fmt/core.h"
 #include "proto/store.pb.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {

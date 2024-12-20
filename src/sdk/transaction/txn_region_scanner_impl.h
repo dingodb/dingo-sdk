@@ -18,9 +18,9 @@
 #include <cstdint>
 #include <memory>
 
-#include "sdk/client.h"
+#include "dingosdk/client.h"
 #include "sdk/region_scanner.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/rpc/store_rpc.h"
 
 namespace dingodb {

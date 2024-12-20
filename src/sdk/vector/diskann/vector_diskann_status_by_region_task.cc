@@ -10,8 +10,8 @@
 #include "proto/error.pb.h"
 #include "sdk/auto_increment_manager.h"
 #include "sdk/common/common.h"
-#include "sdk/status.h"
-#include "sdk/vector.h"
+#include "dingosdk/status.h"
+#include "dingosdk/vector.h"
 #include "sdk/vector/vector_common.h"
 #include "sdk/vector/vector_index.h"
 

@@ -17,7 +17,7 @@
 #include "glog/logging.h"
 #include "sdk/auto_increment_manager.h"
 #include "sdk/document/document_index.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {

@@ -17,7 +17,7 @@
 
 #include <vector>
 
-#include "sdk/client.h"
+#include "dingosdk/client.h"
 #include "sdk/client_stub.h"
 #include "sdk/rawkv/raw_kv_task.h"
 #include "sdk/rpc/store_rpc.h"

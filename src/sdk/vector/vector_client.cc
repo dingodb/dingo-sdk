@@ -17,8 +17,8 @@
 #include <vector>
 
 #include "sdk/client_stub.h"
-#include "sdk/status.h"
-#include "sdk/vector.h"
+#include "dingosdk/status.h"
+#include "dingosdk/vector.h"
 #include "sdk/vector/diskann/vector_diskann_build_by_index_task.h"
 #include "sdk/vector/diskann/vector_diskann_build_by_region_task.h"
 #include "sdk/vector/diskann/vector_diskann_count_memory_task.h"

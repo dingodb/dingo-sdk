@@ -16,9 +16,9 @@
 #define DINGODB_SDK_VECTOR_TASK_H_
 
 #include "sdk/client_stub.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/utils/callback.h"
-#include "sdk/vector.h"
+#include "dingosdk/vector.h"
 
 namespace dingodb {
 namespace sdk {

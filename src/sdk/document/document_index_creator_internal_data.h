@@ -19,7 +19,7 @@
 #include <utility>
 
 #include "sdk/client_stub.h"
-#include "sdk/document.h"
+#include "dingosdk/document.h"
 #include "sdk/document/document_translater.h"
 
 namespace dingodb {

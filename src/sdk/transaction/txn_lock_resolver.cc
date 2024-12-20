@@ -23,7 +23,7 @@
 #include "sdk/region.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {

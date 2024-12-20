@@ -18,7 +18,7 @@
 #include <string>
 #include <utility>
 
-#include "sdk/slice.h"
+#include "dingosdk/slice.h"
 
 /// @brief Return the given status if it is not @c OK.
 #define DINGO_RETURN_NOT_OK(s)              \

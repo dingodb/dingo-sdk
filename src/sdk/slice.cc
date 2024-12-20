@@ -1,6 +1,6 @@
 
 
-#include "sdk/slice.h"
+#include "dingosdk/slice.h"
 
 namespace dingodb {
 

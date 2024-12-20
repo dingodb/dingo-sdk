@@ -47,7 +47,7 @@
 #include "rapidjson/rapidjson.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
-#include "sdk/vector.h"
+#include "dingosdk/vector.h"
 #include "util.h"
 
 DECLARE_uint32(vector_put_batch_size);

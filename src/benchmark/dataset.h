@@ -28,7 +28,7 @@
 
 #include "H5Cpp.h"
 #include "rapidjson/document.h"
-#include "sdk/vector.h"
+#include "dingosdk/vector.h"
 
 namespace dingodb {
 namespace benchmark {

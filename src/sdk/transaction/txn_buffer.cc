@@ -16,8 +16,8 @@
 
 #include "fmt/core.h"
 #include "glog/logging.h"
-#include "sdk/client.h"
-#include "sdk/status.h"
+#include "dingosdk/client.h"
+#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {

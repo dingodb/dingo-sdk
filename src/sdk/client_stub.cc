@@ -22,7 +22,7 @@
 #include "sdk/rawkv/raw_kv_region_scanner_impl.h"
 #include "sdk/rpc/coordinator_rpc_controller.h"
 #include "sdk/rpc/rpc_client.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/transaction/txn_lock_resolver.h"
 #include "sdk/transaction/txn_region_scanner_impl.h"
 #include "sdk/utils/net_util.h"

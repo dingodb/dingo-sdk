@@ -255,6 +255,7 @@ set_target_properties(PROTO_OBJS
 include_directories(${THIRD_PARTY_INSTALL_PATH}/include)
 include_directories(${PROJECT_SOURCE_DIR}/serial/src)
 include_directories(${PROJECT_SOURCE_DIR}/src)
+include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${CMAKE_BINARY_DIR})
 
 # serial source file

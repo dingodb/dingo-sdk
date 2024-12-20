@@ -24,8 +24,8 @@
 
 #include "common/logging.h"
 #include "fmt/core.h"
-#include "sdk/types.h"
-#include "sdk/vector.h"
+#include "dingosdk/types.h"
+#include "dingosdk/vector.h"
 
 namespace dingodb {
 namespace sdk {

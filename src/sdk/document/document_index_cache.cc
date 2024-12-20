@@ -23,7 +23,7 @@
 #include "proto/meta.pb.h"
 #include "sdk/client_stub.h"
 #include "sdk/rpc/coordinator_rpc.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {

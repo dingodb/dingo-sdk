@@ -15,7 +15,7 @@
 #ifndef DINGODB_SDK_RAW_KV_DATA_H_
 #define DINGODB_SDK_RAW_KV_DATA_H_
 
-#include "sdk/client.h"
+#include "dingosdk/client.h"
 #include "sdk/client_stub.h"
 
 namespace dingodb {

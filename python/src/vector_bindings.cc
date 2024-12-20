@@ -22,7 +22,7 @@
 #include <cstdint>
 #include <tuple>
 
-#include "sdk/vector.h"
+#include "dingosdk/vector.h"
 
 void DefineVectorBindings(pybind11::module& m) {
   using namespace dingodb;

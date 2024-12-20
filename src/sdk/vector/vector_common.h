@@ -21,9 +21,9 @@
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "proto/meta.pb.h"
-#include "sdk/types.h"
+#include "dingosdk/types.h"
 #include "sdk/types_util.h"
-#include "sdk/vector.h"
+#include "dingosdk/vector.h"
 #include "sdk/vector/vector_codec.h"
 
 namespace dingodb {

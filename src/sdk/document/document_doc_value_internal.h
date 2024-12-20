@@ -18,8 +18,8 @@
 #include <optional>
 #include <utility>
 
-#include "sdk/document.h"
-#include "sdk/types.h"
+#include "dingosdk/document.h"
+#include "dingosdk/types.h"
 
 namespace dingodb {
 namespace sdk {

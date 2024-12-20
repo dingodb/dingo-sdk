@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "common/logging.h"
-#include "sdk/types.h"
+#include "dingosdk/types.h"
 
 namespace dingodb {
 namespace sdk {

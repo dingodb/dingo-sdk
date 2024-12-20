@@ -21,7 +21,7 @@
 #include "gmock/gmock.h"
 #include "sdk/region.h"
 #include "sdk/region_scanner.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {

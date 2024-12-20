@@ -16,11 +16,11 @@
 
 #include "glog/logging.h"
 #include "proto/meta.pb.h"
-#include "sdk/document.h"
+#include "dingosdk/document.h"
 #include "sdk/document/document_index_creator_internal_data.h"
 #include "sdk/document/document_translater.h"
 #include "sdk/rpc/coordinator_rpc.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {

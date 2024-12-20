@@ -6,7 +6,7 @@
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "sdk/common/common.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/utils/scoped_cleanup.h"
 
 namespace dingodb {

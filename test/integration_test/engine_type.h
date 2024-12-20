@@ -15,7 +15,7 @@
 #ifndef DINGODB_INTEGRATION_TEST_ENGINE_TYPE_
 #define DINGODB_INTEGRATION_TEST_ENGINE_TYPE_
 
-#include "sdk/client.h"
+#include "dingosdk/client.h"
 
 namespace dingodb {
 namespace integration_test {

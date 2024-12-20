@@ -20,11 +20,11 @@
 #include "glog/logging.h"
 #include "sdk/auto_increment_manager.h"
 #include "sdk/common/common.h"
-#include "sdk/document.h"
+#include "dingosdk/document.h"
 #include "sdk/document/document_helper.h"
 #include "sdk/document/document_index.h"
 #include "sdk/document/document_translater.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {

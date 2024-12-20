@@ -17,7 +17,7 @@
 
 #include "sdk/client_stub.h"
 #include "gmock/gmock.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/transaction/txn_lock_resolver.h"
 
 namespace dingodb {

@@ -33,7 +33,7 @@
 #include "grpcpp/support/status.h"
 #include "grpcpp/support/stub_options.h"
 #include "sdk/rpc/rpc.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/utils/net_util.h"
 
 namespace dingodb {

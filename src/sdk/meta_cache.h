@@ -27,7 +27,7 @@
 #include "proto/coordinator.pb.h"
 #include "sdk/region.h"
 #include "sdk/rpc/coordinator_rpc_controller.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {

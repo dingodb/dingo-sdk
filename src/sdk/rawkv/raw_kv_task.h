@@ -16,7 +16,7 @@
 #define DINGODB_SDK_RAW_KV_TASK_H_
 
 #include "sdk/client_stub.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/utils/callback.h"
 
 namespace dingodb {

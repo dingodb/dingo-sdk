@@ -30,8 +30,8 @@
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 #include "helper.h"
-#include "sdk/client.h"
-#include "sdk/status.h"
+#include "dingosdk/client.h"
+#include "dingosdk/status.h"
 
 DECLARE_string(coordinator_url);
 

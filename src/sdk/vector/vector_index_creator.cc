@@ -17,8 +17,8 @@
 #include "glog/logging.h"
 #include "proto/meta.pb.h"
 #include "sdk/rpc/coordinator_rpc.h"
-#include "sdk/status.h"
-#include "sdk/vector.h"
+#include "dingosdk/status.h"
+#include "dingosdk/vector.h"
 #include "sdk/vector/vector_common.h"
 #include "sdk/vector/vector_index_creator_internal_data.h"
 

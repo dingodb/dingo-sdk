@@ -15,7 +15,7 @@
 #include <cstdint>
 
 #include "sdk/client_stub.h"
-#include "sdk/document.h"
+#include "dingosdk/document.h"
 #include "sdk/document/document_add_task.h"
 #include "sdk/document/document_batch_query_task.h"
 #include "sdk/document/document_count_task.h"
@@ -28,7 +28,7 @@
 #include "sdk/document/document_search_task.h"
 #include "sdk/document/document_update_auto_increment_task.h"
 #include "sdk/document/document_update_task.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {

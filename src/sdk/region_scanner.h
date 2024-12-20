@@ -20,7 +20,7 @@
 #include <optional>
 #include <vector>
 
-#include "sdk/client.h"
+#include "dingosdk/client.h"
 #include "sdk/region.h"
 #include "sdk/utils/callback.h"
 namespace dingodb {

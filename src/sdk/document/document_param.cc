@@ -19,9 +19,9 @@
 #include <memory>
 #include <sstream>
 
-#include "sdk/document.h"
+#include "dingosdk/document.h"
 #include "sdk/document/document_doc_value_internal.h"
-#include "sdk/types.h"
+#include "dingosdk/types.h"
 
 namespace dingodb {
 namespace sdk {

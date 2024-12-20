@@ -21,7 +21,7 @@
 
 #include "common/logging.h"
 #include "sdk/document/document_index.h"
-#include "sdk/vector.h"
+#include "dingosdk/vector.h"
 
 namespace dingodb {
 namespace sdk {

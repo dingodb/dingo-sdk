@@ -17,7 +17,7 @@
 #include "glog/logging.h"
 #include "sdk/common/common.h"
 #include "sdk/document/document_translater.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/utils/scoped_cleanup.h"
 
 namespace dingodb {

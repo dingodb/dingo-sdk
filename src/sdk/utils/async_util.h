@@ -18,7 +18,7 @@
 #include <condition_variable>
 #include <mutex>
 
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/utils/callback.h"
 
 namespace dingodb {

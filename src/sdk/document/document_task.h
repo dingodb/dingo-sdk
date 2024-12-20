@@ -16,9 +16,9 @@
 #define DINGODB_SDK_DOCUMENT_TASK_H_
 
 #include "sdk/client_stub.h"
-#include "sdk/document.h"
-#include "sdk/status.h"
-#include "sdk/types.h"
+#include "dingosdk/document.h"
+#include "dingosdk/status.h"
+#include "dingosdk/types.h"
 #include "sdk/utils/callback.h"
 
 namespace dingodb {

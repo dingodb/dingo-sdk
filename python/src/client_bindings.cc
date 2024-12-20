@@ -20,7 +20,7 @@
 #include <cstdint>
 #include <tuple>
 
-#include "sdk/client.h"
+#include "dingosdk/client.h"
 #include "sdk/document/document_index.h"
 #include "sdk/vector/vector_index.h"
 

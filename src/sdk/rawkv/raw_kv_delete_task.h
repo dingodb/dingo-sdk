@@ -19,7 +19,7 @@
 
 #include "sdk/client_stub.h"
 #include "sdk/rawkv/raw_kv_task.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
 namespace dingodb {

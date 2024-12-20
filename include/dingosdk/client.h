@@ -19,9 +19,9 @@
 #include <string>
 #include <vector>
 
-#include "sdk/document.h"
-#include "sdk/status.h"
-#include "sdk/vector.h"
+#include "dingosdk/document.h"
+#include "dingosdk/status.h"
+#include "dingosdk/vector.h"
 
 namespace dingodb {
 namespace sdk {

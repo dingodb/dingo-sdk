@@ -16,7 +16,7 @@
 
 #include "common/logging.h"
 #include "gtest/gtest.h"
-#include "sdk/vector.h"
+#include "dingosdk/vector.h"
 #include "sdk/vector/vector_common.h"
 #include "sdk/vector/vector_index.h"
 #include "test_common.h"

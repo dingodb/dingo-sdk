@@ -25,7 +25,7 @@
 #include "sdk/common/param_config.h"
 #include "sdk/region.h"
 #include "sdk/rpc/coordinator_rpc.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/utils/async_util.h"
 
 namespace dingodb {

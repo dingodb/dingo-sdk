@@ -5,7 +5,7 @@
 
 #include "glog/logging.h"
 #include "sdk/common/common.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {

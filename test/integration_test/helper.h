@@ -25,7 +25,7 @@
 #include "environment.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
-#include "sdk/client.h"
+#include "dingosdk/client.h"
 
 namespace dingodb {
 

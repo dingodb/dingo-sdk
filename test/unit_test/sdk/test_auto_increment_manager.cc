@@ -20,7 +20,7 @@
 #include "proto/meta.pb.h"
 #include "sdk/auto_increment_manager.h"
 #include "sdk/rpc/coordinator_rpc.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/vector/vector_common.h"
 #include "sdk/vector/vector_index.h"
 #include "test_base.h"

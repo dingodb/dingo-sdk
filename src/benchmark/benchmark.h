@@ -26,7 +26,7 @@
 #include "benchmark/dataset.h"
 #include "benchmark/operation.h"
 #include "bvar/latency_recorder.h"
-#include "sdk/client.h"
+#include "dingosdk/client.h"
 #include "sdk/client_stub.h"
 
 namespace dingodb {

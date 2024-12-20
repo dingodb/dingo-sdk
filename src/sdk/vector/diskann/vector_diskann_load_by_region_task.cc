@@ -13,8 +13,8 @@
 #include "proto/error.pb.h"
 #include "sdk/common/common.h"
 #include "sdk/region.h"
-#include "sdk/status.h"
-#include "sdk/vector.h"
+#include "dingosdk/status.h"
+#include "dingosdk/vector.h"
 #include "sdk/vector/vector_index.h"
 
 namespace dingodb {

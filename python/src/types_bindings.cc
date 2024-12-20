@@ -21,7 +21,7 @@
 #include <cstdint>
 #include <tuple>
 
-#include "sdk/types.h"
+#include "dingosdk/types.h"
 
 void DefineTypesBindings(pybind11::module& m) {
   using namespace dingodb;

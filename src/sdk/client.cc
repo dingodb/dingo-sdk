@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "sdk/client.h"
+#include "dingosdk/client.h"
 
 #include <unistd.h>
 
@@ -32,7 +32,7 @@
 #include "sdk/client_stub.h"
 #include "sdk/common/helper.h"
 #include "sdk/common/param_config.h"
-#include "sdk/document.h"
+#include "dingosdk/document.h"
 #include "sdk/document/document_index.h"
 #include "sdk/document/document_index_cache.h"
 #include "sdk/document/document_index_creator_internal_data.h"
@@ -51,10 +51,10 @@
 #include "sdk/rawkv/raw_kv_scan_task.h"
 #include "sdk/region_creator_internal_data.h"
 #include "sdk/rpc/coordinator_rpc.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 #include "sdk/transaction/txn_impl.h"
 #include "sdk/utils/net_util.h"
-#include "sdk/vector.h"
+#include "dingosdk/vector.h"
 #include "sdk/vector/diskann/vector_diskann_status_by_index_task.h"
 #include "sdk/vector/vector_index.h"
 #include "sdk/vector/vector_index_cache.h"

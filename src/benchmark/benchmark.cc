@@ -30,11 +30,11 @@
 #include "fmt/core.h"
 #include "gflags/gflags.h"
 #include "proto/common.pb.h"
-#include "sdk/client.h"
+#include "dingosdk/client.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/helper.h"
 #include "sdk/rpc/coordinator_rpc.h"
-#include "sdk/vector.h"
+#include "dingosdk/vector.h"
 #include "util.h"
 
 DEFINE_string(coordinator_addrs, "file://./coor_list", "coordinator addrs");

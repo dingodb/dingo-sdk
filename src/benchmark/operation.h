@@ -22,9 +22,9 @@
 #include <vector>
 
 #include "benchmark/dataset.h"
-#include "sdk/client.h"
-#include "sdk/status.h"
-#include "sdk/vector.h"
+#include "dingosdk/client.h"
+#include "dingosdk/status.h"
+#include "dingosdk/vector.h"
 
 namespace dingodb {
 namespace benchmark {

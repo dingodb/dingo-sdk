@@ -20,10 +20,10 @@
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "proto/meta.pb.h"
-#include "sdk/document.h"
+#include "dingosdk/document.h"
 #include "sdk/document/document_codec.h"
 #include "sdk/document/document_doc_value_internal.h"
-#include "sdk/types.h"
+#include "dingosdk/types.h"
 #include "sdk/types_util.h"
 
 namespace dingodb {

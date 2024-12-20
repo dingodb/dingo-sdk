@@ -22,8 +22,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "sdk/status.h"
-#include "sdk/types.h"
+#include "dingosdk/status.h"
+#include "dingosdk/types.h"
 
 namespace dingodb {
 namespace sdk {

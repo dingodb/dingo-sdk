@@ -20,8 +20,8 @@
 #include "fmt/core.h"
 #include "sdk/common/param_config.h"
 #include "sdk/expression/langchain_expr.h"
-#include "sdk/status.h"
-#include "sdk/types.h"
+#include "dingosdk/status.h"
+#include "dingosdk/types.h"
 #include "sdk/types_util.h"
 
 namespace dingodb {

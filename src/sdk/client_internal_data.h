@@ -17,7 +17,7 @@
 
 #include <memory>
 
-#include "sdk/client.h"
+#include "dingosdk/client.h"
 #include "sdk/client_stub.h"
 
 namespace dingodb {

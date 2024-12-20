@@ -18,7 +18,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "sdk/client.h"
+#include "dingosdk/client.h"
 #include "sdk/client_stub.h"
 #include "proto/meta.pb.h"
 #include "proto/store.pb.h"

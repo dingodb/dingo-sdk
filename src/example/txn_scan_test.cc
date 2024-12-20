@@ -22,9 +22,9 @@
 #include <vector>
 
 #include "glog/logging.h"
-#include "sdk/client.h"
+#include "dingosdk/client.h"
 #include "common/logging.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 
 using dingodb::sdk::Status;
 

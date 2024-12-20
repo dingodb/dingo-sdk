@@ -23,7 +23,7 @@
 #include "sdk/document/document_helper.h"
 #include "sdk/document/document_index.h"
 #include "sdk/document/document_translater.h"
-#include "sdk/status.h"
+#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {
