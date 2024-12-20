@@ -4,42 +4,6 @@
 [submodule "src/serial"]
 	path = serial
 	url = https://github.com/dingodb/dingo-serial
-[submodule "third-party/grpc"]
-	path = third-party/grpc
-	url = https://github.com/grpc/grpc.git
-[submodule "third-party/gflags"]
-	path = third-party/gflags
-	url = https://github.com/gflags/gflags
-[submodule "third-party/fmt"]
-	path = third-party/fmt
-	url = https://github.com/fmtlib/fmt
-[submodule "third-party/nlohmann-json"]
-	path = third-party/nlohmann-json
-	url = https://github.com/nlohmann/json.git
-[submodule "third-party/glog"]
-	path = third-party/glog
-	url = https://github.com/google/glog
-[submodule "third-party/googletest"]
-	path = third-party/googletest
-	url = https://github.com/google/googletest
-[submodule "third-party/rapidjson"]
-	path = third-party/rapidjson
-	url = https://github.com/Tencent/rapidjson.git
-[submodule "third-party/brpc"]
-	path = third-party/brpc
-	url = https://github.com/apache/brpc.git
-[submodule "third-party/leveldb"]
-	path = third-party/leveldb
-	url = https://github.com/google/leveldb.git
-[submodule "third-party/snappy"]
-	path = third-party/snappy
-	url = https://github.com/google/snappy.git
-[submodule "third-party/openssl"]
-	path = third-party/openssl
-	url = https://github.com/openssl/openssl.git
-[submodule "third-party/hdf5"]
-	path = third-party/hdf5
-	url = https://github.com/HDFGroup/hdf5.git
 [submodule "python/pybind11"]
 	path = python/pybind11
 	url = https://github.com/pybind/pybind11.git

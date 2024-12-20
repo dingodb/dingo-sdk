@@ -19,7 +19,6 @@
 #include "gtest/gtest.h"
 #include "proto/meta.pb.h"
 #include "sdk/auto_increment_manager.h"
-#include "sdk/rpc/brpc/coordinator_rpc.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/status.h"
 #include "sdk/vector/vector_common.h"

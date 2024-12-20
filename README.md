@@ -11,7 +11,13 @@ gcc 13
 
 ## How to build 
 
-### Download the Submodule
+### Build dingo-eureka
+
+refer https://github.com/dingodb/dingo-eureka
+
+### Build SDK
+
+#### Download the Submodule
 
 In the source dir
 
@@ -21,24 +27,15 @@ git submodule sync --recursive
 git submodule update --init --recursive
 ```
 
-### Build Third Party
-
+#### Build
 In the source dir
 
 ```shell
-cd third-party
+mkdir build 
 
-cmake -S . -B build
+cd build
 
-cmake --build build -j 8
-```
+cmake -DTHIRD_PARTY_INSTALL_PATH=dingo-eureka-install-path ..
 
-### Build SDK
-
-In the source dir
-
-```shell
-cmake -S . -B build
-
-cmake --build build -j 8
+make -j 32
 ```

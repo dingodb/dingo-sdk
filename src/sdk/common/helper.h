@@ -17,6 +17,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <filesystem>
 
 #include "common/logging.h"
 #include "fmt/core.h"
