@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "dingosdk/coordinator.h"
 #include "dingosdk/document.h"
 #include "dingosdk/status.h"
 #include "dingosdk/vector.h"
@@ -61,6 +62,9 @@ class Client {
 
   // NOTE:: Caller must delete *client when it is no longer needed.
   static Status Build(std::string naming_service_url, Client** client);
+
+  // NOTE:: Caller must delete *coordinator when it is no longer needed.
+  Status NewCoordinator(Coordinator** coordinator);
 
   // NOTE:: Caller must delete *raw_kv when it is no longer needed.
   Status NewRawKV(RawKV** raw_kv);

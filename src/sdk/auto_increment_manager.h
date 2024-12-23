@@ -22,9 +22,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include "dingosdk/status.h"
 #include "proto/meta.pb.h"
 #include "sdk/document/document_index.h"
-#include "dingosdk/status.h"
 #include "sdk/vector/vector_index.h"
 
 namespace dingodb {
@@ -32,11 +32,11 @@ namespace sdk {
 
 class ClientStub;
 
-class AutoInrementer {
+class AutoIncrementer {
  public:
-  AutoInrementer(const ClientStub& stub) : stub_(stub) {}
+  AutoIncrementer(const ClientStub& stub) : stub_(stub) {}
 
-  virtual ~AutoInrementer() = default;
+  virtual ~AutoIncrementer() = default;
 
   Status GetNextId(int64_t& next);
 
@@ -63,10 +63,10 @@ class AutoInrementer {
   std::vector<int64_t> id_cache_;
 };
 
-class VectorIndexAutoInrementer : public AutoInrementer {
+class VectorIndexAutoInrementer : public AutoIncrementer {
  public:
   VectorIndexAutoInrementer(const ClientStub& stub, std::shared_ptr<VectorIndex> vector_index)
-      : AutoInrementer(stub), vector_index_(std::move(vector_index)) {}
+      : AutoIncrementer(stub), vector_index_(std::move(vector_index)) {}
 
   ~VectorIndexAutoInrementer() override = default;
 
@@ -79,10 +79,10 @@ class VectorIndexAutoInrementer : public AutoInrementer {
   const std::shared_ptr<VectorIndex> vector_index_;
 };
 
-class DocumentIndexAutoInrementer : public AutoInrementer {
+class DocumentIndexAutoInrementer : public AutoIncrementer {
  public:
   DocumentIndexAutoInrementer(const ClientStub& stub, std::shared_ptr<DocumentIndex> doc_index)
-      : AutoInrementer(stub), doc_index_(std::move(doc_index)) {}
+      : AutoIncrementer(stub), doc_index_(std::move(doc_index)) {}
 
   ~DocumentIndexAutoInrementer() override = default;
 
@@ -99,16 +99,16 @@ class AutoIncrementerManager {
 
   ~AutoIncrementerManager() = default;
 
-  std::shared_ptr<AutoInrementer> GetOrCreateVectorIndexIncrementer(std::shared_ptr<VectorIndex>& index);
+  std::shared_ptr<AutoIncrementer> GetOrCreateVectorIndexIncrementer(std::shared_ptr<VectorIndex>& index);
 
-  std::shared_ptr<AutoInrementer> GetOrCreateDocumentIndexIncrementer(std::shared_ptr<DocumentIndex>& index);
+  std::shared_ptr<AutoIncrementer> GetOrCreateDocumentIndexIncrementer(std::shared_ptr<DocumentIndex>& index);
 
   void RemoveIndexIncrementerById(int64_t index_id);
 
  private:
   const ClientStub& stub_;
   std::mutex mutex_;
-  std::unordered_map<int64_t, std::shared_ptr<AutoInrementer>> auto_incrementer_map_;
+  std::unordered_map<int64_t, std::shared_ptr<AutoIncrementer>> auto_incrementer_map_;
 };
 
 }  // namespace sdk

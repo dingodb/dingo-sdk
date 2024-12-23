@@ -17,6 +17,7 @@ set(SDK_SRCS
   auto_increment_manager.cc
   client_stub.cc
   client.cc
+  coordinator.cc
   meta_cache.cc
   meta_member_info.cc
   region.cc

@@ -20,22 +20,22 @@
 #include <mutex>
 #include <utility>
 
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/param_config.h"
 #include "sdk/rpc/coordinator_rpc.h"
-#include "dingosdk/status.h"
 
 namespace dingodb {
 
 namespace sdk {
 
-struct AutoInrementer::Req {
+struct AutoIncrementer::Req {
   explicit Req() = default;
   std::condition_variable cv;
 };
 
-Status AutoInrementer::GetNextId(int64_t& next) {
+Status AutoIncrementer::GetNextId(int64_t& next) {
   std::vector<int64_t> ids;
   DINGO_RETURN_NOT_OK(GetNextIds(ids, 1));
   CHECK(!ids.empty());
@@ -43,7 +43,7 @@ Status AutoInrementer::GetNextId(int64_t& next) {
   return Status::OK();
 }
 
-Status AutoInrementer::GetNextIds(std::vector<int64_t>& to_fill, int64_t count) {
+Status AutoIncrementer::GetNextIds(std::vector<int64_t>& to_fill, int64_t count) {
   CHECK_GT(count, 0);
 
   return RunOperation([this, &to_fill, &count]() {
@@ -61,7 +61,7 @@ Status AutoInrementer::GetNextIds(std::vector<int64_t>& to_fill, int64_t count) 
   });
 }
 
-Status AutoInrementer::GetAutoIncrementId(int64_t& start_id) {
+Status AutoIncrementer::GetAutoIncrementId(int64_t& start_id) {
   return RunOperation([this, &start_id]() {
     Status s;
     while (s.ok()) {
@@ -76,7 +76,7 @@ Status AutoInrementer::GetAutoIncrementId(int64_t& start_id) {
   });
 }
 
-Status AutoInrementer::UpdateAutoIncrementId(int64_t start_id) {
+Status AutoIncrementer::UpdateAutoIncrementId(int64_t start_id) {
   CHECK_GT(start_id, 0);
 
   return RunOperation([this, start_id]() {
@@ -90,7 +90,7 @@ Status AutoInrementer::UpdateAutoIncrementId(int64_t start_id) {
   });
 }
 
-Status AutoInrementer::RunOperation(std::function<Status()> operation) {
+Status AutoIncrementer::RunOperation(std::function<Status()> operation) {
   Req req;
   {
     std::unique_lock<std::mutex> lk(mutex_);
@@ -110,7 +110,7 @@ Status AutoInrementer::RunOperation(std::function<Status()> operation) {
   return s;
 }
 
-Status AutoInrementer::RefillCache() {
+Status AutoIncrementer::RefillCache() {
   GenerateAutoIncrementRpc rpc;
   PrepareGenerateAutoIncrementRequest(*rpc.MutableRequest());
 
@@ -156,7 +156,7 @@ void DocumentIndexAutoInrementer::PrepareUpdateAutoIncrementRequest(pb::meta::Up
   request.set_force(true);
 }
 
-std::shared_ptr<AutoInrementer> AutoIncrementerManager::GetOrCreateVectorIndexIncrementer(
+std::shared_ptr<AutoIncrementer> AutoIncrementerManager::GetOrCreateVectorIndexIncrementer(
     std::shared_ptr<VectorIndex>& index) {
   std::unique_lock<std::mutex> lk(mutex_);
   int64_t index_id = index->GetId();
@@ -170,7 +170,7 @@ std::shared_ptr<AutoInrementer> AutoIncrementerManager::GetOrCreateVectorIndexIn
   }
 }
 
-std::shared_ptr<AutoInrementer> AutoIncrementerManager::GetOrCreateDocumentIndexIncrementer(
+std::shared_ptr<AutoIncrementer> AutoIncrementerManager::GetOrCreateDocumentIndexIncrementer(
     std::shared_ptr<DocumentIndex>& index) {
   std::unique_lock<std::mutex> lk(mutex_);
   int64_t index_id = index->GetId();

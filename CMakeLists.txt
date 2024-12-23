@@ -304,6 +304,8 @@ set(DINGOSDK_PUBLIC_INCLUDE_DIR "include/dingosdk")
 if(DINGOSDK_INSTALL)
   include(GNUInstallDirs) 
 
+  set(CMAKE_INSTALL_LIBDIR lib)
+
   install(TARGETS sdk 
     EXPORT dingosdkTargets
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -315,6 +317,7 @@ if(DINGOSDK_INSTALL)
     FILES 
     "${DINGOSDK_PUBLIC_INCLUDE_DIR}/client.h"
     "${DINGOSDK_PUBLIC_INCLUDE_DIR}/document.h"
+    "${DINGOSDK_PUBLIC_INCLUDE_DIR}/coordinator.h"
     "${DINGOSDK_PUBLIC_INCLUDE_DIR}/vector.h"
     "${DINGOSDK_PUBLIC_INCLUDE_DIR}/slice.h"
     "${DINGOSDK_PUBLIC_INCLUDE_DIR}/status.h"

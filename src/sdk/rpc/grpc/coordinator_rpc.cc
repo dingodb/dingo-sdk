@@ -32,8 +32,16 @@ DEFINE_COORDINATOR_RPC(CreateRegion);
 DEFINE_COORDINATOR_RPC(DropRegion);
 DEFINE_COORDINATOR_RPC(ScanRegions);
 
+DEFINE_COORDINATOR_RPC(MDSHeartbeat);
+DEFINE_COORDINATOR_RPC(GetMDSList);
+
+DEFINE_META_RPC(CreateAutoIncrement);
+DEFINE_META_RPC(DeleteAutoIncrement);
 DEFINE_META_RPC(GenerateAutoIncrement);
 DEFINE_META_RPC(UpdateAutoIncrement);
+DEFINE_META_RPC(GetAutoIncrement);
+DEFINE_META_RPC(GetAutoIncrements);
+
 DEFINE_META_RPC(CreateIndex);
 DEFINE_META_RPC(GetIndexByName);
 DEFINE_META_RPC(DropIndex);

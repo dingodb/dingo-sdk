@@ -24,6 +24,9 @@
 #include <vector>
 
 #include "common/logging.h"
+#include "dingosdk/document.h"
+#include "dingosdk/status.h"
+#include "dingosdk/vector.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
@@ -32,7 +35,6 @@
 #include "sdk/client_stub.h"
 #include "sdk/common/helper.h"
 #include "sdk/common/param_config.h"
-#include "dingosdk/document.h"
 #include "sdk/document/document_index.h"
 #include "sdk/document/document_index_cache.h"
 #include "sdk/document/document_index_creator_internal_data.h"
@@ -51,10 +53,8 @@
 #include "sdk/rawkv/raw_kv_scan_task.h"
 #include "sdk/region_creator_internal_data.h"
 #include "sdk/rpc/coordinator_rpc.h"
-#include "dingosdk/status.h"
 #include "sdk/transaction/txn_impl.h"
 #include "sdk/utils/net_util.h"
-#include "dingosdk/vector.h"
 #include "sdk/vector/diskann/vector_diskann_status_by_index_task.h"
 #include "sdk/vector/vector_index.h"
 #include "sdk/vector/vector_index_cache.h"
@@ -146,6 +146,11 @@ Status Client::Init(const std::vector<EndPoint>& endpoints) {
     data_->stub = std::move(tmp);
   }
   return open;
+}
+
+Status Client::NewCoordinator(Coordinator** coordinator) {
+  *coordinator = new Coordinator(*data_->stub);
+  return Status::OK();
 }
 
 Status Client::NewRawKV(RawKV** raw_kv) {
