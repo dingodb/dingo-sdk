@@ -26,6 +26,10 @@
 namespace dingodb {
 namespace sdk {
 
+// Update CMakeLists.txt if you change these
+static const int kMajorVersion = 1;
+static const int kMinorVersion = 10;
+
 class RawKV;
 class RegionCreator;
 class TestBase;

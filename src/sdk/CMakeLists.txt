@@ -109,23 +109,24 @@ if(SDK_ENABLE_GRPC)
 
     add_library(sdk
         ${SDK_SRCS}
+        $<TARGET_OBJECTS:PROTO_OBJS>
+        $<TARGET_OBJECTS:SERRIAL_OJBS>
     )
 
     set_target_properties(sdk
       PROPERTIES
+      VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR}
       POSITION_INDEPENDENT_CODE ON
     )
 
     target_link_libraries(sdk
       PRIVATE
-        $<TARGET_OBJECTS:PROTO_OBJS>
-        $<TARGET_OBJECTS:SERRIAL_OJBS>
         grpc++ 
         grpc_protobuf
         fmt::fmt
         gflags
-        ZLIB::ZLIB
         glog::glog
+        ZLIB::ZLIB
         dl 
         Threads::Threads
     )
@@ -146,26 +147,27 @@ else()
 
     add_library(sdk
         ${SDK_SRCS}
+        $<TARGET_OBJECTS:PROTO_OBJS>
+        $<TARGET_OBJECTS:SERRIAL_OJBS>
     )
 
     set_target_properties(sdk
       PROPERTIES
+      VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR}
       POSITION_INDEPENDENT_CODE ON
     )
 
    target_link_libraries(sdk
       PRIVATE
-        $<TARGET_OBJECTS:PROTO_OBJS>
-        $<TARGET_OBJECTS:SERRIAL_OJBS>
         brpc
+        gflags
         leveldb
         Snappy::snappy
-        grpc_protobuf
         ZLIB::ZLIB
         fmt::fmt
-        gflags
         glog::glog
-        ${OPENSSL_LIBRARIES}
+        protobuf::libprotobuf
+        OpenSSL::SSL
         dl 
         Threads::Threads
    )

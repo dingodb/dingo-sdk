@@ -17,7 +17,6 @@ add_executable(${BENCHMARK_BIN}
 
 target_link_libraries(${BENCHMARK_BIN}
                       PRIVATE
-                      $<TARGET_OBJECTS:PROTO_OBJS>
                       sdk
                       ${HDF5_LIBRARIES}
                       ${HDF5_CXX_LIBRARIES}

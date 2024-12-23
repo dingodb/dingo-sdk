@@ -15,7 +15,9 @@
 # if compile_commands.json is needed, please enable CMAKE_EXPORT_COMPILE_COMMANDS, of use `bear --append -- make` to do make, it's more recommended to use bear.
 
 cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
-project(dingo-sdk C CXX)
+
+# Keep the version below in sync with the one in client.h
+project(dingosdk VERSION 1.10.0 LANGUAGES C CXX)
 
 option(SDK_ENABLE_GRPC "Build sdk with grpc instead brpc" OFF)
 option(BUILD_BENCHMARK "Build benchmark" ON)
@@ -23,6 +25,7 @@ option(BUILD_INTEGRATION_TESTS "Build integration test" ON)
 option(BUILD_UNIT_TESTS "Build unit test" ON)
 option(BUILD_SDK_EXAMPLE "Build sdk example" ON)
 option(BUILD_PYTHON_SDK "Build python sdk" OFF)
+option(DINGOSDK_INSTALL "Intall dingosdk header and libary" ON)
 
 set(CMAKE_CXX_STANDARD 17)
 message("CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
@@ -296,3 +299,49 @@ if(BUILD_UNIT_TESTS)
   message(STATUS "Build unit test")
   add_subdirectory(test/unit_test/sdk)
 endif()
+
+set(DINGOSDK_PUBLIC_INCLUDE_DIR "include/dingosdk")
+if(DINGOSDK_INSTALL)
+  # include(GNUInstallDirs) 
+
+  install(TARGETS sdk 
+    EXPORT dingosdkTargets
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  )
+
+  install(
+    FILES 
+    "${DINGOSDK_PUBLIC_INCLUDE_DIR}/client.h"
+    "${DINGOSDK_PUBLIC_INCLUDE_DIR}/document.h"
+    "${DINGOSDK_PUBLIC_INCLUDE_DIR}/vector.h"
+    "${DINGOSDK_PUBLIC_INCLUDE_DIR}/slice.h"
+    "${DINGOSDK_PUBLIC_INCLUDE_DIR}/status.h"
+    "${DINGOSDK_PUBLIC_INCLUDE_DIR}/types.h"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/dingosdk"
+  )
+
+  include(CMakePackageConfigHelpers)
+  configure_package_config_file(
+    "cmake/${PROJECT_NAME}Config.cmake.in"
+    "${PROJECT_BINARY_DIR}/cmake/${PROJECT_NAME}Config.cmake"
+    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
+  )
+  write_basic_package_version_file(
+    "${PROJECT_BINARY_DIR}/cmake/${PROJECT_NAME}ConfigVersion.cmake"
+    COMPATIBILITY SameMajorVersion
+  )
+  install(
+    EXPORT dingosdkTargets
+    NAMESPACE dingo::
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
+  )
+  install(
+    FILES
+      "${PROJECT_BINARY_DIR}/cmake/${PROJECT_NAME}Config.cmake"
+      "${PROJECT_BINARY_DIR}/cmake/${PROJECT_NAME}ConfigVersion.cmake"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
+  )
+endif(DINGOSDK_INSTALL)
+  
