@@ -302,7 +302,7 @@ endif()
 
 set(DINGOSDK_PUBLIC_INCLUDE_DIR "include/dingosdk")
 if(DINGOSDK_INSTALL)
-  # include(GNUInstallDirs) 
+  include(GNUInstallDirs) 
 
   install(TARGETS sdk 
     EXPORT dingosdkTargets
