@@ -44,7 +44,7 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 
 # third-party install path
 if(NOT THIRD_PARTY_INSTALL_PATH)
-  set(THIRD_PARTY_INSTALL_PATH ${PROJECT_SOURCE_DIR}/third-party/installed)
+  set(THIRD_PARTY_INSTALL_PATH "$ENV{HOME}/.local/dingo-eureka")
 endif()
 message("THIRD_PARTY_INSTALL_PATH:${THIRD_PARTY_INSTALL_PATH}")
 
