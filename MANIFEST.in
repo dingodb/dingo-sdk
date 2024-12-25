@@ -3,6 +3,3 @@ graft src
 graft python
 graft serial 
 graft store-proto
-graft third-party
-prune third-party/build
-prune third-party/installed
