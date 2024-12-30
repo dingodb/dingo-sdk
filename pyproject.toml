@@ -43,14 +43,14 @@ manylinux-x86_64-image = "manylinux_2_28"
 before-all = [
   "yum install -y perl-IPC-Cmd",
   "dnf install -y epel-release",
-  "dnf install -y wget tar git gcc-toolset-13* perl flex bison patch",
+  "dnf install -y wget tar git gcc-toolset-13* perl flex bison patch autoconf automake libtool",
   "git clone https://github.com/dingodb/dingo-eureka.git",
   "cd dingo-eureka",
   "git submodule sync --recursive",
   "git submodule update --init --recursive",
   "mkdir build && cd build",
   "cmake ..",
-  "make -j 32",
+  "make -j 5",
 ]
 archs = ["x86_64"]
 

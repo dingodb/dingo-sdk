@@ -5,19 +5,13 @@ on:
     workflows: ["Build_wheel"]
     types:
       - completed
-    on:
-      branches:
-        - develop
-        - main
-      pull_requests:
-        - merged
 
 permissions:
   contents: read
 
 jobs:
   deploy:
-    if: github.event.pull_request.merged == false
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
