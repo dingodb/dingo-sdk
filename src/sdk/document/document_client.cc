@@ -25,6 +25,7 @@
 #include "sdk/document/document_get_index_metrics_task.h"
 #include "sdk/document/document_index_cache.h"
 #include "sdk/document/document_scan_query_task.h"
+#include "sdk/document/document_search_all_task.h"
 #include "sdk/document/document_search_task.h"
 #include "sdk/document/document_update_auto_increment_task.h"
 #include "sdk/document/document_update_task.h"
@@ -79,6 +80,22 @@ Status DocumentClient::SearchByIndexName(int64_t schema_id, const std::string& i
       stub_.GetDocumentIndexCache()->GetIndexIdByKey(EncodeDocumentIndexCacheKey(schema_id, index_name), index_id));
   CHECK_GT(index_id, 0);
   DocumentSearchTask task(stub_, index_id, search_param, out_result);
+  return task.Run();
+}
+
+Status DocumentClient::SearchAllByIndexId(int64_t index_id, const DocSearchParam& search_param,
+                                       DocSearchResult& out_result) {
+  DocumentSearchAllTask task(stub_, index_id, search_param, out_result);
+  return task.Run();
+}
+
+Status DocumentClient::SearchAllByIndexName(int64_t schema_id, const std::string& index_name,
+                                         const DocSearchParam& search_param, DocSearchResult& out_result) {
+  int64_t index_id{0};
+  DINGO_RETURN_NOT_OK(
+      stub_.GetDocumentIndexCache()->GetIndexIdByKey(EncodeDocumentIndexCacheKey(schema_id, index_name), index_id));
+  CHECK_GT(index_id, 0);
+  DocumentSearchAllTask task(stub_, index_id, search_param, out_result);
   return task.Run();
 }
 
