@@ -57,14 +57,14 @@ void DefineDocumentBindings(pybind11::module& m) {
       .def_static("FromDouble", &DocValue::FromDouble)
       .def_static("FromString", &DocValue::FromString)
       .def_static("FromBytes", &DocValue::FromBytes)
-      .def_static("FromBool",&DocValue::FromBool)
+      .def_static("FromBool", &DocValue::FromBool)
       .def_static("FromDatetime", &DocValue::FromDatetime)
       .def("GetType", &DocValue::GetType)
       .def("IntValue", &DocValue::IntValue)
       .def("DoubleValue", &DocValue::DoubleValue)
       .def("StringValue", &DocValue::StringValue)
       .def("BytesValue", &DocValue::BytesValue)
-      .def("BoolValue",&DocValue::BoolValue)
+      .def("BoolValue", &DocValue::BoolValue)
       .def("DatetimeValue", &DocValue::DatetimeValue)
       .def("ToString", &DocValue::ToString);
 
@@ -101,7 +101,8 @@ void DefineDocumentBindings(pybind11::module& m) {
       .def_readwrite("doc_ids", &DocSearchParam::doc_ids)
       .def_readwrite("column_names", &DocSearchParam::column_names)
       .def_readwrite("with_scalar_data", &DocSearchParam::with_scalar_data)
-      .def_readwrite("selected_keys", &DocSearchParam::selected_keys);
+      .def_readwrite("selected_keys", &DocSearchParam::selected_keys)
+      .def_readwrite("query_limited", &DocSearchParam::query_limited);
 
   py::class_<DocWithStore>(m, "DocWithStore")
       .def(py::init<>())
@@ -178,6 +179,19 @@ void DefineDocumentBindings(pybind11::module& m) {
               const DocSearchParam& search_param) {
              DocSearchResult out_result;
              Status status = documentclient.SearchByIndexName(schema_id, index_name, search_param, out_result);
+             return std::make_tuple(status, out_result);
+           })
+      .def("SearchAllByIndexId",
+           [](DocumentClient& documentclient, int64_t index_id, const DocSearchParam& search_param) {
+             DocSearchResult out_result;
+             Status status = documentclient.SearchAllByIndexId(index_id, search_param, out_result);
+             return std::make_tuple(status, out_result);
+           })
+      .def("SearchAllByIndexName",
+           [](DocumentClient& documentclient, int64_t schema_id, const std::string& index_name,
+              const DocSearchParam& search_param) {
+             DocSearchResult out_result;
+             Status status = documentclient.SearchAllByIndexName(schema_id, index_name, search_param, out_result);
              return std::make_tuple(status, out_result);
            })
       .def("DeleteByIndexId",

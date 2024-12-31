@@ -95,7 +95,7 @@ class DocValue {
   double DoubleValue() const;
   std::string StringValue() const;
   std::string BytesValue() const;
-  bool BoolValue()const;
+  bool BoolValue() const;
   std::string DatetimeValue() const;
 
   std::string ToString() const;
@@ -157,6 +157,8 @@ struct DocSearchParam {
   std::vector<std::string> column_names;
   bool with_scalar_data{false};
   std::vector<std::string> selected_keys;
+  //search all need ,The maximum number of results to return.
+  int32_t query_limited{40960};
 };
 
 struct DocWithStore {
@@ -227,6 +229,10 @@ class DocumentClient {
 
   Status SearchByIndexId(int64_t index_id, const DocSearchParam& search_param, DocSearchResult& out_result);
   Status SearchByIndexName(int64_t schema_id, const std::string& index_name, const DocSearchParam& search_param,
+                           DocSearchResult& out_result);
+
+  Status SearchAllByIndexId(int64_t index_id, const DocSearchParam& search_param, DocSearchResult& out_result);
+  Status SearchAllByIndexName(int64_t schema_id, const std::string& index_name, const DocSearchParam& search_param,
                            DocSearchResult& out_result);
 
   Status DeleteByIndexId(int64_t index_id, const std::vector<int64_t>& doc_ids,

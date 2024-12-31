@@ -340,6 +340,149 @@ static void DocumentSearch(bool use_index_name = false) {
   }
 }
 
+static void DocumentSearchAll(bool use_index_name = false) {
+  {
+    dingodb::sdk::DocSearchParam param;
+    param.with_scalar_data = true;
+    param.query_string = "discover";
+    param.use_id_filter = false;
+
+    Status tmp;
+    DocSearchResult result;
+    if (use_index_name) {
+      tmp = g_doc_client->SearchAllByIndexName(g_schema_id, g_index_name, param, result);
+    } else {
+      tmp = g_doc_client->SearchAllByIndexId(g_index_id, param, result);
+    }
+
+    DINGO_LOG(INFO) << "vector search discover status: " << tmp.ToString();
+    DINGO_LOG(INFO) << "vector search discover result:" << result.ToString();
+    if (tmp.ok()) {
+      CHECK_EQ(result.doc_sores.size(), 1);
+    }
+  }
+
+  {
+    dingodb::sdk::DocSearchParam param;
+    param.with_scalar_data = true;
+    param.query_string = "of";
+    param.use_id_filter = false;
+
+    Status tmp;
+    DocSearchResult result;
+    if (use_index_name) {
+      tmp = g_doc_client->SearchAllByIndexName(g_schema_id, g_index_name, param, result);
+    } else {
+      tmp = g_doc_client->SearchAllByIndexId(g_index_id, param, result);
+    }
+
+    DINGO_LOG(INFO) << "vector search of with limit 10 status: " << tmp.ToString();
+    DINGO_LOG(INFO) << "vector search of with limit 10 result:" << result.ToString();
+    if (tmp.ok()) {
+      CHECK_EQ(result.doc_sores.size(), 5);
+    }
+  }
+
+  {
+    dingodb::sdk::DocSearchParam param;
+    param.with_scalar_data = true;
+    param.query_string = "of";
+    param.use_id_filter = true;
+    param.query_limited = 4096;
+    param.doc_ids = {
+        13,
+        15,
+    };
+
+    Status tmp;
+    DocSearchResult result;
+    if (use_index_name) {
+      tmp = g_doc_client->SearchAllByIndexName(g_schema_id, g_index_name, param, result);
+    } else {
+      tmp = g_doc_client->SearchAllByIndexId(g_index_id, param, result);
+    }
+
+    DINGO_LOG(INFO) << "vector search of with id filter status: " << tmp.ToString();
+    DINGO_LOG(INFO) << "vector search of with id filter result:" << result.ToString();
+    if (tmp.ok()) {
+      CHECK_EQ(result.doc_sores.size(), 2);
+    }
+  }
+
+  {
+    dingodb::sdk::DocSearchParam param;
+    param.with_scalar_data = true;
+    param.query_string = R"(text:"of" AND i64: >= 1013)";
+    param.use_id_filter = true;
+    param.query_limited = 4096;
+    param.doc_ids = {
+        9,
+        11,
+        13,
+        15,
+    };
+
+    Status tmp;
+    DocSearchResult result;
+    if (use_index_name) {
+      tmp = g_doc_client->SearchAllByIndexName(g_schema_id, g_index_name, param, result);
+    } else {
+      tmp = g_doc_client->SearchAllByIndexId(g_index_id, param, result);
+    }
+
+    DINGO_LOG(INFO) << "vector search of with id filter status: " << tmp.ToString();
+    DINGO_LOG(INFO) << "vector search of with id filter result:" << result.ToString();
+    if (tmp.ok()) {
+      CHECK_EQ(result.doc_sores.size(), 2);
+    }
+  }
+
+  {
+    dingodb::sdk::DocSearchParam param;
+    param.with_scalar_data = true;
+    param.query_string = R"( bool:true)";
+    param.use_id_filter = true;
+    param.doc_ids = {15, 17, 19, 21};
+    param.query_limited = 4096;
+
+    Status tmp;
+    DocSearchResult result;
+    if (use_index_name) {
+      tmp = g_doc_client->SearchAllByIndexName(g_schema_id, g_index_name, param, result);
+    } else {
+      tmp = g_doc_client->SearchAllByIndexId(g_index_id, param, result);
+    }
+
+    DINGO_LOG(INFO) << "vector search of with id filter status: " << tmp.ToString();
+    DINGO_LOG(INFO) << "vector search of with id filter result:" << result.ToString();
+    if (tmp.ok()) {
+      CHECK_EQ(result.doc_sores.size(), 2);
+    }
+  }
+
+  {
+    dingodb::sdk::DocSearchParam param;
+    param.with_scalar_data = true;
+    param.query_string = fmt::format("{}:\"{}\"", "datetime", time_1);
+    param.use_id_filter = true;
+    param.doc_ids = {9, 11, 13, 15};
+
+    Status tmp;
+    DocSearchResult result;
+    if (use_index_name) {
+      tmp = g_doc_client->SearchAllByIndexName(g_schema_id, g_index_name, param, result);
+    } else {
+      tmp = g_doc_client->SearchAllByIndexId(g_index_id, param, result);
+    }
+
+    DINGO_LOG(INFO) << "vector search of with id filter status: " << tmp.ToString();
+    DINGO_LOG(INFO) << "vector search of with id filter result:" << result.ToString();
+    if (tmp.ok()) {
+      CHECK_EQ(result.doc_sores.size(), 4);
+    }
+  }
+}
+
 static void DocumentQuey(bool use_index_name = false) {
   dingodb::sdk::DocQueryParam param;
   param.doc_ids = g_doc_ids;
@@ -578,6 +721,7 @@ int main(int argc, char* argv[]) {
 
     DocumentAdd();
     DocumentSearch();
+    DocumentSearchAll();
     DocumentQuey();
     DocumentGetBorder();
     DocumentScanQuery();
@@ -594,6 +738,7 @@ int main(int argc, char* argv[]) {
 
     DocumentAdd(true);
     DocumentSearch(true);
+    DocumentSearchAll(true);
     DocumentQuey(true);
     DocumentGetBorder(true);
     DocumentScanQuery(true);

@@ -84,6 +84,7 @@ set(SDK_SRCS
   document/document_get_index_metrics_task.cc
   document/document_scan_query_task.cc
   document/document_search_task.cc
+  document/document_search_all_task.cc
   document/document_update_task.cc
   document/document_get_auto_increment_id_task.cc
   document/document_update_auto_increment_task.cc

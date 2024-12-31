@@ -172,6 +172,27 @@ class DocumentTranslater {
     }
   }
 
+  static void FillInternalDocSearchAllParams(pb::common::DocumentSearchParameter* pb, const DocSearchParam& param) {
+    pb->set_query_string(param.query_string);
+    pb->set_use_id_filter(param.use_id_filter);
+    pb->set_query_unlimited(true);
+    if (param.use_id_filter) {
+      for (const auto& id : param.doc_ids) {
+        pb->add_document_ids(id);
+      }
+    }
+
+    for (const std::string& col : param.column_names) {
+      pb->add_column_names(col);
+    }
+
+    pb->set_without_scalar_data(!param.with_scalar_data);
+
+    for (const auto& key : param.selected_keys) {
+      pb->add_selected_keys(key);
+    }
+  }
+
 };  // namespace dingodb
 }  // namespace sdk
 }  // namespace dingodb
