@@ -34,6 +34,7 @@ void DefineTypesBindings(pybind11::module& m) {
       .value("kDOUBLE", Type::kDOUBLE)
       .value("kSTRING", Type::kSTRING)
       .value("kBYTES", Type::kBYTES)
+      .value("kDATETIME", Type::kDATETIME)
       .value("kTypeEnd", Type::kTypeEnd);
 
   m.def("TypeToString", &TypeToString, "description: TypeToString");

@@ -88,6 +88,7 @@ class DocValue {
   static DocValue FromString(const std::string& val);
   static DocValue FromBytes(const std::string& val);
   static DocValue FromBool(bool val);
+  static DocValue FromDatetime(const std::string& val);
 
   Type GetType() const;
   int64_t IntValue() const;
@@ -95,6 +96,7 @@ class DocValue {
   std::string StringValue() const;
   std::string BytesValue() const;
   bool BoolValue()const;
+  std::string DatetimeValue() const;
 
   std::string ToString() const;
 

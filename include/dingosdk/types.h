@@ -28,16 +28,18 @@ enum Type : uint8_t {
   kDOUBLE = 2,
   kSTRING = 3,
   kBYTES = 4,
+  kDATETIME = 5,
   // This must be the last line
   kTypeEnd
 };
 
 static const bool kTypeConversionMatrix[kTypeEnd][kTypeEnd] = {
-    {true, false, false, false, false},  // kBOOL can be converted to kBOOL
-    {false, true, true, false, false},   // kINT64 can be converted to kINT64, kDOUBLE
-    {false, false, true, false, false},  // kDOUBLE can be converted to kDOUBLE
-    {false, false, false, true, false},  // kSTRING can be converted to kSTRING
-    {false, false, false, false, true}   // kBYTES can be converted to kBYTES
+    {true, false, false, false, false, false},  // kBOOL can be converted to kBOOL
+    {false, true, true, false, false, false},   // kINT64 can be converted to kINT64, kDOUBLE
+    {false, false, true, false, false, false},  // kDOUBLE can be converted to kDOUBLE
+    {false, false, false, true, false, false},  // kSTRING can be converted to kSTRING
+    {false, false, false, false, true, false},   // kBYTES can be converted to kBYTES
+    {false, false, false, false, false, true}   // kDATETIME can be converted to kDATETIME
 };
 
 inline std::string TypeToString(Type type) {
@@ -52,6 +54,8 @@ inline std::string TypeToString(Type type) {
       return "String";
     case kBYTES:
       return "Bytes";
+    case kDATETIME:
+      return "Datetime";
     default:
       return "Unknown ValueType";
   }
@@ -82,6 +86,11 @@ struct TypeTraits<kSTRING> {
 
 template <>
 struct TypeTraits<kBYTES> {
+  using Type = std::string;
+};
+
+template <>
+struct TypeTraits<kDATETIME> {
   using Type = std::string;
 };
 
