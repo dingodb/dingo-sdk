@@ -15,9 +15,9 @@
 #ifndef DINGODB_SDK_TYPES_UTIL_H_
 #define DINGODB_SDK_TYPES_UTIL_H_
 
+#include "dingosdk/types.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
-#include "dingosdk/types.h"
 
 namespace dingodb {
 namespace sdk {
@@ -64,6 +64,8 @@ static pb::common::ScalarFieldType Type2InternalScalarFieldTypePB(Type type) {
       return pb::common::ScalarFieldType::STRING;
     case kBYTES:
       return pb::common::ScalarFieldType::BYTES;
+    case kDATETIME:
+      return pb::common::ScalarFieldType::DATETIME;
     default:
       CHECK(false) << "Unimplement convert type: " << type;
   }
@@ -81,6 +83,8 @@ static Type InternalScalarFieldTypePB2Type(pb::common::ScalarFieldType type) {
       return kSTRING;
     case pb::common::ScalarFieldType::BYTES:
       return kBYTES;
+    case pb::common::ScalarFieldType::DATETIME:
+      return kDATETIME;
     default:
       CHECK(false) << "unsupported scalar field type:" << pb::common::ScalarFieldType_Name(type);
   }

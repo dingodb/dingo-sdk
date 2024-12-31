@@ -89,6 +89,9 @@ class DocumentTranslater {
       case kBOOL:
         pb_field->set_bool_data(doc_value.data_->bool_val);
         break;
+      case kDATETIME:
+        pb_field->set_datetime_data(doc_value.data_->string_val);
+        break;
       default:
         CHECK(false) << "unsupported doc value type:" << TypeToString(doc_value.data_->type);
     }
@@ -108,6 +111,8 @@ class DocumentTranslater {
         return DocValue::FromBytes(pb_doc_value.field_value().bytes_data());
       case pb::common::ScalarFieldType::BOOL:
         return DocValue::FromBool(pb_doc_value.field_value().bool_data());
+      case pb::common::ScalarFieldType::DATETIME:
+        return DocValue::FromDatetime(pb_doc_value.field_value().datetime_data());
       default:
         CHECK(false) << "unsupported DocumentValue field_type:"
                      << pb::common::ScalarFieldType_Name(pb_doc_value.field_type());

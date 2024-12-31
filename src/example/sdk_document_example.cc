@@ -16,18 +16,21 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <ctime>
+#include <iomanip>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "common/logging.h"
-#include "gflags/gflags.h"
-#include "glog/logging.h"
 #include "dingosdk/client.h"
 #include "dingosdk/document.h"
 #include "dingosdk/status.h"
 #include "dingosdk/types.h"
+#include "fmt/core.h"
+#include "gflags/gflags.h"
+#include "glog/logging.h"
 #include "sdk/utils/scoped_cleanup.h"
 
 using namespace dingodb::sdk;
@@ -40,6 +43,18 @@ static std::string g_index_name = "example-doc-01";
 static std::vector<int64_t> g_range_partition_seperator_ids{5, 10, 20};
 static std::vector<int64_t> g_doc_ids;
 static dingodb::sdk::DocumentClient* g_doc_client;
+
+std::string ToRFC3339(const std::chrono::system_clock::time_point& time_point) {
+  std::time_t time_t = std::chrono::system_clock::to_time_t(time_point);
+  std::tm* tm_ptr = std::gmtime(&time_t);  // Get UTC time
+
+  std::ostringstream oss;
+  oss << std::put_time(tm_ptr, "%Y-%m-%dT%H:%M:%SZ");  // RFC 3339
+  return oss.str();
+}
+
+// 必须是RFC3339格式
+static std::string time_1 = ToRFC3339(std::chrono::system_clock::now());
 
 static void PrepareDocumentIndex(int64_t start_id = 0) {
   dingodb::sdk::DocumentIndexCreator* creator;
@@ -54,6 +69,7 @@ static void PrepareDocumentIndex(int64_t start_id = 0) {
   schema.AddColumn({"f64", Type::kDOUBLE});
   schema.AddColumn({"bytes", Type::kBYTES});
   schema.AddColumn({"bool", Type::kBOOL});
+  schema.AddColumn({"datetime", Type::kDATETIME});
 
   creator->SetSchemaId(g_schema_id)
       .SetName(g_index_name)
@@ -124,7 +140,8 @@ static void DocumentAdd(bool use_index_name = false) {
     tmp_doc.AddField("i64", dingodb::sdk::DocValue::FromInt(1000 + id));
     tmp_doc.AddField("f64", dingodb::sdk::DocValue::FromDouble(1000.0 + id));
     tmp_doc.AddField("bytes", dingodb::sdk::DocValue::FromBytes("bytes_data_" + std::to_string(id)));
-    tmp_doc.AddField("bool", dingodb::sdk::DocValue::FromBool(id%3));
+    tmp_doc.AddField("bool", dingodb::sdk::DocValue::FromBool(id % 3));
+    tmp_doc.AddField("datetime", dingodb::sdk::DocValue::FromDatetime(time_1));
 
     dingodb::sdk::DocWithId tmp(id, std::move(tmp_doc));
 
@@ -276,18 +293,13 @@ static void DocumentSearch(bool use_index_name = false) {
     }
   }
 
-   {
+  {
     dingodb::sdk::DocSearchParam param;
     param.top_n = 5;
     param.with_scalar_data = true;
     param.query_string = R"( bool:true)";
     param.use_id_filter = true;
-    param.doc_ids = {
-        15,
-        17,
-        19,
-        21
-    };
+    param.doc_ids = {15, 17, 19, 21};
 
     Status tmp;
     DocSearchResult result;
@@ -304,6 +316,28 @@ static void DocumentSearch(bool use_index_name = false) {
     }
   }
 
+  {
+    dingodb::sdk::DocSearchParam param;
+    param.top_n = 5;
+    param.with_scalar_data = true;
+    param.query_string = fmt::format("{}:\"{}\"", "datetime", time_1);
+    param.use_id_filter = true;
+    param.doc_ids = {9, 11, 13, 15};
+
+    Status tmp;
+    DocSearchResult result;
+    if (use_index_name) {
+      tmp = g_doc_client->SearchByIndexName(g_schema_id, g_index_name, param, result);
+    } else {
+      tmp = g_doc_client->SearchByIndexId(g_index_id, param, result);
+    }
+
+    DINGO_LOG(INFO) << "vector search of with id filter status: " << tmp.ToString();
+    DINGO_LOG(INFO) << "vector search of with id filter result:" << result.ToString();
+    if (tmp.ok()) {
+      CHECK_EQ(result.doc_sores.size(), 4);
+    }
+  }
 }
 
 static void DocumentQuey(bool use_index_name = false) {

@@ -20,8 +20,8 @@
 #include <sstream>
 
 #include "dingosdk/document.h"
-#include "sdk/document/document_doc_value_internal.h"
 #include "dingosdk/types.h"
+#include "sdk/document/document_doc_value_internal.h"
 
 namespace dingodb {
 namespace sdk {
@@ -83,6 +83,13 @@ DocValue DocValue::FromBool(bool val) {
   return value;
 }
 
+DocValue DocValue::FromDatetime(const std::string& val) {
+  DocValue value;
+  value.data_->type = Type::kDATETIME;
+  value.data_->string_val = val;
+  return value;
+}
+
 Type DocValue::GetType() const { return data_->type; }
 
 int64_t DocValue::IntValue() const { return data_->int_val; }
@@ -94,6 +101,8 @@ std::string DocValue::StringValue() const { return data_->string_val; }
 std::string DocValue::BytesValue() const { return data_->string_val; }
 
 bool DocValue::BoolValue() const { return data_->bool_val; }
+
+std::string DocValue::DatetimeValue() const { return data_->string_val; }
 
 std::string DocValue::ToString() const {
   std::stringstream ss;
@@ -110,6 +119,8 @@ std::string DocValue::ToString() const {
       ss << data_->string_val;
     case Type::kBOOL:
       ss << data_->bool_val;
+    case Type::kDATETIME:
+      ss << data_->string_val;
     default:
       ss << "";
   }
