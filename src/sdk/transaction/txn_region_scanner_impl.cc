@@ -36,9 +36,7 @@ TxnRegionScannerImpl::TxnRegionScannerImpl(const ClientStub& stub, std::shared_p
       end_key_(std::move(end_key)),
       opened_(false),
       has_more_(false),
-      batch_size_(FLAGS_scan_batch_size),
-      next_key_(start_key_),
-      include_next_key_(true) {}
+      batch_size_(FLAGS_scan_batch_size) {}
 
 TxnRegionScannerImpl::~TxnRegionScannerImpl() { Close(); }
 
@@ -63,14 +61,17 @@ std::unique_ptr<TxnScanRpc> TxnRegionScannerImpl::PrepareTxnScanRpc() {
   rpc->MutableRequest()->set_start_ts(txn_start_ts_);
   FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
                  TransactionIsolation2IsolationLevel(txn_options_.isolation));
-  rpc->MutableRequest()->set_limit(batch_size_);
+
   auto* range_with_option = rpc->MutableRequest()->mutable_range();
   auto* range = range_with_option->mutable_range();
-  CHECK(!next_key_.empty()) << "next_key should not be empty";
-  range->set_start_key(next_key_);
+  range->set_start_key(start_key_);
   range->set_end_key(end_key_);
-  range_with_option->set_with_start(include_next_key_);
+  range_with_option->set_with_start(true);
   range_with_option->set_with_end(false);
+
+  auto* stream_meta = rpc->MutableRequest()->mutable_stream_meta();
+  stream_meta->set_stream_id(stream_id_);
+  stream_meta->set_limit(batch_size_);
 
   return std::move(rpc);
 }
@@ -111,33 +112,20 @@ Status TxnRegionScannerImpl::NextBatch(std::vector<KVPair>& kvs) {
     }
   }
 
-  if (ret.ok()) {
-    const auto* response = rpc->Response();
-    std::vector<KVPair> tmp_kvs;
-    if (response->end_key().empty()) {
-      CHECK_EQ(response->kvs_size(), 0);
-      has_more_ = false;
-    } else {
-      CHECK_NE(response->kvs_size(), 0);
-      next_key_ = response->end_key();
-      include_next_key_ = false;
-      for (const auto& kv : response->kvs()) {
-        DINGO_LOG(DEBUG) << "Success scan, key:" << kv.key() << ", value:" << kv.value() << ", next_key:" << next_key_
-                         << ", end_key:" << end_key_;
-        if (kv.key() < end_key_) {
-          tmp_kvs.push_back({kv.key(), kv.value()});
-        } else {
-          has_more_ = false;
-          break;
-        }
-      }
-    }
-
-    kvs = std::move(tmp_kvs);
-  } else {
+  if (!ret.ok()) {
     DINGO_LOG(WARNING) << "Fail scan, txn start_tx:" << txn_start_ts_ << ", region:" << region->RegionId()
                        << ", status:" << ret.ToString();
+    return ret;
   }
+
+  const auto* response = rpc->Response();
+
+  for (const auto& kv : response->kvs()) {
+    DINGO_LOG(DEBUG) << "Success scan, key:" << kv.key() << ", value:" << kv.value() << ", end_key:" << end_key_;
+    kvs.push_back({kv.key(), kv.value()});
+  }
+  has_more_ = response->stream_meta().has_more();
+  stream_id_ = response->stream_meta().stream_id();
 
   return ret;
 }

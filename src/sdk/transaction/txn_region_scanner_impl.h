@@ -17,10 +17,11 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "dingosdk/client.h"
-#include "sdk/region_scanner.h"
 #include "dingosdk/status.h"
+#include "sdk/region_scanner.h"
 #include "sdk/rpc/store_rpc.h"
 
 namespace dingodb {
@@ -75,8 +76,7 @@ class TxnRegionScannerImpl : public RegionScanner {
   int64_t batch_size_;
   bool opened_;
   bool has_more_;
-  std::string next_key_;
-  bool include_next_key_;
+  std::string stream_id_;
 };
 
 class TxnRegionScannerFactoryImpl final : public RegionScannerFactory {
