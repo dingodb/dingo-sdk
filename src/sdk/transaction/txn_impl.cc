@@ -21,15 +21,15 @@
 #include <vector>
 
 #include "common/logging.h"
+#include "dingosdk/client.h"
+#include "dingosdk/status.h"
 #include "fmt/core.h"
 #include "gflags/gflags.h"
 #include "glog/logging.h"
-#include "dingosdk/client.h"
 #include "sdk/common/common.h"
 #include "sdk/common/helper.h"
 #include "sdk/common/param_config.h"
 #include "sdk/rpc/store_rpc.h"
-#include "dingosdk/status.h"
 #include "sdk/transaction/txn_buffer.h"
 #include "sdk/transaction/txn_common.h"
 
@@ -338,11 +338,11 @@ Status Transaction::TxnImpl::Scan(const std::string& start_key, const std::strin
     Status ret = meta_cache->LookupRegionBetweenRange(start_key, end_key, region);
     if (!ret.IsOK()) {
       if (ret.IsNotFound()) {
-        DINGO_LOG(WARNING) << fmt::format("region not found between [{},{}), no need retry, status:{}", start_key,
-                                          end_key, ret.ToString());
+        DINGO_LOG(WARNING) << fmt::format("region not found between [{},{}), no need retry, status:{}",
+                                          StringToHex(start_key), StringToHex(end_key), ret.ToString());
       } else {
-        DINGO_LOG(WARNING) << fmt::format("lookup region fail between [{},{}), need retry, status:{}", start_key,
-                                          end_key, ret.ToString());
+        DINGO_LOG(WARNING) << fmt::format("lookup region fail between [{},{}), need retry, status:{}",
+                                          StringToHex(start_key), StringToHex(end_key), ret.ToString());
       }
       return ret;
     }
@@ -366,7 +366,8 @@ Status Transaction::TxnImpl::Scan(const std::string& start_key, const std::strin
   std::map<std::string, std::string> tmp_kvs;
 
   DINGO_LOG(INFO) << fmt::format("txn scan start between [{},{}), next_start:{}, limit:{}, redundant_limit:{}",
-                                 start_key, end_key, next_start, limit, redundant_limit);
+                                 StringToHex(start_key), StringToHex(end_key), StringToHex(next_start), limit,
+                                 redundant_limit);
 
   while (next_start < end_key) {
     std::shared_ptr<Region> region;
@@ -374,13 +375,15 @@ Status Transaction::TxnImpl::Scan(const std::string& start_key, const std::strin
 
     if (ret.IsNotFound()) {
       DINGO_LOG(INFO) << fmt::format("Break scan because region not found  between [{},{}), start_key:{} status:{}",
-                                     next_start, end_key, start_key, ret.ToString());
+                                     StringToHex(next_start), StringToHex(end_key), StringToHex(start_key),
+                                     ret.ToString());
       break;
     }
 
     if (!ret.IsOK()) {
-      DINGO_LOG(WARNING) << fmt::format("region look fail between [{},{}), start_key:{} status:{}", next_start, end_key,
-                                        start_key, ret.ToString());
+      DINGO_LOG(WARNING) << fmt::format("region look fail between [{},{}), start_key:{} status:{}",
+                                        StringToHex(next_start), StringToHex(end_key), StringToHex(start_key),
+                                        ret.ToString());
       return ret;
     }
 
@@ -394,7 +397,7 @@ Status Transaction::TxnImpl::Scan(const std::string& start_key, const std::strin
     CHECK(ret.ok());
 
     DINGO_LOG(INFO) << fmt::format("region:{} scan start, region range:({}-{})", region->RegionId(),
-                                   region->Range().start_key(), region->Range().end_key());
+                                   StringToHex(region->Range().start_key()), StringToHex(region->Range().end_key()));
 
     while (scanner->HasMore()) {
       DINGO_LOG(DEBUG) << fmt::format("start call next batch, limit:{}, redundant_limit:{}, tmp_kvs_size:{}", limit,
@@ -425,17 +428,20 @@ Status Transaction::TxnImpl::Scan(const std::string& start_key, const std::strin
       DINGO_LOG(INFO) << fmt::format(
           "region:{} scan finished, stop to scan between [{},{}), next_start:{}, limit:{}, redundant_limit:{}, "
           "scan_cnt:{}",
-          region->RegionId(), start_key, end_key, next_start, limit, redundant_limit, tmp_kvs.size());
+          region->RegionId(), StringToHex(start_key), StringToHex(end_key), StringToHex(next_start), limit,
+          redundant_limit, tmp_kvs.size());
       break;
     } else {
       next_start = region->Range().end_key();
       DINGO_LOG(INFO) << fmt::format("region:{} scan finished, continue to scan between [{},{}), next_start:{}, ",
-                                     region->RegionId(), start_key, end_key, next_start);
+                                     region->RegionId(), StringToHex(start_key), StringToHex(end_key),
+                                     StringToHex(next_start));
       continue;
     }
   }
 
-  DINGO_LOG(INFO) << fmt::format("scan end between [{},{}), next_start:{}", start_key, end_key, next_start);
+  DINGO_LOG(INFO) << fmt::format("scan end between [{},{}), next_start:{}", StringToHex(start_key),
+                                 StringToHex(end_key), StringToHex(next_start));
 
   // overwide use local buffer
   for (const auto& mutaion : range_mutations) {

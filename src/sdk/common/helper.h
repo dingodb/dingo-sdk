@@ -15,9 +15,9 @@
 #ifndef DINGODB_SDK_HELPER_H_
 #define DINGODB_SDK_HELPER_H_
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <filesystem>
 
 #include "common/logging.h"
 #include "fmt/core.h"
@@ -145,6 +145,14 @@ static std::vector<EndPoint> FileNamingServiceUrlEndpoints(const std::string& na
   }
 
   return endpoints;
+}
+
+static std::string StringToHex(const std::string& str) {
+  std::stringstream ss;
+  for (const auto& ch : str) {
+    ss << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(static_cast<unsigned char>(ch));
+  }
+  return ss.str();
 }
 
 }  // namespace sdk
