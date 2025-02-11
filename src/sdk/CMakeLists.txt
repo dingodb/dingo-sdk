@@ -18,6 +18,7 @@ set(SDK_SRCS
   client_stub.cc
   client.cc
   coordinator.cc
+  version.cc
   meta_cache.cc
   meta_member_info.cc
   region.cc
@@ -107,6 +108,7 @@ if(SDK_ENABLE_GRPC)
         rpc/grpc/index_service_rpc.cc
         rpc/grpc/store_rpc.cc
         rpc/grpc/document_service_rpc.cc
+        rpc/grpc/version_rpc.cc
     )
 
     add_library(sdk
@@ -145,6 +147,7 @@ else()
         rpc/brpc/index_service_rpc.cc
         rpc/brpc/store_rpc.cc
         rpc/brpc/document_service_rpc.cc
+        rpc/brpc/version_rpc.cc
     )
 
     add_library(sdk

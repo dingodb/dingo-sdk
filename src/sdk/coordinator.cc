@@ -17,6 +17,7 @@
 #include <fmt/core.h>
 
 #include <cstdint>
+#include <vector>
 
 #include "glog/logging.h"
 #include "proto/common.pb.h"
@@ -221,7 +222,7 @@ static pb::common::MDS Mds2PbMds(const MDS& mds) {
   return pb_mds;
 }
 
-Status Coordinator::MDSHeartbeat(const MDS& mds) {
+Status Coordinator::MDSHeartbeat(const MDS& mds, std::vector<MDS>& out_mdses) {
   MDSHeartbeatRpc rpc;
   *rpc.MutableRequest()->mutable_mds() = Mds2PbMds(mds);
 
@@ -229,6 +230,10 @@ Status Coordinator::MDSHeartbeat(const MDS& mds) {
   if (!status.IsOK()) {
     DINGO_LOG(ERROR) << fmt::format("mds heartbeat fail, error: {} {}", status.Errno(), status.ToString());
     return status;
+  }
+
+  for (const auto& mds : rpc.Response()->mdses()) {
+    out_mdses.push_back(PbMds2Mds(mds));
   }
 
   return status;

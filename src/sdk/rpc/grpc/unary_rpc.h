@@ -24,6 +24,7 @@
 #include <string>
 
 #include "common/logging.h"
+#include "dingosdk/status.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "google/protobuf/message.h"
@@ -33,7 +34,6 @@
 #include "grpcpp/support/status.h"
 #include "grpcpp/support/stub_options.h"
 #include "sdk/rpc/rpc.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/net_util.h"
 
 namespace dingodb {
@@ -151,6 +151,21 @@ std::map<EndPoint, std::unique_ptr<StubType>> UnaryRpc<RequestType, ResponseType
 template <class RequestType, class ResponseType, class ServiceType, class StubType>
 std::mutex UnaryRpc<RequestType, ResponseType, ServiceType, StubType>::lk;
 
+#define DECLARE_UNARY_RPC_INNER(NS, SERVICE, METHOD, REQ_RSP_PREFIX)                                                 \
+  class METHOD##Rpc final                                                                                            \
+      : public UnaryRpc<NS::REQ_RSP_PREFIX##Request, NS::REQ_RSP_PREFIX##Response, NS::SERVICE, NS::SERVICE::Stub> { \
+   public:                                                                                                           \
+    METHOD##Rpc(const METHOD##Rpc&) = delete;                                                                        \
+    METHOD##Rpc& operator=(const METHOD##Rpc&) = delete;                                                             \
+    explicit METHOD##Rpc();                                                                                          \
+    explicit METHOD##Rpc(const std::string& cmd);                                                                    \
+    ~METHOD##Rpc() override;                                                                                         \
+    std::string Method() const override { return ConstMethod(); }                                                    \
+    std::unique_ptr<grpc::ClientAsyncResponseReader<NS::REQ_RSP_PREFIX##Response>> Prepare(                          \
+        NS::SERVICE::Stub* stub, grpc::CompletionQueue* cq) override;                                                \
+    static std::string ConstMethod();                                                                                \
+  };
+
 #define DECLARE_UNARY_RPC(NS, SERVICE, METHOD)                                                       \
   class METHOD##Rpc final                                                                            \
       : public UnaryRpc<NS::METHOD##Request, NS::METHOD##Response, NS::SERVICE, NS::SERVICE::Stub> { \
@@ -165,6 +180,16 @@ std::mutex UnaryRpc<RequestType, ResponseType, ServiceType, StubType>::lk;
         NS::SERVICE::Stub* stub, grpc::CompletionQueue* cq) override;                                \
     static std::string ConstMethod();                                                                \
   };
+
+#define DEFINE_UNAEY_RPC_INNER(NS, SERVICE, METHOD, REQ_RSP_PREFIX)                                    \
+  METHOD##Rpc::METHOD##Rpc() : METHOD##Rpc("") {}                                                      \
+  METHOD##Rpc::METHOD##Rpc(const std::string& cmd) : UnaryRpc(cmd) {}                                  \
+  METHOD##Rpc::~METHOD##Rpc() = default;                                                               \
+  std::unique_ptr<grpc::ClientAsyncResponseReader<NS::REQ_RSP_PREFIX##Response>> METHOD##Rpc::Prepare( \
+      NS::SERVICE::Stub* stub, grpc::CompletionQueue* cq) {                                            \
+    return stub->Async##METHOD(MutableContext(), request, cq);                                         \
+  }                                                                                                    \
+  std::string METHOD##Rpc::ConstMethod() { return fmt::format("{}.{}Rpc", NS::SERVICE::service_full_name(), #METHOD); }
 
 #define DEFINE_UNAEY_RPC(NS, SERVICE, METHOD)                                                  \
   METHOD##Rpc::METHOD##Rpc() : METHOD##Rpc("") {}                                              \

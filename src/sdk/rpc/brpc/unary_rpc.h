@@ -25,12 +25,12 @@
 #include "brpc/controller.h"
 #include "butil/fast_rand.h"
 #include "common/logging.h"
+#include "dingosdk/status.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "google/protobuf/message.h"
 #include "sdk/common/param_config.h"
 #include "sdk/rpc/rpc.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/callback.h"
 
 namespace dingodb {
@@ -129,6 +129,20 @@ class UnaryRpc : public Rpc {
   brpc::Controller controller;
   BrpcContext* brpc_ctx;
 };
+
+#define DECLARE_UNARY_RPC_INNER(NS, SERVICE, METHOD, REQ_RSP_PREFIX)                                                  \
+  class METHOD##Rpc final                                                                                             \
+      : public UnaryRpc<NS::REQ_RSP_PREFIX##Request, NS::REQ_RSP_PREFIX##Response, NS::SERVICE, NS::SERVICE##_Stub> { \
+   public:                                                                                                            \
+    METHOD##Rpc(const METHOD##Rpc&) = delete;                                                                         \
+    METHOD##Rpc& operator=(const METHOD##Rpc&) = delete;                                                              \
+    explicit METHOD##Rpc();                                                                                           \
+    explicit METHOD##Rpc(const std::string& cmd);                                                                     \
+    ~METHOD##Rpc() override;                                                                                          \
+    std::string Method() const override { return ConstMethod(); }                                                     \
+    void Send(NS::SERVICE##_Stub& stub, google::protobuf::Closure* done) override;                                    \
+    static std::string ConstMethod();                                                                                 \
+  };
 
 #define DECLARE_UNARY_RPC(NS, SERVICE, METHOD)                                                        \
   class METHOD##Rpc final                                                                             \

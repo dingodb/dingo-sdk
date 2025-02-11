@@ -496,10 +496,11 @@ void Transaction::TxnImpl::CheckAndLogPreCommitPrimaryKeyResponse(
   std::string pk = buffer_->GetPrimaryKey();
   auto txn_result_size = response->txn_result_size();
   if (0 == txn_result_size) {
-    DINGO_LOG(DEBUG) << "success pre_commit_primary_key:" << pk;
+    DINGO_LOG(DEBUG) << "success pre_commit_primary_key:" << StringToHex(pk);
   } else if (1 == txn_result_size) {
     const auto& txn_result = response->txn_result(0);
-    DINGO_LOG(INFO) << "lock or confict pre_commit_primary_key:" << pk << " txn_result:" << txn_result.DebugString();
+    DINGO_LOG(INFO) << "lock or confict pre_commit_primary_key:" << StringToHex(pk)
+                    << " txn_result:" << txn_result.DebugString();
   } else {
     DINGO_LOG(FATAL) << "unexpected pre_commit_primary_key response txn_result_size size: " << txn_result_size
                      << ", response:" << response->DebugString();
@@ -517,12 +518,12 @@ Status Transaction::TxnImpl::TryResolveTxnPrewriteLockConflict(const pb::store::
     } else if (ret.IsTxnLockConflict()) {
       Status resolve = stub_.GetTxnLockResolver()->ResolveLock(txn_result.locked(), start_ts_);
       if (!resolve.ok()) {
-        DINGO_LOG(WARNING) << "fail resolve lock pk:" << pk << ", status:" << ret.ToString()
+        DINGO_LOG(WARNING) << "fail resolve lock pk:" << StringToHex(pk) << ", status:" << ret.ToString()
                            << " txn_result:" << txn_result.DebugString();
         ret = resolve;
       }
     } else if (ret.IsTxnWriteConflict()) {
-      DINGO_LOG(WARNING) << "write conflict pk:" << pk << ", status:" << ret.ToString()
+      DINGO_LOG(WARNING) << "write conflict pk:" << StringToHex(pk) << ", status:" << ret.ToString()
                          << " txn_result:" << txn_result.DebugString();
       return ret;
     } else {
@@ -597,7 +598,7 @@ void Transaction::TxnImpl::ProcessTxnPrewriteSubTask(TxnSubTask* sub_task) {
     } else if (ret.IsTxnWriteConflict()) {
       // no need retry
       // TODO: should we change txn state?
-      DINGO_LOG(WARNING) << "write conflict, txn need abort and restart, pre_commit_primary:" << pk;
+      DINGO_LOG(WARNING) << "write conflict, txn need abort and restart, pre_commit_primary:" << StringToHex(pk);
       break;
     }
     if (NeedRetryAndInc(retry)) {

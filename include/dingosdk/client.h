@@ -41,6 +41,7 @@ class VectorClient;
 class EndPoint;
 class DocumentIndex;
 class VectorIndex;
+class Version;
 
 /// @brief Callers must keep client valid in it's lifetime in order to interact with the cluster,
 class Client {
@@ -65,6 +66,9 @@ class Client {
 
   // NOTE:: Caller must delete *coordinator when it is no longer needed.
   Status NewCoordinator(Coordinator** coordinator);
+
+  // NOTE:: Caller must delete *version when it is no longer needed.
+  Status NewVersion(Version** version);
 
   // NOTE:: Caller must delete *raw_kv when it is no longer needed.
   Status NewRawKV(RawKV** raw_kv);

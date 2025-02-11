@@ -67,7 +67,7 @@ class Coordinator {
   Status GetAutoIncrements(std::vector<TableIncrement>& table_increments);
 
   // MDS
-  Status MDSHeartbeat(const MDS& mds);
+  Status MDSHeartbeat(const MDS& mds, std::vector<MDS>& out_mdses);
   Status GetMDSList(std::vector<MDS>& mdses);
 
  private:
