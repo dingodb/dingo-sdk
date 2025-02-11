@@ -17,12 +17,12 @@
 #include <memory>
 #include <vector>
 
+#include "dingosdk/status.h"
 #include "sdk/common/param_config.h"
 #include "sdk/meta_cache.h"
 #include "sdk/rawkv/raw_kv_region_scanner_impl.h"
 #include "sdk/rpc/coordinator_rpc_controller.h"
 #include "sdk/rpc/rpc_client.h"
-#include "dingosdk/status.h"
 #include "sdk/transaction/txn_lock_resolver.h"
 #include "sdk/transaction/txn_region_scanner_impl.h"
 #include "sdk/utils/net_util.h"
@@ -47,6 +47,9 @@ Status ClientStub::Open(const std::vector<EndPoint>& endpoints) {
 
   meta_rpc_controller_ = std::make_shared<CoordinatorRpcController>(*this);
   meta_rpc_controller_->Open(endpoints);
+
+  version_rpc_controller_ = std::make_shared<CoordinatorRpcController>(*this);
+  version_rpc_controller_->Open(endpoints);
 
   RpcClientOptions options;
   options.timeout_ms = FLAGS_rpc_channel_timeout_ms;

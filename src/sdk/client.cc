@@ -27,6 +27,7 @@
 #include "dingosdk/document.h"
 #include "dingosdk/status.h"
 #include "dingosdk/vector.h"
+#include "dingosdk/version.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
@@ -150,6 +151,11 @@ Status Client::Init(const std::vector<EndPoint>& endpoints) {
 
 Status Client::NewCoordinator(Coordinator** coordinator) {
   *coordinator = new Coordinator(*data_->stub);
+  return Status::OK();
+}
+
+Status Client::NewVersion(Version** version) {
+  *version = new Version(*data_->stub);
   return Status::OK();
 }
 
