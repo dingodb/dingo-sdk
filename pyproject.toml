@@ -3,7 +3,8 @@ requires = [
     "setuptools>=42",
     "wheel",
     "ninja",
-    "cmake>=3.26",
+    "cmake>=3.30.1",
+    "meson",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -16,7 +17,7 @@ enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
-module = ["ninja"]
+module = ["ninja","meson"]
 ignore_missing_imports = true
 
 
@@ -44,13 +45,17 @@ before-all = [
   "yum install -y perl-IPC-Cmd",
   "dnf install -y epel-release",
   "dnf install -y wget tar git gcc-toolset-13* perl flex bison patch autoconf automake libtool",
+  "pip install --user meson",
+  "pip install --user ninja",
+  "export PATH=$HOME/.local/bin:$PATH",
   "git clone https://github.com/dingodb/dingo-eureka.git",
   "cd dingo-eureka",
   "git submodule sync --recursive",
   "git submodule update --init --recursive",
   "mkdir build && cd build",
-  "cmake ..",
-  "make -j 5",
+  "cmake -DINSTALL_PATH=/root/.local/dingo-eureka -DCMAKE_BUILD_TYPE=Release ..",
+  "ulimit -n 65535",
+  "make -j 3",
 ]
 archs = ["x86_64"]
 
