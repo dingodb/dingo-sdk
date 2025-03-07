@@ -15,9 +15,15 @@
 #ifndef DINGODB_SDK_ASYNC_UTIL_H_
 #define DINGODB_SDK_ASYNC_UTIL_H_
 
-#include <condition_variable>
-#include <mutex>
+#include <glog/logging.h>
 
+#include <condition_variable>
+#include <cstdint>
+#include <mutex>
+#include <thread>
+#include <vector>
+
+#include "bthread/bthread.h"
 #include "dingosdk/status.h"
 #include "sdk/utils/callback.h"
 
@@ -26,13 +32,34 @@ namespace sdk {
 
 class Synchronizer {
  public:
-  Synchronizer() = default;
+  Synchronizer() {
+#ifndef USE_GRPC
+    CHECK(bthread_mutex_init(&mutex_, nullptr) == 0) << "bthread_mutex_init fail.";
+    CHECK(bthread_cond_init(&cond_, nullptr) == 0) << "bthread_cond_init fail.";
+#endif  // USE_GRPC
+  }
+
+  ~Synchronizer() {
+#ifndef USE_GRPC
+    bthread_cond_destroy(&cond_);
+    bthread_mutex_destroy(&mutex_);
+#endif  // USE_GRPC
+  }
 
   void Wait() {
-    std::unique_lock<std::mutex> lk(lock_);
+#ifdef USE_GRPC
+    std::unique_lock<std::mutex> lk(mutex_);
     while (!fire_) {
-      cv_.wait(lk);
+      cond_.wait(lk);
     }
+
+#else
+    bthread_mutex_lock(&mutex_);
+    while (!fire_) {
+      bthread_cond_wait(&cond_, &mutex_);
+    }
+    bthread_mutex_unlock(&mutex_);
+#endif  // USE_GRPC
   }
 
   RpcCallback AsRpcCallBack() {
@@ -47,15 +74,83 @@ class Synchronizer {
   }
 
   void Fire() {
-    std::unique_lock<std::mutex> lk(lock_);
+#ifdef USE_GRPC
+    std::unique_lock<std::mutex> lk(mutex_);
     fire_ = true;
-    cv_.notify_one();
+    cond_.notify_one();
+
+#else
+    bthread_mutex_lock(&mutex_);
+    fire_ = true;
+    bthread_cond_signal(&cond_);
+    bthread_mutex_unlock(&mutex_);
+
+#endif  // USE_GRPC
   }
 
  private:
-  std::mutex lock_;
-  std::condition_variable cv_;
+#ifdef USE_GRPC
+  std::mutex mutex_;
+  std::condition_variable cond_;
+#else
+  bthread_mutex_t mutex_;
+  bthread_cond_t cond_;
+
+#endif  // USE_GRPC
+
   bool fire_{false};
+};
+
+class ParallelExecutor {
+ public:
+  static void Execute(uint32_t parallel_num, std::function<void(uint32_t)> func) {
+#ifdef USE_GRPC
+
+    std::vector<std::thread> thread_pool;
+    thread_pool.reserve(parallel_num);
+    for (uint32_t i = 0; i < parallel_num; i++) {
+      thread_pool.emplace_back(func, i);
+    }
+
+    for (auto& thread : thread_pool) {
+      thread.join();
+    }
+
+#else
+
+    struct Param {
+      uint32_t index;
+      std::function<void(uint32_t)>* func;
+    };
+
+    std::vector<bthread_t> tids;
+    tids.reserve(parallel_num);
+    for (uint32_t i = 0; i < parallel_num; i++) {
+      Param* param = new Param{.index = i, .func = new std::function<void(uint32_t)>(func)};
+      bthread_t tid;
+      CHECK(bthread_start_background(
+                &tid, nullptr,
+                [](void* arg) -> void* {
+                  Param* param = reinterpret_cast<Param*>(arg);
+
+                  (*param->func)(param->index);
+
+                  delete param->func;
+                  delete param;
+
+                  return nullptr;
+                },
+                param) == 0)
+          << "bthread_start_background failed";
+
+      tids.push_back(tid);
+    }
+
+    for (auto tid : tids) {
+      bthread_join(tid, nullptr);
+    }
+#endif  // USE_GRPC
+  }
 };
 
 }  // namespace sdk
