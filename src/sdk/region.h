@@ -124,4 +124,5 @@ using RegionPtr = std::shared_ptr<Region>;
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_REGION_H_

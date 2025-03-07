@@ -27,20 +27,16 @@ namespace sdk {
 
 class DocumentUpdateAutoIncrementTask : public DocumentTask {
  public:
-  DocumentUpdateAutoIncrementTask(const ClientStub &stub, int64_t index_id, int64_t start_id)
-      : DocumentTask(stub),
-        index_id_(index_id),
-        start_id_(start_id){}
+  DocumentUpdateAutoIncrementTask(const ClientStub& stub, int64_t index_id, int64_t start_id)
+      : DocumentTask(stub), index_id_(index_id), start_id_(start_id) {}
 
   ~DocumentUpdateAutoIncrementTask() override = default;
-
 
  private:
   Status Init() override;
   void DoAsync() override;
 
   std::string Name() const override { return fmt::format("DocumentUpdateAutoIncrementTask-{}", index_id_); }
-
 
   const int64_t index_id_;
   const int64_t start_id_;
@@ -49,7 +45,8 @@ class DocumentUpdateAutoIncrementTask : public DocumentTask {
 
   Status status_;
 };
-}  // namespace sdk
 
+}  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_VECTOR_GET_AUTO_INCREMENT_ID_TASK_H_

@@ -21,11 +21,14 @@
 #include "sdk/rawkv/raw_kv_task.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+
 namespace dingodb {
 namespace sdk {
+
 class RawKvCompareAndSetTask : public RawKvTask {
  public:
-  RawKvCompareAndSetTask(const ClientStub& stub, const std::string& key, const std::string& value,const std::string& expected_value, bool& out_state);
+  RawKvCompareAndSetTask(const ClientStub& stub, const std::string& key, const std::string& value,
+                         const std::string& expected_value, bool& out_state);
 
   ~RawKvCompareAndSetTask() override = default;
 
@@ -47,4 +50,5 @@ class RawKvCompareAndSetTask : public RawKvTask {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_RAW_KV_COMPARE_AND_SET_TASK_H_

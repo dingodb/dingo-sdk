@@ -16,9 +16,9 @@
 #include <string>
 #include <vector>
 
-#include "sdk/client_stub.h"
 #include "dingosdk/status.h"
 #include "dingosdk/vector.h"
+#include "sdk/client_stub.h"
 #include "sdk/vector/diskann/vector_diskann_build_by_index_task.h"
 #include "sdk/vector/diskann/vector_diskann_build_by_region_task.h"
 #include "sdk/vector/diskann/vector_diskann_count_memory_task.h"
@@ -412,5 +412,4 @@ Status VectorClient::UpdateAutoIncrementIdByIndexName(int64_t schema_id, const s
 }
 
 }  // namespace sdk
-
 }  // namespace dingodb

@@ -75,6 +75,6 @@ class VectorImportDeleteTask : public VectorTask {
 };
 
 }  // namespace sdk
-
 }  // namespace dingodb
-#endif
+
+#endif  // DINGODB_SDK_VECTOR_DISKANN_IMPORT_TASK_H_

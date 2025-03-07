@@ -17,9 +17,9 @@
 
 #include <memory>
 
+#include "dingosdk/status.h"
 #include "proto/error.pb.h"
 #include "sdk/client_stub.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/callback.h"
 #include "sdk/utils/net_util.h"
 
@@ -78,4 +78,5 @@ class StoreRpcController {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_STORE_RPC_CONTROLLER_H_

@@ -20,4 +20,5 @@
 #else
 #include "sdk/rpc/brpc/store_rpc.h"
 #endif
+
 #endif  // DINGODB_SDK__STORE_RPC_H_

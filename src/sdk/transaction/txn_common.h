@@ -15,9 +15,9 @@
 #ifndef DINGODB_SDK_TRANSACTION_COMMON_H_
 #define DINGODB_SDK_TRANSACTION_COMMON_H_
 
+#include "dingosdk/client.h"
 #include "glog/logging.h"
 #include "proto/store.pb.h"
-#include "dingosdk/client.h"
 
 namespace dingodb {
 namespace sdk {
@@ -55,4 +55,5 @@ static Status CheckTxnResultInfo(const pb::store::TxnResultInfo& txn_result_info
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_TRANSACTION_COMMON_H_

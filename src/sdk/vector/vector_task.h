@@ -15,13 +15,14 @@
 #ifndef DINGODB_SDK_VECTOR_TASK_H_
 #define DINGODB_SDK_VECTOR_TASK_H_
 
-#include "sdk/client_stub.h"
 #include "dingosdk/status.h"
-#include "sdk/utils/callback.h"
 #include "dingosdk/vector.h"
+#include "sdk/client_stub.h"
+#include "sdk/utils/callback.h"
 
 namespace dingodb {
 namespace sdk {
+
 class VectorTask {
  public:
   VectorTask(const ClientStub& stub) : stub(stub) {}
@@ -58,4 +59,5 @@ class VectorTask {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_VECTOR_TASK_H_

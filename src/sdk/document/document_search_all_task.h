@@ -65,7 +65,7 @@ class DocumentSearchAllTask : public DocumentTask {
 class DocumentSearchAllPartTask : public DocumentTask {
  public:
   DocumentSearchAllPartTask(const ClientStub& stub, int64_t index_id, int64_t part_id,
-                         const DocSearchParam& search_param)
+                            const DocSearchParam& search_param)
       : DocumentTask(stub), index_id_(index_id), part_id_(part_id), search_param_(search_param) {}
 
   ~DocumentSearchAllPartTask() override = default;
@@ -113,6 +113,6 @@ class DocumentSearchAllPartTask : public DocumentTask {
 };
 
 }  // namespace sdk
-
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_VECTOR_SEARCH_ALL_TATSK_H_

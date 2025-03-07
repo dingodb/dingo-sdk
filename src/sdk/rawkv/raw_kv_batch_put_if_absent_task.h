@@ -22,6 +22,7 @@
 #include "sdk/rawkv/raw_kv_task.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+
 namespace dingodb {
 namespace sdk {
 
@@ -54,6 +55,8 @@ class RawKvBatchPutIfAbsentTask : public RawKvTask {
 
   std::atomic<int> sub_tasks_count_;
 };
+
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_RAW_KV_BATCH_PUT_IF_ABSENT_TASK_H_

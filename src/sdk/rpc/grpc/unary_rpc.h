@@ -203,4 +203,5 @@ std::mutex UnaryRpc<RequestType, ResponseType, ServiceType, StubType>::lk;
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_GRPC_UNARY_RPC_H_

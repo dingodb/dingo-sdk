@@ -16,7 +16,6 @@
 #define DINGODB_SDK_EXPRESSION_LANGCHAIN_EXPR_VISITOR_H_
 
 #include <any>
-#include <memory>
 
 #include "sdk/expression/langchain_expr.h"
 
@@ -56,4 +55,5 @@ class LangchainExprVisitor {
 }  // namespace expression
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_EXPRESSION_LANGCHAIN_EXPR_VISITOR_H_

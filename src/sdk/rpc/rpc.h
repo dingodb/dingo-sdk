@@ -17,10 +17,9 @@
 
 #include <cstdint>
 #include <string>
-#include <utility>
 
-#include "google/protobuf/message.h"
 #include "dingosdk/status.h"
+#include "google/protobuf/message.h"
 #include "sdk/utils/callback.h"
 #include "sdk/utils/net_util.h"
 
@@ -84,4 +83,5 @@ class Rpc {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_RPC_H_

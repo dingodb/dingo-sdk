@@ -30,7 +30,7 @@ namespace sdk {
 
 class VectorUpsertTask : public VectorTask {
  public:
-  VectorUpsertTask(const ClientStub &stub, int64_t index_id, std::vector<VectorWithId> &vectors)
+  VectorUpsertTask(const ClientStub& stub, int64_t index_id, std::vector<VectorWithId>& vectors)
       : VectorTask(stub), index_id_(index_id), vectors_(vectors) {}
 
   ~VectorUpsertTask() override = default;
@@ -41,10 +41,10 @@ class VectorUpsertTask : public VectorTask {
 
   std::string Name() const override { return fmt::format("VectorUpsertTask-{}", index_id_); }
 
-  void VectorAddRpcCallback(const Status &status, VectorAddRpc *rpc);
+  void VectorAddRpcCallback(const Status& status, VectorAddRpc* rpc);
 
   const int64_t index_id_;
-  const std::vector<VectorWithId> &vectors_;
+  const std::vector<VectorWithId>& vectors_;
 
   std::shared_ptr<VectorIndex> vector_index_;
 
@@ -57,7 +57,8 @@ class VectorUpsertTask : public VectorTask {
 
   std::atomic<int> sub_tasks_count_{0};
 };
-}  // namespace sdk
 
+}  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_VECTOR_UPSERT_TASK_H_

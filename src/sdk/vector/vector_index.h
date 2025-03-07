@@ -20,9 +20,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include "dingosdk/vector.h"
 #include "proto/meta.pb.h"
 #include "sdk/region.h"
-#include "dingosdk/vector.h"
 
 namespace dingodb {
 namespace sdk {
@@ -90,8 +90,8 @@ class VectorIndex {
 
   std::atomic<bool> stale_{true};
 };
-}  // namespace sdk
 
+}  // namespace sdk
 }  // namespace dingodb
 
 #endif  // DINGODB_SDK_VECTOR_INDEX_ITEM_H_

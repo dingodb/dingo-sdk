@@ -104,4 +104,5 @@ static VectorIndexCacheKey GetVectorIndexCacheKey(const VectorIndex& index) {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_VECTOR_INDEX_CACHE_H_

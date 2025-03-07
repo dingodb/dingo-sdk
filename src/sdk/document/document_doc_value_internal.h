@@ -15,9 +15,6 @@
 #ifndef DINGODB_SDK_DOCUMENT_DOC_VALUE_INTERNAL_DATA_H_
 #define DINGODB_SDK_DOCUMENT_DOC_VALUE_INTERNAL_DATA_H_
 
-#include <optional>
-#include <utility>
-
 #include "dingosdk/document.h"
 #include "dingosdk/types.h"
 

@@ -59,6 +59,6 @@ class Synchronizer {
 };
 
 }  // namespace sdk
-
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_ASYNC_UTIL_H_

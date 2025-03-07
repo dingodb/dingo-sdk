@@ -17,9 +17,9 @@
 
 #include <cstdint>
 
+#include "dingosdk/status.h"
 #include "sdk/client_stub.h"
 #include "sdk/rawkv/raw_kv_task.h"
-#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {
@@ -62,4 +62,5 @@ class RawKvScanTask : public RawKvTask {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_RAW_KV_SCAN_TASK_H_

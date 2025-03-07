@@ -99,4 +99,5 @@ class DocumentGetBorderPartTask : public DocumentTask {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_DOCUMENT_GET_BORDER_TASK_H_

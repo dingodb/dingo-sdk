@@ -24,6 +24,7 @@
 
 namespace dingodb {
 namespace sdk {
+
 class RawKvBatchDeleteTask : public RawKvTask {
  public:
   RawKvBatchDeleteTask(const ClientStub& stub, const std::vector<std::string>& keys);
@@ -51,4 +52,5 @@ class RawKvBatchDeleteTask : public RawKvTask {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_RAW_KV_BATCH_DELETE_TASK_H_

@@ -38,4 +38,5 @@ DECLARE_DOCUMENT_SERVICE_RPC(DocumentCount);
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_BRPC_DOCUMENT_SERVICE_RPC_H_

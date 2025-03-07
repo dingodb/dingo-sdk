@@ -35,23 +35,24 @@ struct RpcClientOptions {
 
 class RpcClient {
  public:
-  RpcClient(const RpcClient &) = delete;
-  const RpcClient &operator=(const RpcClient &) = delete;
+  RpcClient(const RpcClient&) = delete;
+  const RpcClient& operator=(const RpcClient&) = delete;
 
-  RpcClient(const RpcClientOptions &options) : m_options(options) {}
+  RpcClient(const RpcClientOptions& options) : m_options(options) {}
 
   virtual ~RpcClient() = default;
 
   virtual void Open() {}
 
-  virtual void SendRpc(Rpc &rpc, RpcCallback cb) = 0;
+  virtual void SendRpc(Rpc& rpc, RpcCallback cb) = 0;
 
  protected:
   RpcClientOptions m_options;
 };
 
-RpcClient *NewRpcClient(const RpcClientOptions &options);
+RpcClient* NewRpcClient(const RpcClientOptions& options);
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_RPC_CLIENT_H_

@@ -56,7 +56,7 @@ void VectorBatchQueryTask::DoAsync() {
 
   auto meta_cache = stub.GetMetaCache();
 
-  for (const auto &id : next_batch) {
+  for (const auto& id : next_batch) {
     std::shared_ptr<Region> tmp;
     Status s = meta_cache->LookupRegionByKey(vector_helper::VectorIdToRangeKey(*vector_index_, id), tmp);
     if (!s.ok()) {
@@ -76,7 +76,7 @@ void VectorBatchQueryTask::DoAsync() {
   controllers_.clear();
   rpcs_.clear();
 
-  for (const auto &entry : region_id_to_vector_ids) {
+  for (const auto& entry : region_id_to_vector_ids) {
     auto region_id = entry.first;
 
     auto iter = region_id_to_region.find(region_id);
@@ -91,12 +91,12 @@ void VectorBatchQueryTask::DoAsync() {
     rpc->MutableRequest()->set_without_table_data(!query_param_.with_table_data);
 
     if (query_param_.with_scalar_data) {
-      for (const auto &select : query_param_.selected_keys) {
+      for (const auto& select : query_param_.selected_keys) {
         rpc->MutableRequest()->add_selected_keys(select);
       }
     }
 
-    for (const auto &id : entry.second) {
+    for (const auto& id : entry.second) {
       rpc->MutableRequest()->add_vector_ids(id);
     }
 
@@ -112,14 +112,14 @@ void VectorBatchQueryTask::DoAsync() {
   sub_tasks_count_.store(region_id_to_vector_ids.size());
 
   for (auto i = 0; i < region_id_to_vector_ids.size(); i++) {
-    auto &controller = controllers_[i];
+    auto& controller = controllers_[i];
 
     controller.AsyncCall(
-        [this, rpc = rpcs_[i].get()](auto &&s) { VectorBatchQueryRpcCallback(std::forward<decltype(s)>(s), rpc); });
+        [this, rpc = rpcs_[i].get()](auto&& s) { VectorBatchQueryRpcCallback(std::forward<decltype(s)>(s), rpc); });
   }
 }
 
-void VectorBatchQueryTask::VectorBatchQueryRpcCallback(const Status &status, VectorBatchQueryRpc *rpc) {
+void VectorBatchQueryTask::VectorBatchQueryRpcCallback(const Status& status, VectorBatchQueryRpc* rpc) {
   VLOG(kSdkVlogLevel) << "rpc: " << rpc->Method() << " request: " << rpc->Request()->DebugString()
                       << " response: " << rpc->Response()->DebugString();
 
@@ -139,13 +139,13 @@ void VectorBatchQueryTask::VectorBatchQueryRpcCallback(const Status &status, Vec
         << " request: " << rpc->Request()->DebugString() << " response: " << rpc->Response()->DebugString();
 
     std::unique_lock<std::shared_mutex> w(rw_lock_);
-    for (const auto &vectorid_pb : rpc->Response()->vectors()) {
+    for (const auto& vectorid_pb : rpc->Response()->vectors()) {
       if (vectorid_pb.id() > 0) {
         out_result_.vectors.emplace_back(InternalVectorIdPB2VectorWithId(vectorid_pb));
       }
     }
 
-    for (const auto &vector_id : rpc->Request()->vector_ids()) {
+    for (const auto& vector_id : rpc->Request()->vector_ids()) {
       vector_ids_.erase(vector_id);
     }
   }
@@ -161,5 +161,4 @@ void VectorBatchQueryTask::VectorBatchQueryRpcCallback(const Status &status, Vec
 }
 
 }  // namespace sdk
-
 }  // namespace dingodb

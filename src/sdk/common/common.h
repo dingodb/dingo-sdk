@@ -109,6 +109,6 @@ static const pb::error::Error& GetRpcResponseError(Rpc& rpc) {
 }
 
 }  // namespace sdk
-
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_COMMON_H_

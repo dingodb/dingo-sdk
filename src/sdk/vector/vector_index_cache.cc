@@ -19,11 +19,11 @@
 #include <mutex>
 #include <shared_mutex>
 
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "proto/meta.pb.h"
 #include "sdk/client_stub.h"
 #include "sdk/rpc/coordinator_rpc.h"
-#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {
@@ -185,5 +185,6 @@ bool VectorIndexCache::CheckIndexDefinitionWithId(const pb::meta::IndexDefinitio
   }
   return true;
 }
+
 }  // namespace sdk
 }  // namespace dingodb

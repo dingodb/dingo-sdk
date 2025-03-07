@@ -58,6 +58,6 @@ class RawKvBatchGetTask : public RawKvTask {
 };
 
 }  // namespace sdk
-
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_RAW_KV_BATCH_GET_TASK_H_

@@ -17,9 +17,9 @@
 
 #include <cstdint>
 
+#include "dingosdk/status.h"
 #include "fmt/core.h"
 #include "proto/store.pb.h"
-#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {
@@ -64,6 +64,8 @@ class TxnLockResolver {
 
   const ClientStub& stub_;
 };
+
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_TRANSACTION_LOCK_RESOLVER_H_

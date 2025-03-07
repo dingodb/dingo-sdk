@@ -29,7 +29,6 @@
 #include "sdk/utils/thread_pool_actuator.h"
 
 namespace dingodb {
-
 namespace sdk {
 
 ClientStub::ClientStub()

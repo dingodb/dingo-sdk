@@ -20,6 +20,7 @@
 
 namespace dingodb {
 namespace sdk {
+
 class RegionCreator::Data {
  public:
   Data(const Data&) = delete;
@@ -45,4 +46,5 @@ class RegionCreator::Data {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_REGION_CREATOR_DATA_H_

@@ -105,8 +105,8 @@ class VectorCountPartTask : public VectorTask {
   std::atomic<int64_t> ret_count_{0};
   std::atomic<int> sub_tasks_count_{0};
 };
-}  // namespace sdk
 
+}  // namespace sdk
 }  // namespace dingodb
 
 #endif  // DINGODB_SDK_VECTOR_COUNT_TASK_H_

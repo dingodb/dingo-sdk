@@ -43,7 +43,7 @@ DECLARE_INDEX_SERVICE_RPC(VectorReset);
 DECLARE_INDEX_SERVICE_RPC(VectorDump);
 DECLARE_INDEX_SERVICE_RPC(VectorCountMemory);
 
-
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_GRPC_INDEX_SERVICE_RPC_H_

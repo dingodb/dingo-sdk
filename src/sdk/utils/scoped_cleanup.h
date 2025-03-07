@@ -19,6 +19,7 @@
 
 namespace dingodb {
 namespace sdk {
+
 // Macro that allows definition of a variable appended with the current line
 // number in the source file. Typically for use by other macros to allow the
 // user to declare multiple variables with the same "base" name inside the same
@@ -36,8 +37,7 @@ namespace sdk {
 //
 // NOTE: in the case that you want to cancel the cleanup, use the more verbose
 // (non-macro) form below.
-#define SCOPED_CLEANUP(func_body)  \
-    auto VARNAME_LINENUM(scoped_cleanup) = MakeScopedCleanup([&] { func_body })
+#define SCOPED_CLEANUP(func_body) auto VARNAME_LINENUM(scoped_cleanup) = MakeScopedCleanup([&] { func_body })
 
 // A scoped object which runs a cleanup function when going out of scope. Can
 // be used for scoped resource cleanup.
@@ -67,4 +67,5 @@ ScopedCleanup<F> MakeScopedCleanup(F f) {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_SCOPED_CEANUP_H_

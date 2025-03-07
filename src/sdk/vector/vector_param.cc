@@ -23,9 +23,9 @@
 #include <sstream>
 
 #include "common/logging.h"
-#include "fmt/core.h"
 #include "dingosdk/types.h"
 #include "dingosdk/vector.h"
+#include "fmt/core.h"
 
 namespace dingodb {
 namespace sdk {
@@ -255,4 +255,5 @@ std::string IndexMetricsResult::ToString() const {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_VECTOR_PARAMS_H_

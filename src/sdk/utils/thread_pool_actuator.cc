@@ -26,6 +26,7 @@
 
 namespace dingodb {
 namespace sdk {
+
 using namespace std::chrono;
 
 Timer::Timer() : thread_(nullptr), running_(false){};

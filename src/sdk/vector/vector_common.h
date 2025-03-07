@@ -18,12 +18,12 @@
 #include <cstdint>
 #include <string>
 
+#include "dingosdk/types.h"
+#include "dingosdk/vector.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "proto/meta.pb.h"
-#include "dingosdk/types.h"
 #include "sdk/types_util.h"
-#include "dingosdk/vector.h"
 #include "sdk/vector/vector_codec.h"
 
 namespace dingodb {
@@ -518,4 +518,5 @@ static void FillInternalSearchParams(pb::common::VectorSearchParameter* internal
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_VECTOR_COMMON_H_

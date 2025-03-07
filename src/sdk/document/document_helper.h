@@ -32,8 +32,9 @@ static std::string DocumentIdToRangeKey(const DocumentIndex& doc_index, int64_t 
   document_codec::EncodeDocumentKey(kDocumentPrefix, part_id, doc_id, tmp_key);
   return std::move(tmp_key);
 }
-}  // namespace document_helper
 
+}  // namespace document_helper
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_DOCUMENT_HELPER_H_

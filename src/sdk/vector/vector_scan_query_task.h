@@ -17,15 +17,14 @@
 
 #include <cstdint>
 
-#include "sdk/client_stub.h"
+#include "dingosdk/vector.h"
 #include "proto/index.pb.h"
+#include "sdk/client_stub.h"
 #include "sdk/rpc/index_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
-#include "dingosdk/vector.h"
 #include "sdk/vector/vector_task.h"
 
 namespace dingodb {
-
 namespace sdk {
 
 class VectorScanQueryPartTask;
@@ -105,4 +104,5 @@ class VectorScanQueryPartTask : public VectorTask {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_VECTOR_SCAN_QUERY_TATSK_H_

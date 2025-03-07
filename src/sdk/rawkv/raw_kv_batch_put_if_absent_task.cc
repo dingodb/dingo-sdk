@@ -144,5 +144,4 @@ void RawKvBatchPutIfAbsentTask::PostProcess() {
 }
 
 }  // namespace sdk
-
 }  // namespace dingodb

@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <string>
+
 namespace dingodb {
 namespace sdk {
 
@@ -67,4 +68,5 @@ class EndPoint {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_UTILS_NET_UTIL_H

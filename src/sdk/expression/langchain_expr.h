@@ -189,7 +189,6 @@ class Val : public Var {
 
 }  // namespace expression
 }  // namespace sdk
-
 }  // namespace dingodb
 
 #endif  // DINGODB_SDK_EXPRESSION_LANGCHAIN_EXPR_H_

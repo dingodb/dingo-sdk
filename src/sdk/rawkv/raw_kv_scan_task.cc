@@ -157,5 +157,4 @@ bool RawKvScanTask::ReachLimit() { return limit_ != 0 && (tmp_out_kvs_.size() >=
 void RawKvScanTask::PostProcess() { out_kvs_ = std::move(tmp_out_kvs_); }
 
 }  // namespace sdk
-
 }  // namespace dingodb

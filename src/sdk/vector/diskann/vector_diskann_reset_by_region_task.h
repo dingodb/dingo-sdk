@@ -4,10 +4,10 @@
 #include <cstdint>
 #include <memory>
 
+#include "dingosdk/vector.h"
 #include "sdk/client_stub.h"
 #include "sdk/rpc/index_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
-#include "dingosdk/vector.h"
 #include "sdk/vector/vector_index.h"
 #include "sdk/vector/vector_task.h"
 
@@ -48,6 +48,6 @@ class VectorResetByRegionTask : public VectorTask {
 };
 
 }  // namespace sdk
-
 }  // namespace dingodb
+
 #endif

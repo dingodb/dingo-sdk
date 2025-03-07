@@ -169,4 +169,5 @@ class UnaryRpc : public Rpc {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_BRPC_UNARY_RPC_H_
