@@ -137,6 +137,6 @@ class VectorSearchPartTask : public VectorTask {
 };
 
 }  // namespace sdk
-
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_VECTOR_SEARCH_TATSK_H_

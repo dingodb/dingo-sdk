@@ -55,4 +55,5 @@ class RawKvDeleteRangeTask : public RawKvTask {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_RAW_KV_DELETE_RANGE_TASK_H_

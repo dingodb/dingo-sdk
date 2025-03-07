@@ -19,6 +19,7 @@
 
 namespace dingodb {
 namespace sdk {
+
 RawKvBatchDeleteTask::RawKvBatchDeleteTask(const ClientStub& stub, const std::vector<std::string>& keys)
     : RawKvTask(stub), keys_(keys) {}
 
@@ -127,5 +128,4 @@ void RawKvBatchDeleteTask::KvBatchDeleteRpcCallback(const Status& status, KvBatc
 }
 
 }  // namespace sdk
-
 }  // namespace dingodb

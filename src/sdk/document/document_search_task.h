@@ -19,9 +19,9 @@
 #include <memory>
 #include <unordered_map>
 
+#include "dingosdk/document.h"
 #include "fmt/core.h"
 #include "sdk/client_stub.h"
-#include "dingosdk/document.h"
 #include "sdk/document/document_index.h"
 #include "sdk/document/document_task.h"
 #include "sdk/rpc/document_service_rpc.h"
@@ -107,6 +107,6 @@ class DocumentSearchPartTask : public DocumentTask {
 };
 
 }  // namespace sdk
-
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_VECTOR_SEARCH_TATSK_H_

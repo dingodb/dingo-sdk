@@ -51,5 +51,4 @@ void RawKvDeleteTask::KvDeleteRpcCallback(const Status& status) {
 }
 
 }  // namespace sdk
-
 }  // namespace dingodb

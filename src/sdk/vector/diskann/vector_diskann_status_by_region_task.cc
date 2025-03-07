@@ -5,18 +5,17 @@
 #include <utility>
 
 #include "common/logging.h"
+#include "dingosdk/status.h"
+#include "dingosdk/vector.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "proto/error.pb.h"
 #include "sdk/auto_increment_manager.h"
 #include "sdk/common/common.h"
-#include "dingosdk/status.h"
-#include "dingosdk/vector.h"
 #include "sdk/vector/vector_common.h"
 #include "sdk/vector/vector_index.h"
 
 namespace dingodb {
-
 namespace sdk {
 
 // StatusByRegion

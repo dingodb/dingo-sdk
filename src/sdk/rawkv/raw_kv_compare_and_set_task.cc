@@ -59,5 +59,4 @@ void RawKvCompareAndSetTask::KvCompareAndSetRpcCallback(const Status& status) {
 }
 
 }  // namespace sdk
-
 }  // namespace dingodb

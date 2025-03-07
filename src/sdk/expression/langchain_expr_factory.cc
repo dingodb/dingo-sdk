@@ -17,11 +17,11 @@
 #include <nlohmann/json.hpp>
 #include <utility>
 
+#include "dingosdk/status.h"
+#include "dingosdk/types.h"
 #include "fmt/core.h"
 #include "sdk/common/param_config.h"
 #include "sdk/expression/langchain_expr.h"
-#include "dingosdk/status.h"
-#include "dingosdk/types.h"
 #include "sdk/types_util.h"
 
 namespace dingodb {
@@ -168,7 +168,5 @@ Status SchemaLangchainExprFactory::MaybeRemapType(const std::string& name, Type&
 }
 
 }  // namespace expression
-
 }  // namespace sdk
-
 }  // namespace dingodb

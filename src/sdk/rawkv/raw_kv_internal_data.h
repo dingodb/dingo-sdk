@@ -20,6 +20,7 @@
 
 namespace dingodb {
 namespace sdk {
+
 class RawKV::Data {
  public:
   Data(const Data&) = delete;
@@ -33,4 +34,5 @@ class RawKV::Data {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_RAW_KV_DATA_H_

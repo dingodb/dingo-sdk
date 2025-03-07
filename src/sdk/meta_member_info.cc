@@ -75,5 +75,4 @@ std::vector<EndPoint> MetaMemberInfo::GetMembers() const {
 }
 
 }  // namespace sdk
-
 }  // namespace dingodb

@@ -92,4 +92,5 @@ static Type InternalScalarFieldTypePB2Type(pb::common::ScalarFieldType type) {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_TYPES_UTIL_H_

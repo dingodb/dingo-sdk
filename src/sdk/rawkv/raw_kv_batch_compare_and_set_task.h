@@ -19,13 +19,15 @@
 #include <string_view>
 #include <vector>
 
+#include "dingosdk/status.h"
 #include "sdk/client_stub.h"
 #include "sdk/rawkv/raw_kv_task.h"
-#include "dingosdk/status.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+
 namespace dingodb {
 namespace sdk {
+
 class RawKvBatchCompareAndSetTask : public RawKvTask {
  public:
   RawKvBatchCompareAndSetTask(const ClientStub& stub, const std::vector<KVPair>& kvs,
@@ -64,7 +66,8 @@ class RawKvBatchCompareAndSetTask : public RawKvTask {
 
   std::atomic<int> sub_tasks_count_;
 };
-}  // namespace sdk
 
+}  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_RAW_KV_BATCH_COMPARE_AND_SET_TASK_H_

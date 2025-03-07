@@ -20,10 +20,10 @@
 #include <vector>
 
 #include "dingosdk/document.h"
+#include "dingosdk/status.h"
 #include "sdk/document/document_task.h"
 #include "sdk/rpc/document_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
-#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {
@@ -59,7 +59,6 @@ class DocumentBatchQueryTask : public DocumentTask {
 };
 
 }  // namespace sdk
-
 }  // namespace dingodb
 
 #endif  // DINGODB_SDK_DOCUMENT_BATCH_QUERY_TASK_H_

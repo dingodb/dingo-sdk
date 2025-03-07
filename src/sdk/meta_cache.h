@@ -23,11 +23,11 @@
 #include <unordered_map>
 #include <vector>
 
+#include "dingosdk/status.h"
 #include "proto/common.pb.h"
 #include "proto/coordinator.pb.h"
 #include "sdk/region.h"
 #include "sdk/rpc/coordinator_rpc_controller.h"
-#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {
@@ -128,4 +128,5 @@ class MetaCache {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_META_CACHE_H_

@@ -32,8 +32,9 @@ static std::string VectorIdToRangeKey(const VectorIndex& vector_index, int64_t v
   vector_codec::EncodeVectorKey(kVectorPrefix, part_id, vector_id, tmp_key);
   return std::move(tmp_key);
 }
-}  // namespace vector_helper
 
+}  // namespace vector_helper
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_VECTOR_HELPER_H_

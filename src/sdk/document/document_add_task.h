@@ -57,7 +57,8 @@ class DocumentAddTask : public DocumentTask {
 
   std::atomic<int> sub_tasks_count_{0};
 };
-}  // namespace sdk
 
+}  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_DOCUMENT_ADD_TASK_H_

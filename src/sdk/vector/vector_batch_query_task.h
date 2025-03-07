@@ -19,10 +19,10 @@
 #include <set>
 #include <vector>
 
-#include "sdk/rpc/index_service_rpc.h"
-#include "sdk/rpc/store_rpc_controller.h"
 #include "dingosdk/status.h"
 #include "dingosdk/vector.h"
+#include "sdk/rpc/index_service_rpc.h"
+#include "sdk/rpc/store_rpc_controller.h"
 #include "sdk/vector/vector_task.h"
 
 namespace dingodb {
@@ -58,7 +58,6 @@ class VectorBatchQueryTask : public VectorTask {
 };
 
 }  // namespace sdk
-
 }  // namespace dingodb
 
 #endif  // DINGODB_SDK_VECTOR_BATCH_QUERY_TASK_H_

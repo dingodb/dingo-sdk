@@ -59,4 +59,5 @@ class DocumentDeleteTask : public DocumentTask {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_DOCUMENT_DELETE_TASK_H_

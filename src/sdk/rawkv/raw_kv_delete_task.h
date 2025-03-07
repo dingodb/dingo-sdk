@@ -17,11 +17,12 @@
 
 #include <string>
 
+#include "dingosdk/status.h"
 #include "sdk/client_stub.h"
 #include "sdk/rawkv/raw_kv_task.h"
-#include "dingosdk/status.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+
 namespace dingodb {
 namespace sdk {
 
@@ -43,8 +44,8 @@ class RawKvDeleteTask : public RawKvTask {
   KvBatchDeleteRpc rpc_;
   StoreRpcController store_rpc_controller_;
 };
-}  // namespace sdk
 
+}  // namespace sdk
 }  // namespace dingodb
 
 #endif  // DINGODB_SDK_RAW_KV_DELETE_TASK_H_

@@ -60,4 +60,5 @@ class DocumentUpdateTask : public DocumentTask {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_DOCUMENT_UPDATE_TASK_H_

@@ -163,5 +163,4 @@ void DocumentBatchQueryTask::DocumentBatchQueryRpcCallback(const Status& status,
 }
 
 }  // namespace sdk
-
 }  // namespace dingodb

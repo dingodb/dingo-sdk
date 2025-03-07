@@ -26,6 +26,7 @@
 
 namespace dingodb {
 namespace sdk {
+
 class TxnRegionScannerFactoryImpl;
 class TestBase;
 

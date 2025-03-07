@@ -156,6 +156,6 @@ static std::string StringToHex(const std::string& str) {
 }
 
 }  // namespace sdk
-
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_HELPER_H_

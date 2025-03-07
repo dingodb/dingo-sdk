@@ -17,14 +17,13 @@
 
 #include <cstdint>
 
-#include "sdk/client_stub.h"
 #include "dingosdk/document.h"
+#include "sdk/client_stub.h"
 #include "sdk/document/document_task.h"
 #include "sdk/rpc/document_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
 
 namespace dingodb {
-
 namespace sdk {
 
 class DocumentScanQueryPartTask;
@@ -106,4 +105,5 @@ class DocumentScanQueryPartTask : public DocumentTask {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_DOCUMENT_SCAN_QUERY_TATSK_H_

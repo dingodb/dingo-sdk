@@ -26,6 +26,7 @@
 
 namespace dingodb {
 namespace sdk {
+
 TxnRegionScannerImpl::TxnRegionScannerImpl(const ClientStub& stub, std::shared_ptr<Region> region,
                                            const TransactionOptions& txn_options, int64_t txn_start_ts,
                                            std::string start_key, std::string end_key)
@@ -180,6 +181,6 @@ Status TxnRegionScannerFactoryImpl::NewRegionScanner(const ScannerOptions& optio
 
   return Status::OK();
 }
-}  // namespace sdk
 
+}  // namespace sdk
 }  // namespace dingodb

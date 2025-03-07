@@ -15,12 +15,13 @@
 #ifndef DINGODB_SDK_RAW_KV_TASK_H_
 #define DINGODB_SDK_RAW_KV_TASK_H_
 
-#include "sdk/client_stub.h"
 #include "dingosdk/status.h"
+#include "sdk/client_stub.h"
 #include "sdk/utils/callback.h"
 
 namespace dingodb {
 namespace sdk {
+
 class RawKvTask {
  public:
   RawKvTask(const ClientStub& stub) : stub(stub) {}
@@ -55,4 +56,5 @@ class RawKvTask {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_RAW_KV_TASK_H_

@@ -68,4 +68,5 @@ class TsoServiceRpc final
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_GRPC_COORDINATOR_RPC_H_

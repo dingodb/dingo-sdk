@@ -17,9 +17,9 @@
 
 #include <vector>
 
+#include "dingosdk/status.h"
 #include "proto/meta.pb.h"
 #include "sdk/rpc/coordinator_rpc_controller.h"
-#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {
@@ -53,4 +53,5 @@ class AdminTool {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_ADMIN_TOOL_H_

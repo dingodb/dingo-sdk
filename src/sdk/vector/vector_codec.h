@@ -17,10 +17,9 @@
 
 #include <optional>
 
-#include "glog/logging.h"
 #include "common/logging.h"
+#include "glog/logging.h"
 #include "sdk/utils/codec.h"
-#include "serial/buf.h"
 #include "serial/schema/long_schema.h"
 
 namespace dingodb {
@@ -31,10 +30,9 @@ static const uint32_t kVectorKeyMinLenWithPrefix = 9;
 static const uint32_t kVectorKeyMaxLenWithPrefix = 17;
 
 namespace vector_codec {
-static void EncodeVectorKey(char prefix, int64_t partition_id,
-                            std::string &result) {
-  CHECK(prefix != 0) << "Encode vector key failed, prefix is 0, partition_id:["
-                     << partition_id << "]";
+
+static void EncodeVectorKey(char prefix, int64_t partition_id, std::string& result) {
+  CHECK(prefix != 0) << "Encode vector key failed, prefix is 0, partition_id:[" << partition_id << "]";
 
   // Buf buf(17);
   Buf buf(kVectorKeyMinLenWithPrefix);
@@ -43,10 +41,9 @@ static void EncodeVectorKey(char prefix, int64_t partition_id,
   buf.GetBytes(result);
 }
 
-static void EncodeVectorKey(char prefix, int64_t partition_id,
-                            int64_t vector_id, std::string &result) {
-  CHECK(prefix != 0) << "Encode vector key failed, prefix is 0, partition_id:["
-                     << partition_id << "], vector_id:[" << vector_id << "]";
+static void EncodeVectorKey(char prefix, int64_t partition_id, int64_t vector_id, std::string& result) {
+  CHECK(prefix != 0) << "Encode vector key failed, prefix is 0, partition_id:[" << partition_id << "], vector_id:["
+                     << vector_id << "]";
 
   // Buf buf(17);
   Buf buf(kVectorKeyMaxLenWithPrefix);
@@ -56,35 +53,34 @@ static void EncodeVectorKey(char prefix, int64_t partition_id,
   buf.GetBytes(result);
 }
 
-static int64_t DecodeVectorId(const std::string &value) {
+static int64_t DecodeVectorId(const std::string& value) {
   Buf buf(value);
   if (value.size() >= kVectorKeyMaxLenWithPrefix) {
     buf.Skip(9);
   } else if (value.size() == kVectorKeyMinLenWithPrefix) {
     return 0;
   } else {
-    DINGO_LOG(FATAL)
-        << "Decode vector id failed, value size is not 9 or >=17, value:["
-        << codec::BytesToHexString(value) << "]";
+    DINGO_LOG(FATAL) << "Decode vector id failed, value size is not 9 or >=17, value:["
+                     << codec::BytesToHexString(value) << "]";
     return 0;
   }
 
   return DingoSchema<std::optional<int64_t>>::InternalDecodeKey(&buf);
 }
 
-static int64_t DecodePartitionId(const std::string &value) {
+static int64_t DecodePartitionId(const std::string& value) {
   Buf buf(value);
 
   // if (value.size() >= 17 || value.size() == 9) {
-  if (value.size() >= kVectorKeyMaxLenWithPrefix ||
-      value.size() == kVectorKeyMinLenWithPrefix) {
+  if (value.size() >= kVectorKeyMaxLenWithPrefix || value.size() == kVectorKeyMinLenWithPrefix) {
     buf.Skip(1);
   }
 
   return buf.ReadLong();
 }
 
-} // namespace vector_codec
-} // namespace sdk
-} // namespace dingodb
-#endif // DINGODB_SDK_VECTOR_CODEC_H_
+}  // namespace vector_codec
+}  // namespace sdk
+}  // namespace dingodb
+
+#endif  // DINGODB_SDK_VECTOR_CODEC_H_

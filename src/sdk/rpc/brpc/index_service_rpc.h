@@ -23,7 +23,7 @@ namespace sdk {
 
 #define DECLARE_INDEX_SERVICE_RPC(METHOD) DECLARE_UNARY_RPC(pb::index, IndexService, METHOD)
 
-namespace index  {
+namespace index {
 DECLARE_INDEX_SERVICE_RPC(Hello);
 }
 DECLARE_INDEX_SERVICE_RPC(VectorAdd);
@@ -42,7 +42,7 @@ DECLARE_INDEX_SERVICE_RPC(VectorReset);
 DECLARE_INDEX_SERVICE_RPC(VectorDump);
 DECLARE_INDEX_SERVICE_RPC(VectorCountMemory);
 
-
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_BRPC_INDEX_SERVICE_RPC_H_

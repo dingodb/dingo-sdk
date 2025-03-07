@@ -14,11 +14,10 @@
 
 #include "sdk/document/document_get_index_metrics_task.h"
 
-#include <glog/logging.h>
-
 #include <cstdint>
 #include <memory>
 
+#include "glog/logging.h"
 #include "sdk/common/common.h"
 #include "sdk/utils/scoped_cleanup.h"
 

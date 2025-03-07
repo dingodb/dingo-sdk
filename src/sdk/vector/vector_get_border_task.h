@@ -18,9 +18,9 @@
 
 #include <cstdint>
 
+#include "dingosdk/vector.h"
 #include "sdk/rpc/index_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
-#include "dingosdk/vector.h"
 #include "sdk/vector/vector_task.h"
 
 namespace dingodb {
@@ -99,4 +99,5 @@ class VectorGetBorderPartTask : public VectorTask {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_VECTOR_GET_BORDER_TASK_H_

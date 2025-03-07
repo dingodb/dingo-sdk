@@ -14,7 +14,9 @@
 
 #include "sdk/expression/coding.h"
 
+#include <cstdint>
 #include <cstring>
+
 #include "sdk/expression/encodes.h"
 
 namespace dingodb {

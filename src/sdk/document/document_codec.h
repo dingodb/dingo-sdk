@@ -20,7 +20,6 @@
 #include "common/logging.h"
 #include "glog/logging.h"
 #include "sdk/utils/codec.h"
-#include "serial/buf.h"
 #include "serial/schema/long_schema.h"
 
 namespace dingodb {
@@ -83,4 +82,5 @@ static int64_t DecodePartitionId(const std::string& value) {
 }  // namespace document_codec
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_DOCUMENT_CODEC_H_

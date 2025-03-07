@@ -17,6 +17,7 @@
 #include <string_view>
 
 #include "common/logging.h"
+#include "dingosdk/status.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
@@ -25,7 +26,6 @@
 #include "sdk/common/param_config.h"
 #include "sdk/region.h"
 #include "sdk/rpc/coordinator_rpc.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/async_util.h"
 
 namespace dingodb {
@@ -504,5 +504,6 @@ void MetaCache::DumpUnlocked() {
     DINGO_LOG(INFO) << dump;
   }
 }
+
 }  // namespace sdk
 }  // namespace dingodb

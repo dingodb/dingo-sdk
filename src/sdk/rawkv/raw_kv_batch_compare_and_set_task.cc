@@ -157,5 +157,4 @@ void RawKvBatchCompareAndSetTask::PostProcess() {
 }
 
 }  // namespace sdk
-
 }  // namespace dingodb

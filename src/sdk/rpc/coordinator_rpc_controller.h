@@ -21,7 +21,6 @@
 #include "sdk/rpc/rpc.h"
 
 namespace dingodb {
-
 namespace sdk {
 
 class ClientStub;
@@ -53,7 +52,6 @@ class CoordinatorRpcController {
 };
 
 }  // namespace sdk
-
 }  // namespace dingodb
 
 #endif  // DINGODB_SDK_COORDINATOR_CLIENT_H_

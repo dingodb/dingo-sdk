@@ -19,7 +19,6 @@
 
 namespace dingodb {
 namespace sdk {
-
 namespace codec {
 
 static std::string BytesToHexString(const std::string& bytes) {
@@ -45,7 +44,8 @@ static std::string HexStringToBytes(const std::string& hex) {
   }
   return bytes;
 }
-};  // namespace codec
+
+}  // namespace codec
 }  // namespace sdk
 }  // namespace dingodb
 

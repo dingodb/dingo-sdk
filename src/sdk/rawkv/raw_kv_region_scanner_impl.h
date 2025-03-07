@@ -29,13 +29,14 @@
 
 namespace dingodb {
 namespace sdk {
+
 class RawKvRegionScannerFactoryImpl;
 class TestBase;
 
 class RawKvRegionScannerImpl : public RegionScanner {
  public:
   explicit RawKvRegionScannerImpl(const ClientStub& stub, std::shared_ptr<Region> region, std::string start_key,
-                             std::string end_key);
+                                  std::string end_key);
 
   ~RawKvRegionScannerImpl() override;
 
@@ -46,7 +47,6 @@ class RawKvRegionScannerImpl : public RegionScanner {
   void Close() override;
 
   void AsyncClose(StatusCallback cb) override;
-
 
   Status NextBatch(std::vector<KVPair>& kvs) override;
 
@@ -94,4 +94,5 @@ class RawKvRegionScannerFactoryImpl final : public RegionScannerFactory {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_REGON_SCANNER_H_

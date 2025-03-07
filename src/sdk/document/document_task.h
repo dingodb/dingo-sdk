@@ -15,10 +15,10 @@
 #ifndef DINGODB_SDK_DOCUMENT_TASK_H_
 #define DINGODB_SDK_DOCUMENT_TASK_H_
 
-#include "sdk/client_stub.h"
 #include "dingosdk/document.h"
 #include "dingosdk/status.h"
 #include "dingosdk/types.h"
+#include "sdk/client_stub.h"
 #include "sdk/utils/callback.h"
 
 namespace dingodb {
@@ -58,4 +58,5 @@ class DocumentTask {
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_DOCUMENT_TASK_H_

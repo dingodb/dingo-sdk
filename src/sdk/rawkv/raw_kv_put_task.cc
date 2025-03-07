@@ -14,9 +14,9 @@
 
 #include "sdk/rawkv/raw_kv_put_task.h"
 
+#include "dingosdk/status.h"
 #include "sdk/common/common.h"
 #include "sdk/rawkv/raw_kv_task.h"
-#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {
@@ -46,5 +46,4 @@ void RawKvPutTask::DoAsync() {
 void RawKvPutTask::KvPutRpcCallback(const Status& status) { DoAsyncDone(status); }
 
 }  // namespace sdk
-
 }  // namespace dingodb

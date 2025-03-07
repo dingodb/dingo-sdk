@@ -46,7 +46,6 @@ class ThreadPool {
 ThreadPool* NewThreadPool(int num_threads);
 
 }  // namespace sdk
-
 }  // namespace dingodb
 
 #endif  // DINGODB_SDK_THREAD_POOL_H_

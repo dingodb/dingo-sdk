@@ -16,9 +16,7 @@
 #ifndef DINGODB_SDK_EXPRESSION_CODING_H_
 #define DINGODB_SDK_EXPRESSION_CODING_H_
 
-#include <cstdint>
 #include <string>
-#include <vector>
 
 #include "sdk/expression/encodes.h"
 

@@ -51,4 +51,5 @@ DECLARE_STORE_RPC(TxnResolveLock);
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_BRPC_STORE_RPC_H_

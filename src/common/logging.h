@@ -15,8 +15,6 @@
 #ifndef DINGODB_SDK_COMMON_LOGGING_H_
 #define DINGODB_SDK_COMMON_LOGGING_H_
 
-#include <string>
-
 #include "glog/logging.h"
 
 namespace dingodb {
@@ -54,4 +52,5 @@ static constexpr int kGlobalValueOfDebug = DINGO_DEBUG;
 #define DINGO_LOG_IF_FATAL(condition) LOG_IF(FATAL, condition) << CURRENT_FUNC_NAME
 
 }  // namespace dingodb
-#endif
+
+#endif  // DINGODB_SDK_COMMON_LOGGING_H_

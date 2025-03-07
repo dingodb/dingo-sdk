@@ -15,11 +15,12 @@
 #include "sdk/rawkv/raw_kv_batch_put_task.h"
 
 #include "dingosdk/client.h"
-#include "sdk/common/common.h"
 #include "dingosdk/status.h"
+#include "sdk/common/common.h"
 
 namespace dingodb {
 namespace sdk {
+
 RawKvBatchPutTask::RawKvBatchPutTask(const ClientStub& stub, const std::vector<KVPair>& kvs)
     : RawKvTask(stub), kvs_(kvs) {}
 

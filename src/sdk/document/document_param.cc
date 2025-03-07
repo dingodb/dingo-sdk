@@ -202,12 +202,14 @@ std::string DocScanQueryResult::ToString() const {
 
 std::string DocIndexMetricsResult::ToString() const {
   std::ostringstream oss;
-  oss << "DocIndexMetricsResult {" << " total_num_docs: " << total_num_docs
-      << ", total_num_tokens: " << total_num_tokens << ", max_doc_id: " << max_doc_id << ", min_doc_id: " << min_doc_id
-      << ", meta_json: " << meta_json << ", json_parameter: " << json_parameter << " }";
+  oss << "DocIndexMetricsResult {"
+      << " total_num_docs: " << total_num_docs << ", total_num_tokens: " << total_num_tokens
+      << ", max_doc_id: " << max_doc_id << ", min_doc_id: " << min_doc_id << ", meta_json: " << meta_json
+      << ", json_parameter: " << json_parameter << " }";
   return oss.str();
 }
 
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_DOCUMENT_PARAMS_H_

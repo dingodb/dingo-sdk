@@ -17,13 +17,13 @@
 
 #include <cstdint>
 
+#include "dingosdk/document.h"
+#include "dingosdk/types.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "proto/meta.pb.h"
-#include "dingosdk/document.h"
 #include "sdk/document/document_codec.h"
 #include "sdk/document/document_doc_value_internal.h"
-#include "dingosdk/types.h"
 #include "sdk/types_util.h"
 
 namespace dingodb {
@@ -192,8 +192,9 @@ class DocumentTranslater {
       pb->add_selected_keys(key);
     }
   }
+};
 
-};  // namespace dingodb
 }  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_DOCUMENT_TRANSLATER_H_

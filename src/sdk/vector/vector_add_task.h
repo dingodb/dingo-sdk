@@ -30,10 +30,8 @@ namespace sdk {
 
 class VectorAddTask : public VectorTask {
  public:
-  VectorAddTask(const ClientStub &stub, int64_t index_id, std::vector<VectorWithId> &vectors)
-      : VectorTask(stub),
-        index_id_(index_id),
-        vectors_(vectors){}
+  VectorAddTask(const ClientStub& stub, int64_t index_id, std::vector<VectorWithId>& vectors)
+      : VectorTask(stub), index_id_(index_id), vectors_(vectors) {}
 
   ~VectorAddTask() override = default;
 
@@ -45,10 +43,10 @@ class VectorAddTask : public VectorTask {
 
   std::string Name() const override { return fmt::format("VectorAddTask-{}", index_id_); }
 
-  void VectorAddRpcCallback(const Status &status, VectorAddRpc *rpc);
+  void VectorAddRpcCallback(const Status& status, VectorAddRpc* rpc);
 
   const int64_t index_id_;
-  std::vector<VectorWithId> &vectors_;
+  std::vector<VectorWithId>& vectors_;
 
   std::shared_ptr<VectorIndex> vector_index_;
 
@@ -61,7 +59,8 @@ class VectorAddTask : public VectorTask {
 
   std::atomic<int> sub_tasks_count_{0};
 };
-}  // namespace sdk
 
+}  // namespace sdk
 }  // namespace dingodb
+
 #endif  // DINGODB_SDK_VECTOR_ADD_TASK_H_

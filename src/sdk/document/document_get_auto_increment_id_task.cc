@@ -14,16 +14,16 @@
 
 #include "sdk/document/document_get_auto_increment_id_task.h"
 
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "sdk/auto_increment_manager.h"
-#include "dingosdk/status.h"
 #include "sdk/document/document_index.h"
 
 namespace dingodb {
 namespace sdk {
 
 Status DocumentGetAutoIncrementIdTask::Init() {
-   std::shared_ptr<DocumentIndex> tmp;
+  std::shared_ptr<DocumentIndex> tmp;
   DINGO_RETURN_NOT_OK(stub.GetDocumentIndexCache()->GetDocumentIndexById(index_id_, tmp));
   DCHECK_NOTNULL(tmp);
   document_index_ = std::move(tmp);
@@ -38,10 +38,7 @@ Status DocumentGetAutoIncrementIdTask::Init() {
   return Status::OK();
 }
 
-void DocumentGetAutoIncrementIdTask::DoAsync() {
-  DoAsyncDone(Status::OK());
-}
-
+void DocumentGetAutoIncrementIdTask::DoAsync() { DoAsyncDone(Status::OK()); }
 
 }  // namespace sdk
 }  // namespace dingodb
