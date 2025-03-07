@@ -14,8 +14,11 @@
 
 #include "sdk/transaction/txn_impl.h"
 
+#include <fmt/format.h>
+
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -86,7 +89,7 @@ Status Transaction::TxnImpl::DoTxnGet(const std::string& key, std::string& value
       }
     } else {
       DINGO_LOG(WARNING) << "unexpect txn get rpc response, status:" << ret.ToString()
-                         << " response:" << response->DebugString();
+                         << " response:" << response->ShortDebugString();
       break;
     }
 
@@ -159,7 +162,7 @@ void Transaction::TxnImpl::ProcessTxnBatchGetSubTask(TxnSubTask* sub_task) {
       }
     } else {
       DINGO_LOG(WARNING) << "unexpect txn batch get rpc response, status:" << res.ToString()
-                         << " response:" << response->DebugString();
+                         << " response:" << response->ShortDebugString();
       break;
     }
 
@@ -500,10 +503,10 @@ void Transaction::TxnImpl::CheckAndLogPreCommitPrimaryKeyResponse(
   } else if (1 == txn_result_size) {
     const auto& txn_result = response->txn_result(0);
     DINGO_LOG(INFO) << "lock or confict pre_commit_primary_key:" << StringToHex(pk)
-                    << " txn_result:" << txn_result.DebugString();
+                    << " txn_result:" << txn_result.ShortDebugString();
   } else {
     DINGO_LOG(FATAL) << "unexpected pre_commit_primary_key response txn_result_size size: " << txn_result_size
-                     << ", response:" << response->DebugString();
+                     << ", response:" << response->ShortDebugString();
   }
 }
 
@@ -519,23 +522,23 @@ Status Transaction::TxnImpl::TryResolveTxnPrewriteLockConflict(const pb::store::
       Status resolve = stub_.GetTxnLockResolver()->ResolveLock(txn_result.locked(), start_ts_);
       if (!resolve.ok()) {
         DINGO_LOG(WARNING) << "fail resolve lock pk:" << StringToHex(pk) << ", status:" << ret.ToString()
-                           << " txn_result:" << txn_result.DebugString();
+                           << " txn_result:" << txn_result.ShortDebugString();
         ret = resolve;
       }
     } else if (ret.IsTxnWriteConflict()) {
       DINGO_LOG(WARNING) << "write conflict pk:" << StringToHex(pk) << ", status:" << ret.ToString()
-                         << " txn_result:" << txn_result.DebugString();
+                         << " txn_result:" << txn_result.ShortDebugString();
       return ret;
     } else {
       DINGO_LOG(WARNING) << "unexpect txn pre commit rpc response, status:" << ret.ToString()
-                         << " response:" << response->DebugString();
+                         << " response:" << response->ShortDebugString();
     }
   }
 
   return ret;
 }
 
-Status Transaction::TxnImpl::PreCommitPrimaryKey() {
+Status Transaction::TxnImpl::PreCommitPrimaryKey(bool is_one_pc) {
   std::string pk = buffer_->GetPrimaryKey();
 
   std::shared_ptr<Region> region;
@@ -548,6 +551,15 @@ Status Transaction::TxnImpl::PreCommitPrimaryKey() {
   TxnMutation mutation;
   CHECK(buffer_->Get(pk, mutation).ok());
   TxnMutation2MutationPB(mutation, rpc->MutableRequest()->add_mutations());
+
+  if (is_one_pc) {
+    rpc->MutableRequest()->set_try_one_pc(true);
+    for (const auto& [key, mutation] : buffer_->Mutations()) {
+      if (key != pk) {
+        TxnMutation2MutationPB(mutation, rpc->MutableRequest()->add_mutations());
+      }
+    }
+  }
 
   int retry = 0;
   while (true) {
@@ -614,8 +626,32 @@ void Transaction::TxnImpl::ProcessTxnPrewriteSubTask(TxnSubTask* sub_task) {
   sub_task->status = ret;
 }
 
+static bool IsOneRegionTxn(std::shared_ptr<MetaCache> meta_cache, TxnBuffer& buffer) {
+  uint64_t region_id = 0;
+  for (const auto& [key, mutation] : buffer.Mutations()) {
+    RegionPtr region;
+    Status s = meta_cache->LookupRegionByKey(key, region);
+    if (!s.IsOK()) {
+      return false;
+    }
+
+    if (region_id == 0) {
+      region_id = region->RegionId();
+    } else if (region_id != region->RegionId()) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 // TODO: process AlreadyExist if mutaion is PutIfAbsent
 Status Transaction::TxnImpl::PreCommit() {
+  struct RegionTxnMutation {
+    RegionPtr region;
+    std::vector<TxnMutation> mutations;
+  };
+
   state_ = kPreCommitting;
 
   if (buffer_->IsEmpty()) {
@@ -623,73 +659,78 @@ Status Transaction::TxnImpl::PreCommit() {
     return Status::OK();
   }
 
-  DINGO_RETURN_NOT_OK(PreCommitPrimaryKey());
+  auto meta_cache = stub_.GetMetaCache();
+
+  // check whether one region txn, if true, use try_one_pc
+  is_one_pc_ = IsOneRegionTxn(meta_cache, *buffer_);
+
+  DINGO_LOG(INFO) << fmt::format("is_one_pc: {}", is_one_pc_);
+
+  DINGO_RETURN_NOT_OK(PreCommitPrimaryKey(is_one_pc_));
+
+  if (is_one_pc_) {
+    state_ = kCommitted;
+    return Status::OK();
+  }
 
   // TODO: start heartbeat
 
-  auto meta_cache = stub_.GetMetaCache();
-  std::unordered_map<int64_t, std::shared_ptr<Region>> region_id_to_region;
-  std::unordered_map<int64_t, std::vector<TxnMutation>> region_mutations;
-
+  // group mutations by region
   std::string pk = buffer_->GetPrimaryKey();
-  for (const auto& mutaion_entry : buffer_->Mutations()) {
-    if (mutaion_entry.first == pk) {
+  std::unordered_map<int64_t, RegionTxnMutation> region_mutation_map;
+  for (const auto& [key, mutation] : buffer_->Mutations()) {
+    if (key == pk) {
       continue;
     }
 
-    std::shared_ptr<Region> tmp;
-    Status got = meta_cache->LookupRegionByKey(mutaion_entry.first, tmp);
-    if (!got.IsOK()) {
-      return got;
+    RegionPtr region;
+    Status s = meta_cache->LookupRegionByKey(key, region);
+    if (!s.IsOK()) {
+      return s;
     }
 
-    auto iter = region_id_to_region.find(tmp->RegionId());
-    if (iter == region_id_to_region.end()) {
-      region_id_to_region.emplace(std::make_pair(tmp->RegionId(), tmp));
+    auto iter = region_mutation_map.find(region->RegionId());
+    if (iter == region_mutation_map.end()) {
+      region_mutation_map.emplace(std::make_pair(region->RegionId(), RegionTxnMutation{region, {mutation}}));
+    } else {
+      iter->second.mutations.push_back(mutation);
     }
-
-    region_mutations[tmp->RegionId()].push_back(mutaion_entry.second);
   }
 
+  // generate rpcs task
   std::vector<TxnSubTask> sub_tasks;
   std::vector<std::unique_ptr<TxnPrewriteRpc>> rpcs;
-
-  for (const auto& mutation_entry : region_mutations) {
-    auto region_id = mutation_entry.first;
-    auto iter = region_id_to_region.find(region_id);
-    CHECK(iter != region_id_to_region.end());
-    auto region = iter->second;
+  for (const auto& [region_id, region_mutation] : region_mutation_map) {
+    auto region = region_mutation.region;
 
     dingodb::pb::store::TxnPrewriteRequest txn_prewrite_request;
-    for (const auto& mutation : mutation_entry.second) {
+    for (const auto& mutation : region_mutation.mutations) {
       TxnMutation2MutationPB(mutation, txn_prewrite_request.add_mutations());
     }
 
     auto rpc = PrepareTxnPrewriteRpc(region);
+    for (const auto& mutation : txn_prewrite_request.mutations()) {
+      auto* request = rpc->MutableRequest();
+      *request->add_mutations() = mutation;
 
-    uint32_t tmp_count = 0;
-    for (int i = 0; i < txn_prewrite_request.mutations_size(); i++) {
-      *rpc->MutableRequest()->add_mutations() = txn_prewrite_request.mutations(i);
-      tmp_count++;
-
-      if (tmp_count == FLAGS_txn_max_batch_count) {
+      if (request->mutations_size() == FLAGS_txn_max_batch_count) {
         sub_tasks.emplace_back(rpc.get(), region);
         rpcs.push_back(std::move(rpc));
-        tmp_count = 0;
         rpc = PrepareTxnPrewriteRpc(region);
       }
     }
 
-    DCHECK_NOTNULL(rpc);
-
-    if (tmp_count > 0) {
+    if (rpc != nullptr && rpc->Request()->mutations_size() > 0) {
       sub_tasks.emplace_back(rpc.get(), region);
       rpcs.push_back(std::move(rpc));
     }
   }
 
-  // DCHECK_EQ(rpcs.size(), region_mutations.size());
   DCHECK_EQ(rpcs.size(), sub_tasks.size());
+
+  // execute rpc use thread pool
+
+  // StoreRpcController controller(stub_, *rpc, region);
 
   std::vector<std::thread> thread_pool;
   thread_pool.reserve(sub_tasks.size());
@@ -701,11 +742,12 @@ Status Transaction::TxnImpl::PreCommit() {
     thread.join();
   }
 
+  // check execute result
   Status result;
   for (auto& state : sub_tasks) {
     if (!state.status.IsOK()) {
-      DINGO_LOG(WARNING) << "fail txn_pre_write_sub_task, rpc: " << state.rpc->Method()
-                         << " send to region: " << state.region->RegionId() << " status: " << state.status.ToString();
+      DINGO_LOG(WARNING) << fmt::format("prewrite part fail, region({}) {} {}.", state.region->RegionId(),
+                                        state.rpc->Method(), state.status.ToString());
       if (result.ok()) {
         // only return first fail status
         result = state.status;
@@ -734,32 +776,30 @@ std::unique_ptr<TxnCommitRpc> Transaction::TxnImpl::PrepareTxnCommitRpc(const st
 Status Transaction::TxnImpl::ProcessTxnCommitResponse(const pb::store::TxnCommitResponse* response,
                                                       bool is_primary) const {
   std::string pk = buffer_->GetPrimaryKey();
-  DINGO_LOG(DEBUG) << "After commit txn, start_ts:" << start_ts_ << " pk:" << pk
-                   << ", response:" << response->DebugString();
+  DINGO_LOG(DEBUG) << fmt::format("commit response, start_ts({}) pk({}) response({}).", start_ts_, StringToHex(pk),
+                                  response->ShortDebugString());
 
   if (response->has_txn_result()) {
     const auto& txn_result = response->txn_result();
     if (txn_result.has_locked()) {
       const auto& lock_info = txn_result.locked();
-      DINGO_LOG(FATAL) << "internal error, txn lock confilict start_ts:" << start_ts_ << " pk:" << pk
-                       << ", response:" << response->DebugString();
+      DINGO_LOG(FATAL) << fmt::format("txn lock confilict, start_ts({}) pk({}) response({}).", start_ts_,
+                                      StringToHex(pk), response->ShortDebugString());
     }
 
     if (txn_result.has_txn_not_found()) {
-      DINGO_LOG(FATAL) << "internal error, txn not found start_ts:" << start_ts_ << " pk:" << pk
-                       << ", response:" << response->DebugString();
+      DINGO_LOG(FATAL) << fmt::format("txn not found, start_ts({}) pk({}) response({}).", start_ts_, StringToHex(pk),
+                                      response->ShortDebugString());
     }
 
     if (txn_result.has_write_conflict()) {
       const auto& write_conflict = txn_result.write_conflict();
       if (!is_primary) {
-        DINGO_LOG(FATAL) << "internal error, txn write conlict start_ts:" << start_ts_ << " pk:" << pk
-                         << ", response:" << response->DebugString();
+        DINGO_LOG(FATAL) << fmt::format("txn write conlict, start_ts({}) pk({}) response({}).", start_ts_,
+                                        StringToHex(pk), response->ShortDebugString());
       }
       return Status::TxnRolledBack("");
     }
-
-    return Status::OK();
   }
 
   return Status::OK();
@@ -800,7 +840,9 @@ void Transaction::TxnImpl::ProcessTxnCommitSubTask(TxnSubTask* sub_task) {
 }
 
 Status Transaction::TxnImpl::Commit() {
-  if (state_ != kPreCommitted) {
+  if (state_ == kCommitted) {
+    return Status::OK();
+  } else if (state_ != kPreCommitted) {
     return Status::IllegalState(fmt::format("forbid commit, txn state is:{}, expect:{}", TransactionState2Str(state_),
                                             TransactionState2Str(kPreCommitted)));
   }
@@ -817,8 +859,8 @@ Status Transaction::TxnImpl::Commit() {
   commit_tso_ = tso;
   commit_ts_ = Tso2Timestamp(commit_tso_);
   CHECK(commit_ts_ > start_ts_) << "commit_ts:" << commit_ts_ << " must greater than start_ts:" << start_ts_
-                                << ", commit_tso:" << commit_tso_.DebugString()
-                                << ", start_tso:" << start_tso_.DebugString();
+                                << ", commit_tso:" << commit_tso_.ShortDebugString()
+                                << ", start_tso:" << start_tso_.ShortDebugString();
   // TODO: if commit primary key and find txn is rolled back, should we rollback all the mutation?
   Status ret = CommitPrimaryKey();
   if (!ret.ok()) {
@@ -901,8 +943,8 @@ Status Transaction::TxnImpl::Commit() {
       for (auto& state : sub_tasks) {
         // ignore
         if (!state.status.IsOK()) {
-          DINGO_LOG(INFO) << "Fail txn_commit_sub_task but ignore, rpc: " << state.rpc->Method()
-                          << " send to region: " << state.region->RegionId() << " status: " << state.status.ToString();
+          DINGO_LOG(INFO) << fmt::format("commit fail, region({}) {} {}.", state.region->RegionId(),
+                                         state.rpc->Method(), state.status.ToString());
         }
       }
     }
@@ -925,8 +967,8 @@ void Transaction::TxnImpl::CheckAndLogTxnBatchRollbackResponse(
   if (response->has_txn_result()) {
     std::string pk = buffer_->GetPrimaryKey();
     const auto& txn_result = response->txn_result();
-    DINGO_LOG(WARNING) << "Fail rollback txn, start_ts:" << start_ts_ << " pk:" << pk
-                       << " txn_result:" << txn_result.DebugString();
+    DINGO_LOG(WARNING) << fmt::format("rollback fail, start_ts({}) pk({}) result({}).", start_ts_, StringToHex(pk),
+                                      txn_result.ShortDebugString());
   }
 }
 
@@ -955,6 +997,11 @@ void Transaction::TxnImpl::ProcessBatchRollbackSubTask(TxnSubTask* sub_task) {
 }
 
 Status Transaction::TxnImpl::Rollback() {
+  struct RegionRollbackKeys {
+    RegionPtr region;
+    std::vector<std::string> keys;
+  };
+
   // TODO: client txn status maybe inconsistence with server
   // so we should check txn status first and then take action
   // TODO: maybe support rollback when txn is active
@@ -962,19 +1009,27 @@ Status Transaction::TxnImpl::Rollback() {
     return Status::IllegalState(fmt::format("forbid rollback, txn state is:{}", TransactionState2Str(state_)));
   }
 
+  auto meta_cache = stub_.GetMetaCache();
+  std::string pk = buffer_->GetPrimaryKey();
+
   state_ = kRollbacking;
   {
     // rollback primary key
-    std::string pk = buffer_->GetPrimaryKey();
-    std::shared_ptr<Region> region;
-    Status ret = stub_.GetMetaCache()->LookupRegionByKey(pk, region);
+    RegionPtr region;
+    Status ret = meta_cache->LookupRegionByKey(pk, region);
     if (!ret.IsOK()) {
       return ret;
     }
 
     std::unique_ptr<TxnBatchRollbackRpc> rpc = PrepareTxnBatchRollbackRpc(region);
-    auto* fill = rpc->MutableRequest()->add_keys();
-    *fill = pk;
+    *rpc->MutableRequest()->add_keys() = pk;
+    if (is_one_pc_) {
+      for (const auto& [key, _] : buffer_->Mutations()) {
+        if (key != pk) {
+          *rpc->MutableRequest()->add_keys() = key;
+        }
+      }
+    }
 
     DINGO_RETURN_NOT_OK(LogAndSendRpc(stub_, *rpc, region));
 
@@ -984,56 +1039,56 @@ Status Transaction::TxnImpl::Rollback() {
       // TODO: which state should we transfer to ?
       const auto& txn_result = response->txn_result();
       if (txn_result.has_locked()) {
-        return Status::TxnLockConflict(txn_result.locked().DebugString());
+        return Status::TxnLockConflict(txn_result.locked().ShortDebugString());
       }
     }
   }
   state_ = kRollbackted;
+  if (is_one_pc_) {
+    return Status::OK();
+  }
 
   {
     // we rollback primary key is success, and then we try best to rollback other keys, if fail we ignore
-    auto meta_cache = stub_.GetMetaCache();
-    std::unordered_map<int64_t, std::shared_ptr<Region>> region_id_to_region;
-    std::unordered_map<int64_t, std::vector<std::string>> region_rollback_keys;
 
-    std::string pk = buffer_->GetPrimaryKey();
-    for (const auto& mutaion_entry : buffer_->Mutations()) {
-      if (mutaion_entry.first == pk) {
+    std::unordered_map<int64_t, RegionRollbackKeys> region_rollback_map;
+    for (const auto& [key, mutaion] : buffer_->Mutations()) {
+      if (key == pk) {
         continue;
       }
 
-      std::shared_ptr<Region> tmp;
-      Status got = meta_cache->LookupRegionByKey(mutaion_entry.first, tmp);
+      RegionPtr region;
+      Status got = meta_cache->LookupRegionByKey(key, region);
       if (!got.IsOK()) {
         continue;
       }
 
-      auto iter = region_id_to_region.find(tmp->RegionId());
-      if (iter == region_id_to_region.end()) {
-        region_id_to_region.emplace(std::make_pair(tmp->RegionId(), tmp));
+      auto iter = region_rollback_map.find(region->RegionId());
+      if (iter == region_rollback_map.end()) {
+        region_rollback_map.emplace(std::make_pair(region->RegionId(), RegionRollbackKeys{region, {key}}));
+      } else {
+        iter->second.keys.push_back(key);
       }
+    }
 
-      region_rollback_keys[tmp->RegionId()].push_back(mutaion_entry.second.key);
+    if (region_rollback_map.empty()) {
+      return Status::OK();
     }
 
     std::vector<TxnSubTask> sub_tasks;
     std::vector<std::unique_ptr<TxnBatchRollbackRpc>> rpcs;
-    for (const auto& entry : region_rollback_keys) {
-      auto region_id = entry.first;
-      auto iter = region_id_to_region.find(region_id);
-      CHECK(iter != region_id_to_region.end());
-      auto region = iter->second;
+    for (const auto& [region_id, region_rollback] : region_rollback_map) {
+      auto region = region_rollback.region;
 
       std::unique_ptr<TxnBatchRollbackRpc> rpc = PrepareTxnBatchRollbackRpc(region);
-      for (const auto& key : entry.second) {
-        auto* fill = rpc->MutableRequest()->add_keys();
-        *fill = key;
+      for (const auto& key : region_rollback.keys) {
+        *rpc->MutableRequest()->add_keys() = key;
       }
       sub_tasks.emplace_back(rpc.get(), region);
       rpcs.push_back(std::move(rpc));
     }
 
-    DCHECK_EQ(rpcs.size(), region_rollback_keys.size());
+    DCHECK_EQ(rpcs.size(), region_rollback_map.size());
     DCHECK_EQ(rpcs.size(), sub_tasks.size());
 
     std::vector<std::thread> thread_pool;
@@ -1050,8 +1105,8 @@ Status Transaction::TxnImpl::Rollback() {
     for (auto& state : sub_tasks) {
       // ignore
       if (!state.status.IsOK()) {
-        DINGO_LOG(INFO) << "Fail txn_batch_rollback_sub_task, but ignore, rpc: " << state.rpc->Method()
-                        << " send to region: " << state.region->RegionId() << " status: " << state.status.ToString();
+        DINGO_LOG(INFO) << fmt::format("rollback fail, region({}) {} {}.", state.region->RegionId(),
+                                       state.rpc->Method(), state.status.ToString());
       }
     }
   }

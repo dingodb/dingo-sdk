@@ -436,6 +436,8 @@ Status Transaction::Commit() { return impl_->Commit(); }
 
 Status Transaction::Rollback() { return impl_->Rollback(); }
 
+bool Transaction::IsOnePc() const { return impl_->IsOnePc(); }
+
 RegionCreator::RegionCreator(Data* data) : data_(data) {}
 
 RegionCreator::~RegionCreator() { delete data_; }

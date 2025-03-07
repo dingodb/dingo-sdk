@@ -243,6 +243,8 @@ class Transaction {
 
   Status Rollback();
 
+  bool IsOnePc() const;
+
  private:
   friend class Client;
   friend class TestBase;

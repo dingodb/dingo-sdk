@@ -20,6 +20,9 @@
 
 #include "dingosdk/slice.h"
 
+namespace dingodb {
+namespace sdk {
+
 /// @brief Return the given status if it is not @c OK.
 #define DINGO_RETURN_NOT_OK(s)              \
   do {                                      \
@@ -33,10 +36,6 @@
     return Status(CODE, p_errno, msg, msg2);                                                                    \
   }                                                                                                             \
   bool Is##NAME() const { return code_ == (CODE); }
-
-static const int32_t kNone = 0;
-namespace dingodb {
-namespace sdk {
 
 class Status {
  public:
@@ -119,6 +118,7 @@ class Status {
     kLoadFailed = 26,
     kResetFailed = 27,
   };
+  static const int32_t kNone = 0;
 
   Status(Code code, int32_t p_errno, const Slice& msg, const Slice& msg2);
 
