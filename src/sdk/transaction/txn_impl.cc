@@ -35,6 +35,7 @@
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/transaction/txn_buffer.h"
 #include "sdk/transaction/txn_common.h"
+#include "sdk/utils/async_util.h"
 
 namespace dingodb {
 namespace sdk {
@@ -240,16 +241,10 @@ Status Transaction::TxnImpl::DoTxnBatchGet(const std::vector<std::string>& keys,
   DCHECK_EQ(rpcs.size(), region_keys.size());
   DCHECK_EQ(rpcs.size(), sub_tasks.size());
 
-  std::vector<std::thread> thread_pool;
-  for (auto i = 1; i < sub_tasks.size(); i++) {
-    thread_pool.emplace_back(&Transaction::TxnImpl::ProcessTxnBatchGetSubTask, this, &sub_tasks[i]);
-  }
-
-  ProcessTxnBatchGetSubTask(sub_tasks.data());
-
-  for (auto& thread : thread_pool) {
-    thread.join();
-  }
+  // parallel execute sub task
+  ParallelExecutor::Execute(sub_tasks.size(), [&sub_tasks, this](uint32_t i) {
+    Transaction::TxnImpl::ProcessTxnBatchGetSubTask(&sub_tasks[i]);
+  });
 
   Status result;
   std::vector<KVPair> tmp_kvs;
@@ -728,19 +723,10 @@ Status Transaction::TxnImpl::PreCommit() {
 
   DCHECK_EQ(rpcs.size(), sub_tasks.size());
 
-  // execute rpc use thread pool
-
-  // StoreRpcController controller(stub_, *rpc, region);
-
-  std::vector<std::thread> thread_pool;
-  thread_pool.reserve(sub_tasks.size());
-  for (auto& sub_task : sub_tasks) {
-    thread_pool.emplace_back(&Transaction::TxnImpl::ProcessTxnPrewriteSubTask, this, &sub_task);
-  }
-
-  for (auto& thread : thread_pool) {
-    thread.join();
-  }
+  // parallel execute sub task
+  ParallelExecutor::Execute(sub_tasks.size(), [&sub_tasks, this](uint32_t i) {
+    Transaction::TxnImpl::ProcessTxnPrewriteSubTask(&sub_tasks[i]);
+  });
 
   // check execute result
   Status result;
@@ -930,15 +916,10 @@ Status Transaction::TxnImpl::Commit() {
       // DCHECK_EQ(rpcs.size(), region_commit_keys.size());
       DCHECK_EQ(rpcs.size(), sub_tasks.size());
 
-      std::vector<std::thread> thread_pool;
-      thread_pool.reserve(sub_tasks.size());
-      for (auto& sub_task : sub_tasks) {
-        thread_pool.emplace_back(&Transaction::TxnImpl::ProcessTxnCommitSubTask, this, &sub_task);
-      }
-
-      for (auto& thread : thread_pool) {
-        thread.join();
-      }
+      // parallel execute sub task
+      ParallelExecutor::Execute(sub_tasks.size(), [&sub_tasks, this](uint32_t i) {
+        Transaction::TxnImpl::ProcessTxnCommitSubTask(&sub_tasks[i]);
+      });
 
       for (auto& state : sub_tasks) {
         // ignore
@@ -1091,16 +1072,10 @@ Status Transaction::TxnImpl::Rollback() {
     DCHECK_EQ(rpcs.size(), region_rollback_map.size());
     DCHECK_EQ(rpcs.size(), sub_tasks.size());
 
-    std::vector<std::thread> thread_pool;
-    for (auto i = 1; i < sub_tasks.size(); i++) {
-      thread_pool.emplace_back(&Transaction::TxnImpl::ProcessBatchRollbackSubTask, this, &sub_tasks[i]);
-    }
-
-    ProcessBatchRollbackSubTask(sub_tasks.data());
-
-    for (auto& thread : thread_pool) {
-      thread.join();
-    }
+    // parallel execute sub task
+    ParallelExecutor::Execute(sub_tasks.size(), [&sub_tasks, this](uint32_t i) {
+      Transaction::TxnImpl::ProcessBatchRollbackSubTask(&sub_tasks[i]);
+    });
 
     for (auto& state : sub_tasks) {
       // ignore
