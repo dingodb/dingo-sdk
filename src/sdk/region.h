@@ -16,13 +16,14 @@
 #define DINGODB_SDK_REGION_H_
 
 #include <cstdint>
+#include <memory>
 #include <shared_mutex>
 #include <vector>
 
+#include "dingosdk/status.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/net_util.h"
 
 namespace dingodb {
@@ -118,6 +119,8 @@ static std::string RaftRoleName(const RaftRole& role) {
       CHECK(false) << "role is illeagal";
   }
 }
+
+using RegionPtr = std::shared_ptr<Region>;
 
 }  // namespace sdk
 }  // namespace dingodb

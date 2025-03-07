@@ -19,9 +19,9 @@
 #include <memory>
 
 #include "dingosdk/client.h"
-#include "sdk/client_stub.h"
 #include "proto/meta.pb.h"
 #include "proto/store.pb.h"
+#include "sdk/client_stub.h"
 #include "sdk/region.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/transaction/txn_buffer.h"
@@ -99,6 +99,8 @@ class Transaction::TxnImpl {
 
   Status Rollback();
 
+  bool IsOnePc() const { return is_one_pc_; }
+
   TransactionState TEST_GetTransactionState() { return state_; }         // NOLINT
   int64_t TEST_GetStartTs() { return start_ts_; }                        // NOLINT
   int64_t TEST_GetCommitTs() { return commit_ts_; }                      // NOLINT
@@ -128,7 +130,7 @@ class Transaction::TxnImpl {
   std::unique_ptr<TxnPrewriteRpc> PrepareTxnPrewriteRpc(const std::shared_ptr<Region>& region) const;
   void CheckAndLogPreCommitPrimaryKeyResponse(const pb::store::TxnPrewriteResponse* response) const;
   Status TryResolveTxnPrewriteLockConflict(const pb::store::TxnPrewriteResponse* response) const;
-  Status PreCommitPrimaryKey();
+  Status PreCommitPrimaryKey(bool is_one_pc);
   void ProcessTxnPrewriteSubTask(TxnSubTask* sub_task);
 
   std::unique_ptr<TxnCommitRpc> PrepareTxnCommitRpc(const std::shared_ptr<Region>& region) const;
@@ -157,6 +159,8 @@ class Transaction::TxnImpl {
 
   pb::meta::TsoTimestamp commit_tso_;
   int64_t commit_ts_;
+
+  bool is_one_pc_{false};
 };
 
 }  // namespace sdk
