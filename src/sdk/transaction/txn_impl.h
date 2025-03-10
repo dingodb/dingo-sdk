@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "dingosdk/client.h"
 #include "proto/meta.pb.h"
@@ -91,7 +92,8 @@ class Transaction::TxnImpl {
 
   Status BatchDelete(const std::vector<std::string>& keys);
 
-  Status Scan(const std::string& start_key, const std::string& end_key, uint64_t limit, std::vector<KVPair>& kvs);
+  // maybe multiple invoke, when out_kvs.size < limit is over.
+  Status Scan(const std::string& start_key, const std::string& end_key, uint64_t limit, std::vector<KVPair>& out_kvs);
 
   Status PreCommit();
 
@@ -108,6 +110,14 @@ class Transaction::TxnImpl {
   std::string TEST_GetPrimaryKey() { return buffer_->GetPrimaryKey(); }  // NOLINT
 
  private:
+  struct ScanState {
+    std::string next_key;
+    std::shared_ptr<RegionScanner> scanner;
+    std::vector<TxnMutation> local_mutations;
+    std::vector<KVPair> pending_kvs;
+    uint32_t pending_offset{0};
+  };
+
   struct TxnSubTask {
     Rpc* rpc;
     std::shared_ptr<Region> region;
@@ -149,6 +159,8 @@ class Transaction::TxnImpl {
 
   static void DelayRetry(int64_t delay_ms);
 
+  static Status ProcessScanState(ScanState& scan_state, uint64_t limit, std::vector<KVPair>& out_kvs);
+
   const ClientStub& stub_;
   const TransactionOptions options_;
   TransactionState state_;
@@ -159,6 +171,10 @@ class Transaction::TxnImpl {
 
   pb::meta::TsoTimestamp commit_tso_;
   int64_t commit_ts_;
+
+  // for stream scan
+  // start_key+end_key -> ScanState
+  std::map<std::string, ScanState> scan_states_;
 
   bool is_one_pc_{false};
 };
