@@ -319,154 +319,174 @@ Status Transaction::TxnImpl::Delete(const std::string& key) { return buffer_->De
 
 Status Transaction::TxnImpl::BatchDelete(const std::vector<std::string>& keys) { return buffer_->BatchDelete(keys); }
 
+Status Transaction::TxnImpl::ProcessScanState(ScanState& scan_state, uint64_t limit, std::vector<KVPair>& out_kvs) {
+  int mutations_offset = 0;
+  auto& local_mutations = scan_state.local_mutations;
+  while (scan_state.pending_offset < scan_state.pending_kvs.size()) {
+    auto& kv = scan_state.pending_kvs[scan_state.pending_offset];
+    ++scan_state.pending_offset;
+
+    if (mutations_offset >= local_mutations.size()) {
+      out_kvs.push_back(std::move(kv));
+      if (out_kvs.size() == limit) {
+        return Status::OK();
+      }
+      continue;
+    }
+
+    const auto& mutation = local_mutations[mutations_offset];
+    if (kv.key == mutation.key) {
+      if (mutation.type == TxnMutationType::kDelete) {
+        continue;
+
+      } else if (mutation.type == TxnMutationType::kPut) {
+        out_kvs.push_back({std::move(kv.key), mutation.value});
+
+      } else {
+        CHECK(false) << "unknow mutation type, mutation:" << mutation.ToString();
+      }
+
+      ++mutations_offset;
+
+    } else if (kv.key < mutation.key) {
+      out_kvs.push_back(std::move(kv));
+
+    } else {
+      do {
+        if (mutation.type == TxnMutationType::kPutIfAbsent) {
+          out_kvs.push_back({std::move(kv.key), mutation.value});
+        }
+
+        ++mutations_offset;
+
+        if (out_kvs.size() == limit) {
+          return Status::OK();
+        }
+
+      } while (mutations_offset < local_mutations.size() && kv.key > local_mutations[mutations_offset].key);
+    }
+
+    if (out_kvs.size() == limit) {
+      return Status::OK();
+    }
+  }
+
+  return Status::OK();
+}
+
 Status Transaction::TxnImpl::Scan(const std::string& start_key, const std::string& end_key, uint64_t limit,
-                                  std::vector<KVPair>& kvs) {
+                                  std::vector<KVPair>& out_kvs) {
   if (start_key.empty() || end_key.empty()) {
-    return Status::InvalidArgument("start_key and end_key must not empty, check params");
+    return Status::InvalidArgument("start_key and end_key must not empty");
   }
 
   if (start_key >= end_key) {
-    return Status::InvalidArgument("end_key must greater than start_key, check params");
+    return Status::InvalidArgument("end_key must greater than start_key");
   }
+
+  DINGO_LOG(INFO) << fmt::format("scan range [{}, {}), limit:{}", StringToHex(start_key), StringToHex(end_key), limit);
 
   auto meta_cache = stub_.GetMetaCache();
-  {
-    // precheck: return not found if no region in [start, end_key)
-    std::shared_ptr<Region> region;
-    Status ret = meta_cache->LookupRegionBetweenRange(start_key, end_key, region);
-    if (!ret.IsOK()) {
-      if (ret.IsNotFound()) {
-        DINGO_LOG(WARNING) << fmt::format("region not found between [{},{}), no need retry, status:{}",
-                                          StringToHex(start_key), StringToHex(end_key), ret.ToString());
-      } else {
-        DINGO_LOG(WARNING) << fmt::format("lookup region fail between [{},{}), need retry, status:{}",
-                                          StringToHex(start_key), StringToHex(end_key), ret.ToString());
-      }
-      return ret;
+  // check whether region exist
+  std::shared_ptr<Region> region;
+  Status status = meta_cache->LookupRegionBetweenRange(start_key, end_key, region);
+  if (!status.IsOK()) {
+    DINGO_LOG(WARNING) << fmt::format("lookup region fail between [{},{}) {}.", StringToHex(start_key),
+                                      StringToHex(end_key), status.ToString());
+    return status;
+  }
+
+  // get or create scan state
+  std::string state_key = start_key + end_key;
+  auto it = scan_states_.find(state_key);
+  if (it == scan_states_.end()) {
+    ScanState scan_state = {.next_key = start_key};
+    CHECK(buffer_->Range(start_key, end_key, scan_state.local_mutations).ok());
+
+    scan_states_.emplace(std::make_pair(state_key, std::move(scan_state)));
+    it = scan_states_.find(state_key);
+  }
+  auto& scan_state = it->second;
+
+  if (scan_state.pending_offset < scan_state.pending_kvs.size()) {
+    ProcessScanState(scan_state, limit, out_kvs);
+    if (!out_kvs.empty()) {
+      scan_state.next_key = out_kvs.back().key;
+    }
+    if (out_kvs.size() == limit) {
+      return Status::OK();
     }
   }
 
-  std::vector<TxnMutation> range_mutations;
-  CHECK(buffer_->Range(start_key, end_key, range_mutations).ok());
+  // loop scan
+  while (scan_state.next_key < end_key) {
+    DINGO_LOG(INFO) << fmt::format("scan next_key:{} end_key:{}", StringToHex(scan_state.next_key),
+                                   StringToHex(end_key));
 
-  uint64_t redundant_limit = limit;
-  if (redundant_limit != 0) {
-    uint64_t delete_count = 0;
-    for (const auto& mutaion : range_mutations) {
-      if (mutaion.type == TxnMutationType::kDelete) {
-        delete_count++;
+    auto scanner = scan_state.scanner;
+    if (scanner == nullptr) {
+      // get region
+      RegionPtr region;
+      Status status = meta_cache->LookupRegionBetweenRange(scan_state.next_key, end_key, region);
+      if (!status.IsOK()) {
+        DINGO_LOG(INFO) << fmt::format("lookup region fail, range[{}, {}) {}.", StringToHex(start_key),
+                                       StringToHex(end_key), status.ToString());
+
+        if (status.IsNotFound()) {
+          scan_state.next_key = end_key;
+          continue;
+        }
+        return status;
       }
+
+      std::string amend_start_key =
+          scan_state.next_key <= region->Range().start_key() ? region->Range().start_key() : scan_state.next_key;
+      std::string amend_end_key = end_key <= region->Range().end_key() ? end_key : region->Range().end_key();
+
+      DINGO_LOG(INFO) << fmt::format("scan region: {} range [{}, {})", region->RegionId(), StringToHex(amend_start_key),
+                                     StringToHex(amend_end_key));
+
+      ScannerOptions scan_options(stub_, region, amend_start_key, amend_end_key, options_, start_ts_);
+      CHECK(stub_.GetTxnRegionScannerFactory()->NewRegionScanner(scan_options, scanner).IsOK());
+      CHECK(scanner->Open().ok());
+
+      scan_state.scanner = scanner;
     }
-    redundant_limit = limit + delete_count;
-  }
-
-  std::string next_start = start_key;
-  std::map<std::string, std::string> tmp_kvs;
-
-  DINGO_LOG(INFO) << fmt::format("txn scan start between [{},{}), next_start:{}, limit:{}, redundant_limit:{}",
-                                 StringToHex(start_key), StringToHex(end_key), StringToHex(next_start), limit,
-                                 redundant_limit);
-
-  while (next_start < end_key) {
-    std::shared_ptr<Region> region;
-    Status ret = meta_cache->LookupRegionBetweenRange(next_start, end_key, region);
-
-    if (ret.IsNotFound()) {
-      DINGO_LOG(INFO) << fmt::format("Break scan because region not found  between [{},{}), start_key:{} status:{}",
-                                     StringToHex(next_start), StringToHex(end_key), StringToHex(start_key),
-                                     ret.ToString());
-      break;
-    }
-
-    if (!ret.IsOK()) {
-      DINGO_LOG(WARNING) << fmt::format("region look fail between [{},{}), start_key:{} status:{}",
-                                        StringToHex(next_start), StringToHex(end_key), StringToHex(start_key),
-                                        ret.ToString());
-      return ret;
-    }
-
-    std::string scanner_start_key =
-        next_start <= region->Range().start_key() ? region->Range().start_key() : next_start;
-    std::string scanner_end_key = end_key <= region->Range().end_key() ? end_key : region->Range().end_key();
-    ScannerOptions scan_options(stub_, region, scanner_start_key, scanner_end_key, options_, start_ts_);
-    std::shared_ptr<RegionScanner> scanner;
-    CHECK(stub_.GetTxnRegionScannerFactory()->NewRegionScanner(scan_options, scanner).IsOK());
-    ret = scanner->Open();
-    CHECK(ret.ok());
-
-    DINGO_LOG(INFO) << fmt::format("region:{} scan start, region range:({}-{})", region->RegionId(),
-                                   StringToHex(region->Range().start_key()), StringToHex(region->Range().end_key()));
 
     while (scanner->HasMore()) {
-      DINGO_LOG(DEBUG) << fmt::format("start call next batch, limit:{}, redundant_limit:{}, tmp_kvs_size:{}", limit,
-                                      redundant_limit, tmp_kvs.size());
       std::vector<KVPair> scan_kvs;
-      ret = scanner->NextBatch(scan_kvs);
-      if (!ret.IsOK()) {
-        DINGO_LOG(WARNING) << fmt::format("txn region scanner NextBatch fail, region:{}, status:{}", region->RegionId(),
-                                          ret.ToString());
-        return ret;
+      status = scanner->NextBatch(scan_kvs);
+      if (!status.IsOK()) {
+        DINGO_LOG(ERROR) << fmt::format("next batch fail, region({}) {}.", region->RegionId(), status.ToString());
+        return status;
+      }
+      if (scan_kvs.empty()) {
+        CHECK(!scanner->HasMore()) << "scan_kvs is empty, so scanner should not has more.";
+        break;
       }
 
-      if (!scan_kvs.empty()) {
-        for (auto& scan_kv : scan_kvs) {
-          CHECK(tmp_kvs.insert(std::make_pair(std::move(scan_kv.key), std::move(scan_kv.value))).second);
-        }
+      CHECK(scan_state.pending_offset == scan_state.pending_kvs.size()) << "pending_kvs is not empty.";
 
-        if (redundant_limit != 0 && (tmp_kvs.size() >= redundant_limit)) {
-          break;
-        }
-      } else {
-        DINGO_LOG(INFO) << fmt::format("txn region:{} scanner NextBatch is empty", region->RegionId());
-        CHECK(!scanner->HasMore());
+      scan_state.pending_kvs = std::move(scan_kvs);
+      scan_state.pending_offset = 0;
+
+      ProcessScanState(scan_state, limit, out_kvs);
+      if (!out_kvs.empty()) {
+        scan_state.next_key = out_kvs.back().key;
+      }
+      if (out_kvs.size() == limit) {
+        return Status::OK();
       }
     }
 
-    if (redundant_limit != 0 && (tmp_kvs.size() >= redundant_limit)) {
-      DINGO_LOG(INFO) << fmt::format(
-          "region:{} scan finished, stop to scan between [{},{}), next_start:{}, limit:{}, redundant_limit:{}, "
-          "scan_cnt:{}",
-          region->RegionId(), StringToHex(start_key), StringToHex(end_key), StringToHex(next_start), limit,
-          redundant_limit, tmp_kvs.size());
-      break;
-    } else {
-      next_start = region->Range().end_key();
-      DINGO_LOG(INFO) << fmt::format("region:{} scan finished, continue to scan between [{},{}), next_start:{}, ",
-                                     region->RegionId(), StringToHex(start_key), StringToHex(end_key),
-                                     StringToHex(next_start));
-      continue;
-    }
+    auto region = scanner->GetRegion();
+    CHECK(region != nullptr) << "region should not nullptr.";
+    scan_state.next_key = region->Range().end_key();
+    scanner->Close();
+    scan_state.scanner = nullptr;
   }
 
-  DINGO_LOG(INFO) << fmt::format("scan end between [{},{}), next_start:{}", StringToHex(start_key),
-                                 StringToHex(end_key), StringToHex(next_start));
-
-  // overwide use local buffer
-  for (const auto& mutaion : range_mutations) {
-    if (mutaion.type == TxnMutationType::kDelete) {
-      tmp_kvs.erase(mutaion.key);
-    } else if (mutaion.type == TxnMutationType::kPut) {
-      tmp_kvs.insert_or_assign(mutaion.key, mutaion.value);
-    } else if (mutaion.type == TxnMutationType::kPutIfAbsent) {
-      auto iter = tmp_kvs.find(mutaion.key);
-      if (iter == tmp_kvs.end()) {
-        CHECK(tmp_kvs.insert(std::make_pair(mutaion.key, mutaion.value)).second);
-      }
-    } else {
-      CHECK(false) << "unexpect txn mutation:" << mutaion.ToString();
-    }
-  }
-
-  std::vector<KVPair> to_return;
-  to_return.reserve(tmp_kvs.size());
-  for (auto& pair : tmp_kvs) {
-    to_return.push_back({pair.first, std::move(pair.second)});
-  }
-  if (limit != 0 && (to_return.size() >= limit)) {
-    to_return.resize(limit);
-  }
-
-  kvs = std::move(to_return);
+  scan_states_.erase(state_key);
 
   return Status::OK();
 }
