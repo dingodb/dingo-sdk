@@ -23,7 +23,10 @@
 #include <thread>
 #include <vector>
 
+#ifndef USE_GRPC
 #include "bthread/bthread.h"
+#endif  // USE_GRPC
+
 #include "dingosdk/status.h"
 #include "sdk/utils/callback.h"
 
