@@ -260,9 +260,16 @@ void DefineClientBindings(pybind11::module& m) {
       .def("SetEngineType", &RegionCreator::SetEngineType)
       .def("SetReplicaNum", &RegionCreator::SetReplicaNum)
       .def("Wait", &RegionCreator::Wait)
-      .def("Create", [](RegionCreator& regioncreator) -> std::tuple<Status, int64_t> {
-        int64_t out_region_id;
-        Status status = regioncreator.Create(out_region_id);
-        return std::make_tuple(status, out_region_id);
-      });
+      .def("Create",
+           [](RegionCreator& regioncreator, int64_t region_id) -> std::tuple<Status, int64_t> {
+             int64_t out_region_id = region_id;
+             Status status = regioncreator.Create(out_region_id);
+             return std::make_tuple(status, out_region_id);
+           })
+      .def("CreateRegionId",
+           [](RegionCreator& regioncreator, int64_t count) -> std::tuple<Status, std::vector<int64_t>> {
+             std::vector<int64_t> out_region_ids;
+             Status status = regioncreator.CreateRegionId(count, out_region_ids);
+             return std::make_tuple(status, out_region_ids);
+           });
 }

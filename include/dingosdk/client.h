@@ -289,6 +289,8 @@ class RegionCreator {
   /// so caller should check out_region_id is set or not
   Status Create(int64_t& out_region_id);
 
+  Status CreateRegionId(int64_t count, std::vector<int64_t>& out_region_ids);
+
  private:
   friend class Client;
 

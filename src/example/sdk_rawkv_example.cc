@@ -18,11 +18,10 @@
 #include <memory>
 #include <vector>
 
-#include "gflags/gflags.h"
-#include "glog/logging.h"
-#include "dingosdk/client.h"
 #include "common/logging.h"
+#include "dingosdk/client.h"
 #include "dingosdk/status.h"
+#include "glog/logging.h"
 
 using dingodb::sdk::Status;
 
@@ -32,6 +31,55 @@ static std::shared_ptr<dingodb::sdk::Client> g_client;
 
 static std::vector<int64_t> g_region_ids;
 
+void CreateRegionId(int64_t count, std::vector<int64_t>& out_region_ids) {
+  CHECK(count > 0) << "count must > 0";
+  dingodb::sdk::RegionCreator* tmp_creator;
+  Status built = g_client->NewRegionCreator(&tmp_creator);
+  CHECK(built.IsOK()) << "dingo creator build fail";
+  CHECK_NOTNULL(tmp_creator);
+  std::shared_ptr<dingodb::sdk::RegionCreator> creator(tmp_creator);
+
+  Status tmp = creator->CreateRegionId(count, out_region_ids);
+  DINGO_LOG(INFO) << "Create region_id status: " << tmp.ToString();
+
+  std::ostringstream oss;
+  oss << "Create region_id count: " << count << ", region ids: ";
+  for (const auto region_id : out_region_ids) {
+    oss << region_id << "  ";
+  }
+  DINGO_LOG(INFO) << oss.str();
+}
+
+void CreateRegionWithRegionId(int64_t region_id, std::string name, std::string start_key, std::string end_key,
+                              int replicas = 3, dingodb::sdk::EngineType engine_type = dingodb::sdk::kLSM) {
+  CHECK(!name.empty()) << "name should not empty";
+  CHECK(!start_key.empty()) << "start_key should not empty";
+  CHECK(!end_key.empty()) << "end_key should not empty";
+  CHECK(start_key < end_key) << "start_key must < end_key";
+  CHECK(replicas > 0) << "replicas must > 0";
+  dingodb::sdk::RegionCreator* tmp_creator;
+  Status built = g_client->NewRegionCreator(&tmp_creator);
+  CHECK(built.IsOK()) << "dingo creator build fail";
+  CHECK_NOTNULL(tmp_creator);
+  std::shared_ptr<dingodb::sdk::RegionCreator> creator(tmp_creator);
+
+  Status tmp = creator->SetRegionName(name)
+                   .SetRange(start_key, end_key)
+                   .SetEngineType(engine_type)
+                   .SetReplicaNum(replicas)
+                   .Wait(true)
+                   .Create(region_id);
+  DINGO_LOG(INFO) << "Create region status: " << tmp.ToString() << ", region_id:" << region_id;
+
+  if (tmp.ok()) {
+    CHECK(region_id > 0);
+    bool inprogress = true;
+    g_client->IsCreateRegionInProgress(region_id, inprogress);
+    CHECK(!inprogress);
+    g_region_ids.push_back(region_id);
+  }
+}
+
 void CreateRegion(std::string name, std::string start_key, std::string end_key, int replicas = 3,
                   dingodb::sdk::EngineType engine_type = dingodb::sdk::kLSM) {
   CHECK(!name.empty()) << "name should not empty";
@@ -40,7 +88,7 @@ void CreateRegion(std::string name, std::string start_key, std::string end_key, 
   CHECK(start_key < end_key) << "start_key must < end_key";
   CHECK(replicas > 0) << "replicas must > 0";
 
-  dingodb::sdk::RegionCreator *tmp_creator;
+  dingodb::sdk::RegionCreator* tmp_creator;
   Status built = g_client->NewRegionCreator(&tmp_creator);
   CHECK(built.IsOK()) << "dingo creator build fail";
   CHECK_NOTNULL(tmp_creator);
@@ -76,7 +124,7 @@ void PostClean() {
 }
 
 void RawKVExample() {
-  dingodb::sdk::RawKV *tmp;
+  dingodb::sdk::RawKV* tmp;
   Status built = g_client->NewRawKV(&tmp);
   CHECK(built.IsOK()) << "dingo raw_kv build fail";
   CHECK_NOTNULL(tmp);
@@ -137,7 +185,7 @@ void RawKVExample() {
     result = raw_kv->BatchGet(keys, batch_get_values);
     DINGO_LOG(INFO) << "raw_kv batch_get:" << result.ToString();
     if (result.IsOK()) {
-      for (const auto &kv : batch_get_values) {
+      for (const auto& kv : batch_get_values) {
         DINGO_LOG(INFO) << "raw_kv batch_get key:" << kv.key << ", value:" << kv.value;
       }
     }
@@ -149,7 +197,7 @@ void RawKVExample() {
     result = raw_kv->BatchGet(keys, tmp_batch_get_values);
     DINGO_LOG(INFO) << "raw_kv batch_get after batch delete:" << result.ToString();
     if (result.IsOK()) {
-      for (const auto &kv : tmp_batch_get_values) {
+      for (const auto& kv : tmp_batch_get_values) {
         DINGO_LOG(INFO) << "raw_kv batch_get after delete, key:" << kv.key << ", value:" << kv.value;
       }
 
@@ -200,7 +248,7 @@ void RawKVExample() {
     Status result = raw_kv->BatchPutIfAbsent(kvs, keys_state);
     DINGO_LOG(INFO) << "raw_kv batch_put_if_absent:" << result.ToString();
     if (result.IsOK()) {
-      for (const auto &key_state : keys_state) {
+      for (const auto& key_state : keys_state) {
         DINGO_LOG(INFO) << "raw_kv batch_put_if_absent, key:" << key_state.key
                         << ", state:" << (key_state.state ? "true" : "false");
       }
@@ -210,7 +258,7 @@ void RawKVExample() {
     result = raw_kv->BatchGet(keys, batch_get_values);
     DINGO_LOG(INFO) << "raw_kv batch_get after batch_put_if_absent:" << result.ToString();
     if (result.IsOK()) {
-      for (const auto &kv : batch_get_values) {
+      for (const auto& kv : batch_get_values) {
         DINGO_LOG(INFO) << "raw_kv batch_get after batch_put_if_absent:" << kv.key << ", value:" << kv.value;
       }
     }
@@ -219,7 +267,7 @@ void RawKVExample() {
     result = raw_kv->BatchPutIfAbsent(kvs, again_keys_state);
     DINGO_LOG(INFO) << "raw_kv batch_put_if_absent again:" << result.ToString();
     if (result.IsOK()) {
-      for (const auto &key_state : again_keys_state) {
+      for (const auto& key_state : again_keys_state) {
         DINGO_LOG(INFO) << "raw_kv batch_put_if_absent again, key:" << key_state.key
                         << ", state:" << (key_state.state ? "true" : "false");
       }
@@ -232,7 +280,7 @@ void RawKVExample() {
     result = raw_kv->BatchGet(keys, tmp_batch_get_values);
     DINGO_LOG(INFO) << "raw_kv batch_get after batch delete:" << result.ToString();
     if (result.IsOK()) {
-      for (const auto &kv : tmp_batch_get_values) {
+      for (const auto& kv : tmp_batch_get_values) {
         DINGO_LOG(INFO) << "raw_kv batch_get after delete, key:" << kv.key << ", value:" << kv.value;
       }
       CHECK_EQ(0, tmp_batch_get_values.size());
@@ -254,7 +302,7 @@ void RawKVExample() {
     result = raw_kv->BatchGet(keys, batch_get_values);
     DINGO_LOG(INFO) << "raw_kv batch_get:" << result.ToString();
     if (result.IsOK()) {
-      for (const auto &kv : batch_get_values) {
+      for (const auto& kv : batch_get_values) {
         DINGO_LOG(INFO) << "raw_kv batch_get key:" << kv.key << ", value:" << kv.value;
       }
     }
@@ -270,7 +318,7 @@ void RawKVExample() {
     result = raw_kv->BatchGet(keys, tmp_batch_get_values);
     DINGO_LOG(INFO) << "raw_kv batch_get after delete_range:" << result.ToString();
     if (result.IsOK()) {
-      for (const auto &kv : tmp_batch_get_values) {
+      for (const auto& kv : tmp_batch_get_values) {
         DINGO_LOG(INFO) << "raw_kv batch_get after delete_range, key:" << kv.key << ", value:" << kv.value;
       }
     }
@@ -284,8 +332,7 @@ void RawKVExample() {
     bool state;
     Status result = raw_kv->CompareAndSet(key, value, "", state);
     DINGO_LOG(INFO) << "raw_kv compare_and_set:" << result.ToString() << " key:" << key << " value:" << value
-                    << " expect:empty"
-                    << " state:" << (state ? "true" : "false");
+                    << " expect:empty" << " state:" << (state ? "true" : "false");
 
     std::string to_get;
     result = raw_kv->Get(key, to_get);
@@ -336,7 +383,7 @@ void RawKVExample() {
       DINGO_LOG(INFO) << "raw_kv batch_compare_and_set:" << result.ToString();
 
       if (result.IsOK()) {
-        for (const auto &key_state : keys_state) {
+        for (const auto& key_state : keys_state) {
           DINGO_LOG(INFO) << "raw_kv batch_compare_and_set, key:" << key_state.key
                           << ", state:" << (key_state.state ? "true" : "false");
           CHECK(key_state.state);
@@ -347,10 +394,10 @@ void RawKVExample() {
       result = raw_kv->BatchGet(keys, batch_get_values);
       DINGO_LOG(INFO) << "raw_kv batch_get after batch_compare_and_set:" << result.ToString();
       if (result.IsOK()) {
-        for (const auto &kv : batch_get_values) {
+        for (const auto& kv : batch_get_values) {
           DINGO_LOG(INFO) << "raw_kv batch_get after batch_compare_and_set key:" << kv.key << ", value:" << kv.value;
           bool find = false;
-          for (const auto &ele : kvs) {
+          for (const auto& ele : kvs) {
             if (ele.key == kv.key) {
               CHECK_EQ(ele.key, kv.key);
               CHECK_EQ(ele.value, kv.value);
@@ -368,12 +415,12 @@ void RawKVExample() {
       std::vector<std::string> expect_values;
 
       kvs.reserve(keys.size());
-      for (auto &key : keys) {
+      for (auto& key : keys) {
         kvs.push_back({key, "ping"});
       }
 
       expect_values.reserve(values.size());
-      for (auto &value : values) {
+      for (auto& value : values) {
         expect_values.push_back(value);
       }
 
@@ -383,7 +430,7 @@ void RawKVExample() {
       Status result = raw_kv->BatchCompareAndSet(kvs, expect_values, again_keys_state);
       DINGO_LOG(INFO) << "raw_kv batch_compare_and_set again:" << result.ToString();
       if (result.IsOK()) {
-        for (const auto &key_state : again_keys_state) {
+        for (const auto& key_state : again_keys_state) {
           DINGO_LOG(INFO) << "raw_kv batch_put_if_absent again, key:" << key_state.key
                           << ", state:" << (key_state.state ? "true" : "false");
           CHECK(key_state.state);
@@ -394,11 +441,11 @@ void RawKVExample() {
       result = raw_kv->BatchGet(keys, batch_get_values);
       DINGO_LOG(INFO) << "raw_kv batch_get after batch_compare_and_set again:" << result.ToString();
       if (result.IsOK()) {
-        for (const auto &kv : batch_get_values) {
+        for (const auto& kv : batch_get_values) {
           DINGO_LOG(INFO) << "raw_kv batch_get after batch_compare_and_set again key:" << kv.key
                           << ", value:" << kv.value;
           bool find = false;
-          for (const auto &ele : kvs) {
+          for (const auto& ele : kvs) {
             if (ele.key == kv.key) {
               CHECK_EQ(ele.key, kv.key);
               CHECK_EQ(ele.value, kv.value);
@@ -417,7 +464,7 @@ void RawKVExample() {
     result = raw_kv->BatchGet(keys, tmp_batch_get_values);
     DINGO_LOG(INFO) << "raw_kv batch_get after batch delete:" << result.ToString();
     if (result.IsOK()) {
-      for (const auto &kv : tmp_batch_get_values) {
+      for (const auto& kv : tmp_batch_get_values) {
         DINGO_LOG(INFO) << "raw_kv batch_get after delete, key:" << kv.key << ", value:" << kv.value;
       }
       CHECK_EQ(0, tmp_batch_get_values.size());
@@ -439,7 +486,7 @@ void RawKVExample() {
     result = raw_kv->BatchGet(keys, batch_get_values);
     DINGO_LOG(INFO) << "raw_kv batch_get before scan:" << result.ToString();
     if (result.IsOK()) {
-      for (const auto &kv : batch_get_values) {
+      for (const auto& kv : batch_get_values) {
         DINGO_LOG(INFO) << "raw_kv batch_get before scan key:" << kv.key << ", value:" << kv.value;
       }
     }
@@ -448,14 +495,14 @@ void RawKVExample() {
     result = raw_kv->Scan("wa00000000", "wz00000000", 0, scan_values);
     DINGO_LOG(INFO) << "raw_kv scan:" << result.ToString();
     if (result.IsOK()) {
-      for (const auto &kv : scan_values) {
+      for (const auto& kv : scan_values) {
         DINGO_LOG(INFO) << "raw_kv scan key:" << kv.key << ", value:" << kv.value;
       }
     }
   }
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   FLAGS_minloglevel = google::GLOG_INFO;
   FLAGS_logtostdout = true;
   FLAGS_colorlogtostdout = true;
@@ -472,7 +519,7 @@ int main(int argc, char *argv[]) {
 
   CHECK(!FLAGS_addrs.empty());
 
-  dingodb::sdk::Client *tmp;
+  dingodb::sdk::Client* tmp;
   Status built = dingodb::sdk::Client::BuildFromAddrs(FLAGS_addrs, &tmp);
   if (!built.ok()) {
     DINGO_LOG(ERROR) << "Fail to build client, please check parameter --addrs=" << FLAGS_addrs
@@ -499,6 +546,17 @@ int main(int argc, char *argv[]) {
     CreateRegion("skd_example03", "we00000000", "wg00000000", 3, dingodb::sdk::kBTree);
 
     CreateRegion("skd_example04", "wl00000000", "wn00000000", 3, dingodb::sdk::kBTree);
+
+    RawKVExample();
+    PostClean();
+  }
+  {
+    std::vector<int64_t> region_ids;
+    CreateRegionId(4, region_ids);
+    CreateRegionWithRegionId(region_ids[0], "skd_example01", "wa00000000", "wc00000000", 3);
+    CreateRegionWithRegionId(region_ids[1], "skd_example02", "wc00000000", "we00000000", 3);
+    CreateRegionWithRegionId(region_ids[2], "skd_example03", "we00000000", "wg00000000", 3);
+    CreateRegionWithRegionId(region_ids[3], "skd_example04", "wl00000000", "wn00000000", 3);
 
     RawKVExample();
     PostClean();
