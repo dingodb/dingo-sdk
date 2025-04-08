@@ -139,11 +139,13 @@ void DefineClientBindings(pybind11::module& m) {
 
   py::class_<KVPair>(m, "KVPair")
       .def(py::init<>())
+      .def(py::init<const std::string&, const std::string&>(), py::arg("key"), py::arg("value"))
       .def_readwrite("key", &KVPair::key)
       .def_readwrite("value", &KVPair::value);
 
   py::class_<KeyOpState>(m, "KeyOpState")
       .def(py::init<>())
+      .def(py::init<const std::string&, bool>(), py::arg("key"), py::arg("state"))
       .def_readwrite("key", &KeyOpState::key)
       .def_readwrite("state", &KeyOpState::state);
 
@@ -180,13 +182,13 @@ void DefineClientBindings(pybind11::module& m) {
            [](RawKV& rawkv, const std::string& start_key, const std::string& end_key) {
              int64_t out_delete_count;
              Status status = rawkv.DeleteRangeNonContinuous(start_key, end_key, out_delete_count);
-             return std::make_tuple(status, out_delete_count);
+             return status;
            })
       .def("DeleteRange",
            [](RawKV& rawkv, const std::string& start_key, const std::string& end_key) {
              int64_t out_delete_count;
              Status status = rawkv.DeleteRange(start_key, end_key, out_delete_count);
-             return std::make_tuple(status, out_delete_count);
+             return status;
            })
       .def("CompareAndSet",
            [](RawKV& rawkv, const std::string& key, const std::string& value, const std::string& expected_value) {

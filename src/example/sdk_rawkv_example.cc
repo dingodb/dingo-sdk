@@ -50,38 +50,8 @@ void CreateRegionId(int64_t count, std::vector<int64_t>& out_region_ids) {
   DINGO_LOG(INFO) << oss.str();
 }
 
-void CreateRegionWithRegionId(int64_t region_id, std::string name, std::string start_key, std::string end_key,
-                              int replicas = 3, dingodb::sdk::EngineType engine_type = dingodb::sdk::kLSM) {
-  CHECK(!name.empty()) << "name should not empty";
-  CHECK(!start_key.empty()) << "start_key should not empty";
-  CHECK(!end_key.empty()) << "end_key should not empty";
-  CHECK(start_key < end_key) << "start_key must < end_key";
-  CHECK(replicas > 0) << "replicas must > 0";
-  dingodb::sdk::RegionCreator* tmp_creator;
-  Status built = g_client->NewRegionCreator(&tmp_creator);
-  CHECK(built.IsOK()) << "dingo creator build fail";
-  CHECK_NOTNULL(tmp_creator);
-  std::shared_ptr<dingodb::sdk::RegionCreator> creator(tmp_creator);
-
-  Status tmp = creator->SetRegionName(name)
-                   .SetRange(start_key, end_key)
-                   .SetEngineType(engine_type)
-                   .SetReplicaNum(replicas)
-                   .Wait(true)
-                   .Create(region_id);
-  DINGO_LOG(INFO) << "Create region status: " << tmp.ToString() << ", region_id:" << region_id;
-
-  if (tmp.ok()) {
-    CHECK(region_id > 0);
-    bool inprogress = true;
-    g_client->IsCreateRegionInProgress(region_id, inprogress);
-    CHECK(!inprogress);
-    g_region_ids.push_back(region_id);
-  }
-}
-
 void CreateRegion(std::string name, std::string start_key, std::string end_key, int replicas = 3,
-                  dingodb::sdk::EngineType engine_type = dingodb::sdk::kLSM) {
+                  dingodb::sdk::EngineType engine_type = dingodb::sdk::kLSM, int64_t region_id = -1) {
   CHECK(!name.empty()) << "name should not empty";
   CHECK(!start_key.empty()) << "start_key should not empty";
   CHECK(!end_key.empty()) << "end_key should not empty";
@@ -94,7 +64,7 @@ void CreateRegion(std::string name, std::string start_key, std::string end_key, 
   CHECK_NOTNULL(tmp_creator);
   std::shared_ptr<dingodb::sdk::RegionCreator> creator(tmp_creator);
 
-  int64_t region_id = -1;
+  // region_id <= 0 means auto create region id , region_id > 0 means create region with region_id
   Status tmp = creator->SetRegionName(name)
                    .SetRange(start_key, end_key)
                    .SetEngineType(engine_type)
@@ -553,10 +523,10 @@ int main(int argc, char* argv[]) {
   {
     std::vector<int64_t> region_ids;
     CreateRegionId(4, region_ids);
-    CreateRegionWithRegionId(region_ids[0], "skd_example01", "wa00000000", "wc00000000", 3);
-    CreateRegionWithRegionId(region_ids[1], "skd_example02", "wc00000000", "we00000000", 3);
-    CreateRegionWithRegionId(region_ids[2], "skd_example03", "we00000000", "wg00000000", 3);
-    CreateRegionWithRegionId(region_ids[3], "skd_example04", "wl00000000", "wn00000000", 3);
+    CreateRegion("skd_example01", "wa00000000", "wc00000000", 3, dingodb::sdk::kLSM, region_ids[0]);
+    CreateRegion("skd_example02", "wc00000000", "we00000000", 3, dingodb::sdk::kLSM, region_ids[1]);
+    CreateRegion("skd_example03", "we00000000", "wg00000000", 3, dingodb::sdk::kLSM, region_ids[2]);
+    CreateRegion("skd_example04", "wl00000000", "wn00000000", 3, dingodb::sdk::kLSM, region_ids[3]);
 
     RawKVExample();
     PostClean();

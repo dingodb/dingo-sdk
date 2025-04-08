@@ -53,7 +53,6 @@
 #include "sdk/rawkv/raw_kv_put_task.h"
 #include "sdk/rawkv/raw_kv_scan_task.h"
 #include "sdk/region_creator_internal_data.h"
-#include "sdk/rpc/brpc/coordinator_rpc.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/transaction/txn_impl.h"
 #include "sdk/utils/net_util.h"
@@ -498,6 +497,8 @@ Status RegionCreator::Create(int64_t& out_region_id) {
   rpc.MutableRequest()->set_replica_num(data_->replica_num);
   rpc.MutableRequest()->mutable_range()->set_start_key(data_->lower_bound);
   rpc.MutableRequest()->mutable_range()->set_end_key(data_->upper_bound);
+  
+  // region_id <= 0 means auto create region id , region_id > 0 means create region with region_id
   rpc.MutableRequest()->set_region_id(out_region_id);
 
   rpc.MutableRequest()->set_raw_engine(EngineType2RawEngine(data_->engine_type));
