@@ -33,7 +33,12 @@ Status RawKvBatchGetTask::Init() {
   std::unique_lock<std::shared_mutex> w(rw_lock_);
   next_keys_.clear();
   for (const auto& str : keys_) {
-    CHECK(next_keys_.insert(str).second) << "duplicate key: " << str;
+    if (!next_keys_.insert(str).second) {
+      // duplicate key
+      std::string msg = fmt::format("duplicate key: {}", str);
+      DINGO_LOG(ERROR) << msg;
+      return Status::InvalidArgument(msg);
+    }
   }
   return Status::OK();
 }
