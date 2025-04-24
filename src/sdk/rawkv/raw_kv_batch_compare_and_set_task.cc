@@ -29,15 +29,28 @@ RawKvBatchCompareAndSetTask::RawKvBatchCompareAndSetTask(const ClientStub& stub,
     : RawKvTask(stub), kvs_(kvs), expected_values_(expected_values), out_states_(out_states) {}
 
 Status RawKvBatchCompareAndSetTask::Init() {
-  CHECK_EQ(kvs_.size(), expected_values_.size()) << "kvs size must equal expected_values size";
+  if (kvs_.size() != expected_values_.size()) {
+    std::string msg = fmt::format("kvs size must equal expected_values size");
+    DINGO_LOG(ERROR) << msg;
+    return Status::InvalidArgument(msg);
+  }
   std::unique_lock<std::shared_mutex> w(rw_lock_);
   next_keys_.clear();
   for (auto i = 0; i < kvs_.size(); i++) {
     const auto& kv = kvs_[i];
     const auto& expected_value = expected_values_[i];
-    CHECK(next_keys_.insert(kv.key).second) << "next_keys_ exist duplicate key: " << kv.key;
-    CHECK(compare_and_set_contexts_.insert({kv.key, {kv, expected_value}}).second)
-        << "compare_and_set_contexts_ exist duplicate key: " << kv.key;
+    if (!next_keys_.insert(kv.key).second) {
+      // duplicate key
+      std::string msg = fmt::format("next_keys_ duplicate key: {}", kv.key);
+      DINGO_LOG(ERROR) << msg;
+      return Status::InvalidArgument(msg);
+    }
+    if (!compare_and_set_contexts_.insert({kv.key, {kv, expected_value}}).second) {
+      // duplicate key
+      std::string msg = fmt::format("compare_and_set_contexts_ exist duplicate key: {}", kv.key);
+      DINGO_LOG(ERROR) << msg;
+      return Status::InvalidArgument(msg);
+    }
   }
 
   return Status::OK();
