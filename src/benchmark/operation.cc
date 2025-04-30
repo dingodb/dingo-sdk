@@ -1249,7 +1249,15 @@ Operation::Result VectorSearchOperation::ExecuteManualData(VectorIndexEntryPtr e
   std::vector<Dataset::TestEntryPtr> batch_test_entries;
   if (FLAGS_batch_size <= 1) {
     auto& test_entry = all_test_entries[offset % all_test_entries.size()];
-    vector_with_ids.push_back(test_entry->vector_with_id);
+    if (search_param.filter_type == sdk::FilterType::kNoneFilterType &&
+        search_param.filter_source == sdk::FilterSource::kNoneFilterSource) {
+      sdk::VectorWithId vector_with_id;
+      vector_with_id.id = test_entry->vector_with_id.id;
+      vector_with_id.vector = test_entry->vector_with_id.vector;
+      vector_with_ids.push_back(vector_with_id);
+    } else {
+      vector_with_ids.push_back(test_entry->vector_with_id);
+    }
     batch_test_entries.push_back(test_entry);
 
     // vector id filter
@@ -1263,7 +1271,15 @@ Operation::Result VectorSearchOperation::ExecuteManualData(VectorIndexEntryPtr e
   } else {
     for (size_t i = offset; i < FLAGS_batch_size; ++i) {
       auto& test_entry = all_test_entries[i % all_test_entries.size()];
-      vector_with_ids.push_back(test_entry->vector_with_id);
+      if (search_param.filter_type == sdk::FilterType::kNoneFilterType &&
+          search_param.filter_source == sdk::FilterSource::kNoneFilterSource) {
+        sdk::VectorWithId vector_with_id;
+        vector_with_id.id = test_entry->vector_with_id.id;
+        vector_with_id.vector = test_entry->vector_with_id.vector;
+        vector_with_ids.push_back(vector_with_id);
+      } else {
+        vector_with_ids.push_back(test_entry->vector_with_id);
+      }
       batch_test_entries.push_back(test_entry);
     }
 
