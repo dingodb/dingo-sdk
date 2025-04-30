@@ -23,12 +23,13 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
 #include "H5Cpp.h"
-#include "rapidjson/document.h"
 #include "dingosdk/vector.h"
+#include "rapidjson/document.h"
 
 namespace dingodb {
 namespace benchmark {
@@ -36,7 +37,7 @@ namespace benchmark {
 // dataset abstraction class
 class Dataset {
  public:
-  Dataset() = default;
+  Dataset() { obtain_dimension.store(true); }
   virtual ~Dataset() = default;
 
   struct TestEntry {
@@ -60,6 +61,12 @@ class Dataset {
 
   // Get all test data
   virtual std::vector<TestEntryPtr> GetTestData() = 0;
+
+  // get dimension
+  bool GetObtainDimension() { return obtain_dimension.load(); }
+
+ protected:
+ mutable  std::atomic<bool> obtain_dimension;
 };
 using DatasetPtr = std::shared_ptr<Dataset>;
 
@@ -143,9 +150,9 @@ struct BatchVectorEntry {
 };
 using BatchVectorEntryPtr = std::shared_ptr<BatchVectorEntry>;
 
-class JsonDataset : public Dataset {
+class JsonDataset : public Dataset, public std::enable_shared_from_this<JsonDataset> {
  public:
-  JsonDataset(const std::string& dirpath) : dirpath_(dirpath) {}
+  JsonDataset(const std::string& dirpath) : dirpath_(dirpath) { obtain_dimension.store(false); }
   ~JsonDataset() override = default;
 
   bool Init() override;
@@ -159,6 +166,8 @@ class JsonDataset : public Dataset {
 
   // Get all test data
   std::vector<TestEntryPtr> GetTestData() override;
+
+  std::shared_ptr<JsonDataset> GetSelf() { return shared_from_this(); }
 
  protected:
   virtual bool ParseTrainData(const rapidjson::Value& obj, sdk::VectorWithId& vector_with_id) const = 0;
@@ -184,6 +193,8 @@ class JsonDataset : public Dataset {
   std::vector<std::string> test_filepaths_;
 
   uint32_t test_row_count_{0};
+
+  std::thread train_thread_;
 };
 
 class Wikipedia2212Dataset : public JsonDataset {
