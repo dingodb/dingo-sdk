@@ -29,13 +29,14 @@
 #include "benchmark/benchmark.h"
 #include "benchmark/dataset.h"
 #include "common/logging.h"
+#include "dingosdk/vector.h"
 #include "fmt/core.h"
 #include "gflags/gflags.h"
 #include "gflags/gflags_declare.h"
 #include "glog/logging.h"
-#include "dingosdk/vector.h"
 #include "util.h"
 
+DECLARE_string(vector_index_type);
 DEFINE_string(benchmark, "fillseq", "Benchmark type");
 DEFINE_validator(benchmark, [](const char*, const std::string& value) -> bool {
   return dingodb::benchmark::IsSupportBenchmarkType(value) || value == "preprocess";
@@ -1207,8 +1208,14 @@ Operation::Result VectorSearchOperation::ExecuteManualData(VectorIndexEntryPtr e
   search_param.with_table_data = FLAGS_with_table_data;
   search_param.use_brute_force = FLAGS_vector_search_use_brute_force;
   search_param.topk = FLAGS_vector_search_topk;
-  search_param.extra_params.insert(std::make_pair(sdk::SearchExtraParamType::kEfSearch, FLAGS_vector_search_ef));
-  search_param.extra_params.insert(std::make_pair(sdk::SearchExtraParamType::kNprobe, FLAGS_vector_search_nprobe));
+
+  if (FLAGS_vector_index_type == "IVF_FLAT" || FLAGS_vector_index_type == "IVF_PQ") {
+    search_param.extra_params.insert(std::make_pair(sdk::SearchExtraParamType::kNprobe, FLAGS_vector_search_nprobe));
+  }
+
+  if (FLAGS_vector_index_type == "HNSW") {
+    search_param.extra_params.insert(std::make_pair(sdk::SearchExtraParamType::kEfSearch, FLAGS_vector_search_ef));
+  }
 
   std::string filter_type = dingodb::benchmark::ToUpper(FLAGS_vector_search_filter_type);
   if (filter_type == "PRE") {
