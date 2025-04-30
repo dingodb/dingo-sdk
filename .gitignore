@@ -31,12 +31,46 @@
 *.out
 *.app
 
-dingosdk.egg-info/
-dist/
+# Swap
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
 
-build*
-third-party/installed
+.idea
+cmake-build-debug
+cmake-build-release
+.DS_Store
+tags
+.cache
+.run
+.fleet
 
-.cache/
+# eclipse
+.cproject
+.project
+.settings/language.settings.xml
+third-party
+.iml
+
+# bazel
+
 build/
-third-party/build/
+dist/
+.vscode/
+*.bak
+
+# Maven Files
+target/
+
+# Ignore Gradle project-specific cache directory
+.gradle
+
+*.iml
+scripts/local_start_server.sh
+coor_list
+create_table.sh
+.devcontainer/
+local_scripts/
+contrib/xdprocks/
