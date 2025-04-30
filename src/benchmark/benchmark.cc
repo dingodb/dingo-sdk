@@ -21,6 +21,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <ostream>
 #include <string>
 #include <thread>
 #include <utility>
@@ -359,7 +360,20 @@ std::vector<RegionEntryPtr> Benchmark::ArrangeRegion(int num) {
 
 std::vector<VectorIndexEntryPtr> Benchmark::ArrangeVectorIndex(int num) {
   std::vector<VectorIndexEntryPtr> vector_index_entries;
-
+  
+  // test dimension is ready
+  std::string wait_string = fmt::format("wait vector index dimension ready ");
+  while(true){
+    if (dataset_->GetObtainDimension()){
+      LOG(INFO) << fmt::format("vector index dimension: {}", FLAGS_vector_dimension);
+      std::cout << fmt::format("\nvector index dimension: {}", FLAGS_vector_dimension)<< std::endl;
+      break;
+    }
+    wait_string += ".";
+    std::cout << '\r' << wait_string << std::flush;
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
+ 
   std::vector<std::thread> threads;
   threads.reserve(num);
   std::mutex mutex;

@@ -385,8 +385,9 @@ bool JsonDataset::Init() {
     }
 
     batch_vector_entry_cache_.resize(FLAGS_batch_vector_entry_cache_size);
-    auto train_thread = std::thread([&] { ParallelLoadTrainData(train_filepaths_); });
-    train_thread.detach();
+    auto self = GetSelf();
+    train_thread_ = std::thread([self] { self->ParallelLoadTrainData(self->train_filepaths_); });
+    train_thread_.detach();
   }
 
   auto test_filenames = dingodb::benchmark::TraverseDirectory(dirpath_, std::string("test"));
@@ -409,7 +410,8 @@ void JsonDataset::ParallelLoadTrainData(const std::vector<std::string>& filepath
   std::atomic_int curr_file_pos = 0;
   std::vector<std::thread> threads;
   for (size_t thread_id = 0; thread_id < FLAGS_load_vector_dataset_concurrency; ++thread_id) {
-    threads.push_back(std::thread([&, thread_id] {
+    auto self = GetSelf();
+    threads.push_back(std::thread([self, &curr_file_pos, filepaths, thread_id] {
       for (;;) {
         int file_pos = curr_file_pos.fetch_add(1);
         if (file_pos >= filepaths.size()) {
@@ -430,7 +432,7 @@ void JsonDataset::ParallelLoadTrainData(const std::vector<std::string>& filepath
           ++batch_vector_count;
           auto batch_vector_entry = std::make_shared<BatchVectorEntry>();
           batch_vector_entry->vector_with_ids.reserve(FLAGS_vector_put_batch_size);
-          offset = LoadTrainData(doc, offset, FLAGS_vector_put_batch_size, batch_vector_entry->vector_with_ids);
+          offset = self->LoadTrainData(doc, offset, FLAGS_vector_put_batch_size, batch_vector_entry->vector_with_ids);
           vector_count += batch_vector_entry->vector_with_ids.size();
           if (batch_vector_entry->vector_with_ids.empty()) {
             break;
@@ -439,13 +441,13 @@ void JsonDataset::ParallelLoadTrainData(const std::vector<std::string>& filepath
           for (;;) {
             bool is_full = false;
             {
-              std::lock_guard lock(mutex_);
+              std::lock_guard lock(self->mutex_);
               // check is full
-              if ((head_pos_ + 1) % FLAGS_batch_vector_entry_cache_size == tail_pos_) {
+              if ((self->head_pos_ + 1) % FLAGS_batch_vector_entry_cache_size == self->tail_pos_) {
                 is_full = true;
               } else {
-                batch_vector_entry_cache_[tail_pos_] = batch_vector_entry;
-                tail_pos_ = (tail_pos_ + 1) % FLAGS_batch_vector_entry_cache_size;
+                self->batch_vector_entry_cache_[self->tail_pos_] = batch_vector_entry;
+                self->tail_pos_ = (self->tail_pos_ + 1) % FLAGS_batch_vector_entry_cache_size;
                 break;
               }
             }
@@ -569,7 +571,11 @@ bool Wikipedia2212Dataset::ParseTrainData(const rapidjson::Value& obj, sdk::Vect
   std::vector<float> embedding;
   if (item["emb"].IsArray()) {
     uint32_t dimension = item["emb"].GetArray().Size();
-    CHECK(dimension == FLAGS_vector_dimension) << fmt::format("dataset dimension({}) is not uniformity.", dimension);
+    if (!obtain_dimension.load()) {
+      FLAGS_vector_dimension = dimension;  // force set
+      obtain_dimension.store(true);
+    }
+    // CHECK(dimension == FLAGS_vector_dimension) << fmt::format("dataset dimension({}) is not uniformity.", dimension);
     embedding.reserve(dimension);
     for (const auto& f : item["emb"].GetArray()) {
       embedding.push_back(f.GetFloat());
@@ -867,7 +873,11 @@ bool BeirBioasqDataset::ParseTrainData(const rapidjson::Value& obj, sdk::VectorW
   std::vector<float> embedding;
   if (item["emb"].IsArray()) {
     uint32_t dimension = item["emb"].GetArray().Size();
-    CHECK(dimension == FLAGS_vector_dimension) << fmt::format("dataset dimension({}) is not uniformity.", dimension);
+    if (!obtain_dimension.load()) {
+      FLAGS_vector_dimension = dimension;  // force set
+      obtain_dimension.store(true);
+    }
+    // CHECK(dimension == FLAGS_vector_dimension) << fmt::format("dataset dimension({}) is not uniformity.", dimension);
     embedding.reserve(dimension);
     for (const auto& f : item["emb"].GetArray()) {
       embedding.push_back(f.GetFloat());
@@ -1021,7 +1031,11 @@ bool MiraclDataset::ParseTrainData(const rapidjson::Value& obj, sdk::VectorWithI
   std::vector<float> embedding;
   if (item["emb"].IsArray()) {
     uint32_t dimension = item["emb"].GetArray().Size();
-    CHECK(dimension == FLAGS_vector_dimension) << fmt::format("dataset dimension({}) is not uniformity.", dimension);
+    if (!obtain_dimension.load()) {
+      FLAGS_vector_dimension = dimension;  // force set
+      obtain_dimension.store(true);
+    }
+    // CHECK(dimension == FLAGS_vector_dimension) << fmt::format("dataset dimension({}) is not uniformity.", dimension);
     embedding.reserve(dimension);
     for (const auto& f : item["emb"].GetArray()) {
       embedding.push_back(f.GetFloat());
