@@ -39,6 +39,7 @@
 #include "H5Cpp.h"
 #include "H5PredType.h"
 #include "common/logging.h"
+#include "dingosdk/vector.h"
 #include "fmt/core.h"
 #include "gflags/gflags_declare.h"
 #include "glog/logging.h"
@@ -47,7 +48,6 @@
 #include "rapidjson/rapidjson.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
-#include "dingosdk/vector.h"
 #include "util.h"
 
 DECLARE_uint32(vector_put_batch_size);
@@ -580,6 +580,7 @@ bool Wikipedia2212Dataset::ParseTrainData(const rapidjson::Value& obj, sdk::Vect
 
   vector_with_id.vector.value_type = sdk::ValueType::kFloat;
   vector_with_id.vector.float_values.swap(embedding);
+  vector_with_id.vector.dimension = FLAGS_vector_dimension;
 
   {
     sdk::ScalarValue scalar_value;
@@ -775,6 +776,7 @@ Dataset::TestEntryPtr Wikipedia2212Dataset::ParseTestData(const rapidjson::Value
 
   vector_with_id.vector.value_type = sdk::ValueType::kFloat;
   vector_with_id.vector.float_values.swap(embedding);
+  vector_with_id.vector.dimension = FLAGS_vector_dimension;
 
   if (!FLAGS_vector_search_filter.empty()) {
     std::vector<std::string> kv_strs;
@@ -876,6 +878,7 @@ bool BeirBioasqDataset::ParseTrainData(const rapidjson::Value& obj, sdk::VectorW
 
   vector_with_id.vector.value_type = sdk::ValueType::kFloat;
   vector_with_id.vector.float_values.swap(embedding);
+  vector_with_id.vector.dimension = FLAGS_vector_dimension;
 
   {
     sdk::ScalarValue scalar_value;
@@ -936,6 +939,7 @@ Dataset::TestEntryPtr BeirBioasqDataset::ParseTestData(const rapidjson::Value& o
 
   vector_with_id.vector.value_type = sdk::ValueType::kFloat;
   vector_with_id.vector.float_values.swap(embedding);
+  vector_with_id.vector.dimension = FLAGS_vector_dimension;
 
   if (!FLAGS_vector_search_filter.empty()) {
     std::vector<std::string> kv_strs;
@@ -1029,6 +1033,7 @@ bool MiraclDataset::ParseTrainData(const rapidjson::Value& obj, sdk::VectorWithI
 
   vector_with_id.vector.value_type = sdk::ValueType::kFloat;
   vector_with_id.vector.float_values.swap(embedding);
+  vector_with_id.vector.dimension = FLAGS_vector_dimension;
 
   {
     sdk::ScalarValue scalar_value;
@@ -1089,6 +1094,7 @@ Dataset::TestEntryPtr MiraclDataset::ParseTestData(const rapidjson::Value& obj) 
 
   vector_with_id.vector.value_type = sdk::ValueType::kFloat;
   vector_with_id.vector.float_values.swap(embedding);
+  vector_with_id.vector.dimension = FLAGS_vector_dimension;
 
   if (!FLAGS_vector_search_filter.empty()) {
     std::vector<std::string> kv_strs;
