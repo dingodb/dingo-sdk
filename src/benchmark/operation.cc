@@ -36,6 +36,7 @@
 #include "glog/logging.h"
 #include "util.h"
 
+DECLARE_uint32(diskann_search_beamwidth);
 DECLARE_string(vector_index_type);
 DEFINE_string(benchmark, "fillseq", "Benchmark type");
 DEFINE_validator(benchmark, [](const char*, const std::string& value) -> bool {
@@ -528,7 +529,12 @@ Operation::Result BaseOperation::VectorPut(VectorIndexEntryPtr entry, std::vecto
     return result;
   }
 
-  result.status = vector_client->AddByIndexId(entry->index_id, vector_with_ids);
+  if (FLAGS_vector_index_type != "DISKANN") {
+    result.status = vector_client->AddByIndexId(entry->index_id, vector_with_ids);
+  } else {
+    result.status = vector_client->ImportAddByIndexId(entry->index_id, vector_with_ids);
+  }
+
   if (!result.status.IsOK()) {
     LOG(ERROR) << fmt::format("put vector failed, error: {}", result.status.ToString());
   }
@@ -1199,6 +1205,20 @@ uint32_t CalculateRecallRate(const std::unordered_map<int64_t, float>& neighbors
 }
 
 Operation::Result VectorSearchOperation::ExecuteManualData(VectorIndexEntryPtr entry) {
+  if (FLAGS_vector_index_type == "DISKANN") {
+    if (!already_prepare_for_diskann_) {
+      std::lock_guard lock(mutex_);
+      if (!already_prepare_for_diskann_) {
+        auto success = PrepareForDiskANNBeforeVectorSearch(entry);
+        if (!success) {
+          DINGO_LOG(ERROR) << "PrepareForDiskANNBeforeVectorSearch failed";
+          exit(-1);
+        }
+        already_prepare_for_diskann_ = true;
+      } // if (!already_prepare_for_diskann_) {
+    }  // if (!already_prepare_for_diskann_) {
+  }
+
   std::vector<sdk::VectorWithId> vector_with_ids;
   vector_with_ids.reserve(FLAGS_batch_size);
 
@@ -1215,6 +1235,10 @@ Operation::Result VectorSearchOperation::ExecuteManualData(VectorIndexEntryPtr e
 
   if (FLAGS_vector_index_type == "HNSW") {
     search_param.extra_params.insert(std::make_pair(sdk::SearchExtraParamType::kEfSearch, FLAGS_vector_search_ef));
+  }
+
+  if (FLAGS_vector_index_type == "DISKANN") {
+    search_param.beamwidth = FLAGS_diskann_search_beamwidth;
   }
 
   std::string filter_type = dingodb::benchmark::ToUpper(FLAGS_vector_search_filter_type);
@@ -1291,7 +1315,7 @@ Operation::Result VectorSearchOperation::ExecuteManualData(VectorIndexEntryPtr e
       search_param.is_sorted = true;
     }
   }
-
+  ready_report.store(true);
   auto result = VectorSearch(entry, vector_with_ids, search_param);
   if (!result.status.IsOK()) {
     return result;
@@ -1309,6 +1333,170 @@ Operation::Result VectorSearchOperation::ExecuteManualData(VectorIndexEntryPtr e
   }
 
   return result;
+}
+
+// for diskann
+bool VectorSearchOperation::PrepareForDiskANNBeforeVectorSearch(VectorIndexEntryPtr entry) {
+  Operation::Result result;
+  sdk::Status status;
+  sdk::StateResult state_result;
+  std::vector<int64_t> region_ids;
+
+  std::string region_id_info = "region ids : ";
+
+  auto dump_region_ids = [&region_ids]() {
+    std::string str;
+    for (const auto& region_id : region_ids) {
+      str += std::to_string(region_id) + " ";
+    }
+    return str;
+  };
+
+  auto beautiful_display_time = [](int64_t start_time_second, int64_t end_time_second) {
+    int64_t cost_time = end_time_second - start_time_second;
+    int64_t hour = cost_time / 3600;
+    int64_t minute = (cost_time % 3600) / 60;
+    int64_t second = cost_time % 60;
+
+    if (hour > 0) {
+      return fmt::format("{} h {} m {} s", hour, minute, second);
+    }
+
+    if (minute > 0) {
+      return fmt::format("{} m {} s", minute, second);
+    }
+
+    return fmt::format("{} s", second);
+  };
+
+  sdk::VectorClient* vector_client = nullptr;
+  result.status = client->NewVectorClient(&vector_client);
+  if (!result.status.IsOK()) {
+    DINGO_LOG(ERROR) << fmt::format("new NewVectorClient failed");
+    return false;
+  }
+
+  std::shared_ptr<sdk::VectorClient> vector_client_ptr(vector_client);
+  vector_client = nullptr;
+
+  result.status = status = vector_client_ptr->StatusByIndexId(entry->index_id, state_result);
+  if (!status.ok()) {
+    DINGO_LOG(ERROR) << fmt::format("StatusByIndexId failed : {}", status.ToString());
+    return false;
+  }
+
+  region_ids.reserve(state_result.region_states.size());
+  for (auto& result : state_result.region_states) {
+    region_ids.push_back(result.region_id);
+  }
+
+  region_id_info += dump_region_ids();
+  std::cout << region_id_info << this << std::endl;
+  DINGO_LOG(INFO) << region_id_info << this;
+
+  // build
+  sdk::ErrStatusResult err_status_result;
+  status = vector_client_ptr->BuildByRegionId(entry->index_id, region_ids, err_status_result);
+  if (status.IsBuildFailed()) {
+    DINGO_LOG(ERROR) << "vector build failed : {} " << status.ToString();
+    return false;
+  }
+
+  // wait regions builded
+  std::vector<int64_t> build_region_ids = region_ids;
+  std::string building_str = "building ";
+  int64_t start_time = dingodb::benchmark::Timestamp();
+  while (true) {
+    state_result.region_states.clear();
+    status = vector_client_ptr->StatusByRegionId(entry->index_id, build_region_ids, state_result);
+    if (!status.ok()) {
+      DINGO_LOG(ERROR) << fmt::format("StatusByRegionId failed : {}", status.ToString());
+      return false;
+    }
+
+    for (const auto& state : state_result.region_states) {
+      if (state.state == sdk::DiskANNRegionState::kBuilding) {
+        continue;
+      }
+
+      if (state.state == sdk::DiskANNRegionState::kBuildFailed) {
+        DINGO_LOG(ERROR) << fmt::format("region({}) build failed", state.region_id);
+        return false;
+      }
+
+      if (state.state == sdk::DiskANNRegionState::kBuilded || state.state == sdk::DiskANNRegionState::kNoData) {
+        auto it = std::find(build_region_ids.begin(), build_region_ids.end(), state.region_id);
+        if (it != build_region_ids.end()) {
+          build_region_ids.erase(it);
+        }
+      }
+    }
+
+    if (build_region_ids.empty()) {
+      break;
+    }
+
+    building_str += '.';
+    std::cout << '\r' << building_str << std::flush;
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+  }
+
+  int64_t end_time = dingodb::benchmark::Timestamp();
+  DINGO_LOG(INFO) << building_str;
+  std::cout << "\nbuild cost : " << beautiful_display_time(start_time, end_time) << std::endl;
+  DINGO_LOG(INFO) << "\nbuild cost : " << beautiful_display_time(start_time, end_time);
+
+  // load
+  status = vector_client_ptr->LoadByIndexId(entry->index_id, err_status_result);
+  if (status.IsLoadFailed()) {
+    DINGO_LOG(ERROR) << fmt::format("vector load failed : {}", status.ToString());
+    return false;
+  }
+
+  // wait regions loaded
+  std::vector<int64_t> load_region_ids = region_ids;
+  std::string loading_str = "loading ";
+  start_time = dingodb::benchmark::Timestamp();
+  while (true) {
+    state_result.region_states.clear();
+    status = vector_client_ptr->StatusByRegionId(entry->index_id, load_region_ids, state_result);
+    if (!status.ok()) {
+      DINGO_LOG(ERROR) << fmt::format("StatusByRegionId failed : {}", status.ToString());
+      return false;
+    }
+
+    for (const auto& state : state_result.region_states) {
+      if (state.state == sdk::DiskANNRegionState::kLoading) {
+        continue;
+      }
+
+      if (state.state == sdk::DiskANNRegionState::kLoadFailed) {
+        DINGO_LOG(ERROR) << fmt::format("region({}) load failed", state.region_id);
+        return false;
+      }
+
+      if (state.state == sdk::DiskANNRegionState::kLoaded || state.state == sdk::DiskANNRegionState::kNoData) {
+        auto it = std::find(load_region_ids.begin(), load_region_ids.end(), state.region_id);
+        if (it != load_region_ids.end()) {
+          load_region_ids.erase(it);
+        }
+      }
+    }
+
+    if (load_region_ids.empty()) {
+      break;
+    }
+
+    loading_str += '.';
+    std::cout << '\r' << loading_str << std::flush;
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+  }
+  end_time = dingodb::benchmark::Timestamp();
+  DINGO_LOG(INFO) << loading_str;
+  std::cout << "\nload cost : " << beautiful_display_time(start_time, end_time) << std::endl;
+  DINGO_LOG(INFO) << "\nload cost : " << beautiful_display_time(start_time, end_time);
+
+  return true;
 }
 
 Operation::Result VectorQueryOperation::Execute(VectorIndexEntryPtr entry) {
