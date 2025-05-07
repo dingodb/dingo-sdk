@@ -28,14 +28,14 @@
 #include <vector>
 
 #include "benchmark/color.h"
+#include "dingosdk/client.h"
+#include "dingosdk/vector.h"
 #include "fmt/core.h"
 #include "gflags/gflags.h"
 #include "proto/common.pb.h"
-#include "dingosdk/client.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/helper.h"
 #include "sdk/rpc/coordinator_rpc.h"
-#include "dingosdk/vector.h"
 #include "util.h"
 
 DEFINE_string(coordinator_addrs, "file://./coor_list", "coordinator addrs");
@@ -66,7 +66,7 @@ DEFINE_string(vector_index_type, "HNSW", "Vector index type");
 DEFINE_validator(vector_index_type, [](const char*, const std::string& value) -> bool {
   auto vector_index_type = dingodb::benchmark::ToUpper(value);
   return vector_index_type == "HNSW" || vector_index_type == "FLAT" || vector_index_type == "IVF_FLAT" ||
-         vector_index_type == "IVF_PQ" || vector_index_type == "BRUTE_FORCE";
+         vector_index_type == "IVF_PQ" || vector_index_type == "BRUTE_FORCE" || vector_index_type == "DISKANN";
 });
 
 // vector
@@ -92,6 +92,11 @@ DEFINE_uint32(ivf_nsubvector, 64, "IVF nsubvector");
 DEFINE_uint32(ivf_bucket_init_size, 1000, "IVF bucket init size");
 DEFINE_uint32(ivf_bucket_max_size, 1280000, "IVF bucket max size");
 DEFINE_uint32(ivf_nbits_per_idx, 8, "IVF nbits per idx");
+
+// diskann
+DEFINE_int32(diskann_max_degree, 64, "Diskann max degree");
+DEFINE_int32(diskann_search_list_size, 100, "Diskann search list size");
+DEFINE_uint32(diskann_search_beamwidth, 2, "Diskann search beam width");
 
 // vector search
 DEFINE_string(vector_dataset, "", "Open source dataset, like sift/gist/glove/mnist etc.., hdf5 format");
@@ -262,6 +267,13 @@ bool Benchmark::Run() {
 
   size_t start_time = dingodb::benchmark::TimestampMs();
 
+  while (true) {
+    if (operation_->ReadyReport()) {
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
+
   // Interval report
   IntervalReport();
 
@@ -360,20 +372,20 @@ std::vector<RegionEntryPtr> Benchmark::ArrangeRegion(int num) {
 
 std::vector<VectorIndexEntryPtr> Benchmark::ArrangeVectorIndex(int num) {
   std::vector<VectorIndexEntryPtr> vector_index_entries;
-  
+
   // test dimension is ready
   std::string wait_string = fmt::format("wait vector index dimension ready ");
-  while(true){
-    if (dataset_->GetObtainDimension()){
+  while (true) {
+    if (dataset_->GetObtainDimension()) {
       LOG(INFO) << fmt::format("vector index dimension: {}", FLAGS_vector_dimension);
-      std::cout << fmt::format("\nvector index dimension: {}", FLAGS_vector_dimension)<< std::endl;
+      std::cout << fmt::format("\nvector index dimension: {}", FLAGS_vector_dimension) << std::endl;
       break;
     }
     wait_string += ".";
     std::cout << '\r' << wait_string << std::flush;
     std::this_thread::sleep_for(std::chrono::seconds(1));
   }
- 
+
   std::vector<std::thread> threads;
   threads.reserve(num);
   std::mutex mutex;
@@ -554,6 +566,20 @@ sdk::MetricType GetMetricType(const std::string& metric_type) {
   return sdk::MetricType::kNoneMetricType;
 }
 
+sdk::ValueType GetValueType(const std::string& value_type) {
+  auto upper_value_type = dingodb::benchmark::ToUpper(value_type);
+
+  if (upper_value_type == "FLOAT") {
+    return sdk::ValueType::kFloat;
+  } else if (upper_value_type == "UINT8") {
+    return sdk::ValueType::kUint8;
+  } else if (upper_value_type == "INT8") {
+    return sdk::ValueType::kInt8;
+  }
+
+  return sdk::ValueType::kNoneValueType;
+}
+
 sdk::FlatParam GenFlatParam() {
   sdk::FlatParam param(FLAGS_vector_dimension, GetMetricType(FLAGS_vector_metric_type));
   return param;
@@ -585,6 +611,14 @@ sdk::HnswParam GenHnswParam() {
 
 sdk::BruteForceParam GenBruteForceParam() {
   sdk::BruteForceParam param(FLAGS_vector_dimension, GetMetricType(FLAGS_vector_metric_type));
+  return param;
+}
+
+sdk::DiskAnnParam GenDiskANNParam() {
+  sdk::DiskAnnParam param(FLAGS_vector_dimension, GetMetricType(FLAGS_vector_metric_type),
+                          GetValueType(FLAGS_vector_value_type));
+  param.max_degree = FLAGS_diskann_max_degree;
+  param.search_list_size = FLAGS_diskann_search_list_size;
   return param;
 }
 
@@ -642,6 +676,8 @@ int64_t Benchmark::CreateVectorIndex(const std::string& name, const std::string&
     creator->SetIvfFlatParam(GenIvfFlatParam());
   } else if (vector_index_type == "IVF_PQ") {
     creator->SetIvfPqParam(GenIvfPqParam());
+  } else if (vector_index_type == "DISKANN") {
+    creator->SetDiskAnnParam(GenDiskANNParam());
   } else {
     LOG(ERROR) << fmt::format("Not support vector index type {}", vector_index_type);
     return 0;
@@ -979,6 +1015,9 @@ void Environment::PrintParam() {
   std::cout << fmt::format("{:<34}: {:>32}", "vector_search_radius", FLAGS_vector_search_radius) << '\n';
   std::cout << fmt::format("{:<34}: {:>32}", "vector_search_nprobe", FLAGS_vector_search_nprobe) << '\n';
   std::cout << fmt::format("{:<34}: {:>32}", "vector_search_ef", FLAGS_vector_search_ef) << '\n';
+  std::cout << fmt::format("{:<34}: {:>32}", "diskann_max_degree", FLAGS_diskann_max_degree) << '\n';
+  std::cout << fmt::format("{:<34}: {:>32}", "diskann_search_list_size", FLAGS_diskann_search_list_size) << '\n';
+  std::cout << fmt::format("{:<34}: {:>32}", "diskann_search_beamwidth", FLAGS_diskann_search_beamwidth) << '\n';
   std::cout << '\n';
 }
 

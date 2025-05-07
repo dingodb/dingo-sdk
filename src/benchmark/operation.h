@@ -15,11 +15,13 @@
 #ifndef DINGODB_BENCHMARK_OPERATION_H_
 #define DINGODB_BENCHMARK_OPERATION_H_
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
+#include <mutex>
 
 #include "benchmark/dataset.h"
 #include "dingosdk/client.h"
@@ -63,6 +65,8 @@ class Operation {
 
   // RPC invoke, return execute result, for vector index
   virtual Result Execute(VectorIndexEntryPtr entry) = 0;
+
+  virtual bool ReadyReport() = 0;
 };
 using OperationPtr = std::shared_ptr<Operation>;
 
@@ -81,6 +85,7 @@ class BaseOperation : public Operation {
   Result Execute(std::vector<RegionEntryPtr>&) override { return {}; }
 
   Result Execute(VectorIndexEntryPtr) override { return {}; }
+  bool ReadyReport() override { return ready_report; }
 
  protected:
   Result KvPut(RegionEntryPtr region_entry, bool is_random);
@@ -105,6 +110,7 @@ class BaseOperation : public Operation {
 
   std::shared_ptr<sdk::Client> client;
   std::shared_ptr<dingodb::sdk::RawKV> raw_kv;
+  std::atomic<bool> ready_report{true};
 };
 
 // Sequence write operation
@@ -238,7 +244,7 @@ class VectorFillRandomOperation : public BaseOperation {
 
 class VectorSearchOperation : public BaseOperation {
  public:
-  VectorSearchOperation(std::shared_ptr<sdk::Client> client) : BaseOperation(client) {}
+  VectorSearchOperation(std::shared_ptr<sdk::Client> client) : BaseOperation(client) {  ready_report.store(false);}
   ~VectorSearchOperation() override = default;
 
   bool Arrange(VectorIndexEntryPtr entry, DatasetPtr dataset) override;
@@ -251,11 +257,16 @@ class VectorSearchOperation : public BaseOperation {
 
   Result ExecuteAutoData(VectorIndexEntryPtr entry);
   Result ExecuteManualData(VectorIndexEntryPtr entry);
+
+  // for diskann
+  bool PrepareForDiskANNBeforeVectorSearch(VectorIndexEntryPtr entry);
+  bool already_prepare_for_diskann_ {false};
+  std::mutex mutex_;
 };
 
 class VectorQueryOperation : public VectorSearchOperation {
  public:
-  VectorQueryOperation(std::shared_ptr<sdk::Client> client) : VectorSearchOperation(client) {}
+  VectorQueryOperation(std::shared_ptr<sdk::Client> client) : VectorSearchOperation(client) {ready_report.store(true);}
   ~VectorQueryOperation() override = default;
 
   Result Execute(VectorIndexEntryPtr entry) override;
