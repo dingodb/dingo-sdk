@@ -35,27 +35,12 @@ testpaths = ["tests"]
 before-build = "rm -rf {project}/build"
 build = "*-manylinux*"
 skip = "*-musllinux*"
-manylinux-x86_64-image = "quay.io/pypa/manylinux_2_34_x86_64"
+manylinux-x86_64-image = "dingodatabase/dingo-eureka:manylinux_2_34"
 
 
 # Install system library
 [tool.cibuildwheel.linux]
 before-all = [
-  "dnf install -y wget tar git gcc-toolset-13* perl flex bison patch autoconf automake libtool python3-pip",
-  "dnf remove -y cmake",
-  "wget https://github.com/Kitware/CMake/releases/download/v3.30.1/cmake-3.30.1-linux-x86_64.tar.gz",
-  "tar zxvf cmake-3.30.1-linux-x86_64.tar.gz",
-  "mv cmake-3.30.1-linux-x86_64 /opt/cmake-3.30.1 && export PATH=/opt/cmake-3.30.1/bin:$PATH",
-  "dnf --enablerepo=crb install -y meson ninja-build",
-  "source /opt/rh/gcc-toolset-13/enable",
-  "git clone https://github.com/dingodb/dingo-eureka.git",
-  "cd dingo-eureka",
-  "git submodule sync --recursive",
-  "git submodule update --init --recursive",
-  "mkdir build && cd build",
-  "cmake -DINSTALL_PATH=/root/.local/dingo-eureka -DCMAKE_BUILD_TYPE=Release ..",
-  "ulimit -n 65535",
-  "make -j3",
 ]
 archs = ["x86_64"]
 
