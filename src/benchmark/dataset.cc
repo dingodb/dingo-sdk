@@ -90,6 +90,8 @@ std::shared_ptr<Dataset> Dataset::New(std::string filepath) {
     return std::make_shared<BeirBioasqDataset>(filepath);
   } else if (filepath.find("miracl") != std::string::npos) {
     return std::make_shared<MiraclDataset>(filepath);
+  } else if (filepath.find("laion") != std::string::npos) {
+    return std::make_shared<LaionDataset>(filepath);
   }
 
   std::cout << "Not support dataset, path: " << filepath << std::endl;
