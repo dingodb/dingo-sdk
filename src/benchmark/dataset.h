@@ -66,7 +66,7 @@ class Dataset {
   bool GetObtainDimension() { return obtain_dimension.load(); }
 
  protected:
- mutable  std::atomic<bool> obtain_dimension;
+  mutable std::atomic<bool> obtain_dimension;
 };
 using DatasetPtr = std::shared_ptr<Dataset>;
 
@@ -143,6 +143,12 @@ class Movielens10mDataset : public BaseDataset {
  public:
   Movielens10mDataset(std::string filepath) : BaseDataset(filepath) {}
   ~Movielens10mDataset() override = default;
+};
+
+class LaionDataset : public BaseDataset {
+ public:
+  LaionDataset(std::string filepath) : BaseDataset(filepath) {}
+  ~LaionDataset() override = default;
 };
 
 struct BatchVectorEntry {
