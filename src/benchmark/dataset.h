@@ -62,6 +62,9 @@ class Dataset {
   // Get all test data
   virtual std::vector<TestEntryPtr> GetTestData() = 0;
 
+  // get type
+  virtual std::string GetType() = 0;
+
   // get dimension
   bool GetObtainDimension() { return obtain_dimension.load(); }
 
@@ -87,6 +90,8 @@ class BaseDataset : public Dataset {
   // Get all test data
   std::vector<TestEntryPtr> GetTestData() override;
 
+  std::string GetType() override { return "BaseDataset"; }
+
  private:
   std::vector<int> GetNeighbors(uint32_t index);
   std::vector<float> GetDistances(uint32_t index);
@@ -107,48 +112,56 @@ class SiftDataset : public BaseDataset {
  public:
   SiftDataset(std::string filepath) : BaseDataset(filepath) {}
   ~SiftDataset() override = default;
+  std::string GetType() override { return "SiftDataset"; }
 };
 
 class GloveDataset : public BaseDataset {
  public:
   GloveDataset(std::string filepath) : BaseDataset(filepath) {}
   ~GloveDataset() override = default;
+  std::string GetType() override { return "GloveDataset"; }
 };
 
 class GistDataset : public BaseDataset {
  public:
   GistDataset(std::string filepath) : BaseDataset(filepath) {}
   ~GistDataset() override = default;
+  std::string GetType() override { return "GistDataset"; }
 };
 
 class KosarakDataset : public BaseDataset {
  public:
   KosarakDataset(std::string filepath) : BaseDataset(filepath) {}
   ~KosarakDataset() override = default;
+  std::string GetType() override { return "KosarakDataset"; }
 };
 
 class LastfmDataset : public BaseDataset {
  public:
   LastfmDataset(std::string filepath) : BaseDataset(filepath) {}
   ~LastfmDataset() override = default;
+  std::string GetType() override { return "LastfmDataset"; }
 };
 
 class MnistDataset : public BaseDataset {
  public:
   MnistDataset(std::string filepath) : BaseDataset(filepath) {}
   ~MnistDataset() override = default;
+  std::string GetType() override { return "MnistDataset"; }
 };
 
 class Movielens10mDataset : public BaseDataset {
  public:
   Movielens10mDataset(std::string filepath) : BaseDataset(filepath) {}
   ~Movielens10mDataset() override = default;
+  std::string GetType() override { return "Movielens10mDataset"; }
 };
 
 class LaionDataset : public BaseDataset {
  public:
   LaionDataset(std::string filepath) : BaseDataset(filepath) {}
   ~LaionDataset() override = default;
+  std::string GetType() override { return "LaionDataset"; }
 };
 
 struct BatchVectorEntry {
@@ -173,6 +186,8 @@ class JsonDataset : public Dataset, public std::enable_shared_from_this<JsonData
   // Get all test data
   std::vector<TestEntryPtr> GetTestData() override;
 
+  std::string GetType() override { return "JsonDataset"; }
+
   std::shared_ptr<JsonDataset> GetSelf() { return shared_from_this(); }
 
  protected:
@@ -183,6 +198,10 @@ class JsonDataset : public Dataset, public std::enable_shared_from_this<JsonData
   void ParallelLoadTrainData(const std::vector<std::string>& filepaths);
   uint32_t LoadTrainData(std::shared_ptr<rapidjson::Document> doc, uint32_t offset, uint32_t size,
                          std::vector<sdk::VectorWithId>& vector_with_ids) const;
+
+  bool HandleScalarAndNeighborsJson();
+  bool ParseScalarLabelsJson(const std::string& json_file);
+  bool ParseNeighborsLabelsJson(const std::string& json_file);
 
   std::string dirpath_;
 
@@ -201,6 +220,13 @@ class JsonDataset : public Dataset, public std::enable_shared_from_this<JsonData
   uint32_t test_row_count_{0};
 
   std::thread train_thread_;
+
+ protected:
+  // key : id ; value : label string
+  std::shared_ptr<std::unordered_map<int64_t, std::string>> scalar_labels_map;
+
+  // key : id ; value : label string  {"id":0,"neighbors_id":[662817,763377,...]}
+  std::shared_ptr<std::unordered_map<int64_t, std::vector<int64_t>>> neighbors_id_map;
 };
 
 class Wikipedia2212Dataset : public JsonDataset {
@@ -210,6 +236,7 @@ class Wikipedia2212Dataset : public JsonDataset {
 
   bool ParseTrainData(const rapidjson::Value& obj, sdk::VectorWithId& vector_with_id) const override;
   Dataset::TestEntryPtr ParseTestData(const rapidjson::Value& obj) const override;
+  std::string GetType() override { return "Wikipedia2212Dataset"; }
 };
 
 class BeirBioasqDataset : public JsonDataset {
@@ -219,6 +246,7 @@ class BeirBioasqDataset : public JsonDataset {
 
   bool ParseTrainData(const rapidjson::Value& obj, sdk::VectorWithId& vector_with_id) const override;
   Dataset::TestEntryPtr ParseTestData(const rapidjson::Value& obj) const override;
+  std::string GetType() override { return "BeirBioasqDataset"; }
 };
 
 class MiraclDataset : public JsonDataset {
@@ -228,6 +256,31 @@ class MiraclDataset : public JsonDataset {
 
   bool ParseTrainData(const rapidjson::Value& obj, sdk::VectorWithId& vector_with_id) const override;
   Dataset::TestEntryPtr ParseTestData(const rapidjson::Value& obj) const override;
+  std::string GetType() override { return "MiraclDataset"; }
+};
+
+class BioasqMediumDataset : public JsonDataset {
+ public:
+  BioasqMediumDataset(const std::string& dirpath) : JsonDataset(dirpath) {}
+  ~BioasqMediumDataset() override = default;
+
+  bool ParseTrainData(const rapidjson::Value& obj, sdk::VectorWithId& vector_with_id) const override;
+  Dataset::TestEntryPtr ParseTestData(const rapidjson::Value& obj) const override;
+  std::string GetType() override { return "BioasqMediumDataset"; }
+
+ private:
+  mutable std::atomic<bool> already_set_label_name_{false};
+  mutable std::string label_name_;
+};
+
+class OpenaiLargeDataset : public BioasqMediumDataset {
+ public:
+  OpenaiLargeDataset(const std::string& dirpath) : BioasqMediumDataset(dirpath) {}
+  ~OpenaiLargeDataset() override = default;
+
+  bool ParseTrainData(const rapidjson::Value& obj, sdk::VectorWithId& vector_with_id) const override;
+  Dataset::TestEntryPtr ParseTestData(const rapidjson::Value& obj) const override;
+  std::string GetType() override { return "OpenaiLargeDataset"; }
 };
 
 }  // namespace benchmark

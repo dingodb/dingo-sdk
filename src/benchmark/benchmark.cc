@@ -114,6 +114,8 @@ DEFINE_bool(with_table_data, false, "Vector search flag with_table_data");
 DEFINE_bool(vector_search_use_brute_force, false, "Vector search flag use_brute_force");
 DEFINE_bool(vector_search_enable_range_search, false, "Vector search flag enable_range_search");
 DEFINE_double(vector_search_radius, 0.1, "Vector search flag radius");
+DEFINE_string(vector_search_scalar_filter_radius, "",
+              "Vector search scalar filter radius. such as 0.1, 0.2 0.5 10 1 20 2 50 5");
 
 DECLARE_uint32(vector_put_batch_size);
 DECLARE_uint32(vector_arrange_concurrency);
