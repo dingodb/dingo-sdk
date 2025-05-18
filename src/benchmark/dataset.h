@@ -200,6 +200,7 @@ class JsonDataset : public Dataset, public std::enable_shared_from_this<JsonData
                          std::vector<sdk::VectorWithId>& vector_with_ids) const;
 
   bool HandleScalarAndNeighborsJson();
+  bool HandleNeighborsJson();
   bool ParseScalarLabelsJson(const std::string& json_file);
   bool ParseNeighborsLabelsJson(const std::string& json_file);
 
