@@ -28,6 +28,7 @@
 #include "bvar/latency_recorder.h"
 #include "dingosdk/client.h"
 #include "sdk/client_stub.h"
+#include "sdk/common/common.h"
 
 namespace dingodb {
 namespace benchmark {
@@ -43,7 +44,7 @@ class Stats {
 
   void Clear();
 
-  void Report(bool is_cumulative, size_t milliseconds) const;
+  void Report(bool is_cumulative, size_t milliseconds,const std::map<std::int64_t, sdk::StoreOwnMetics> &store_id_to_store_own_metrics={}) const;
 
  private:
   static std::string Header();
@@ -53,6 +54,7 @@ class Stats {
   size_t write_bytes_{0};
   size_t read_bytes_{0};
   size_t error_count_{0};
+  size_t latency_min_{0};
   std::shared_ptr<bvar::LatencyRecorder> latency_recorder_;
   std::shared_ptr<bvar::LatencyRecorder> recall_recorder_;
 };

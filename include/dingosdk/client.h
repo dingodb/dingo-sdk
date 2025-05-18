@@ -121,6 +121,9 @@ class Client {
 
   Status GetDocumentIndexById(int64_t index_id, std::shared_ptr<DocumentIndex>& out_doc_index);
 
+  // Get store own metrics , if store_ids is empty, get all stores metrics
+  Status GetStoreOwnMetrics(std::vector<int64_t> store_ids, std::map<std::int64_t, StoreOwnMetics>& store_id_to_store_own_metrics);
+
  private:
   friend class RawKV;
   friend class TestBase;

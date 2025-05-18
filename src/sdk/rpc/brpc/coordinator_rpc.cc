@@ -27,6 +27,9 @@ namespace sdk {
 namespace coordinator {
 DEFINE_COORDINATOR_RPC(Hello);
 }
+
+DEFINE_COORDINATOR_RPC(GetStoreOwnMetrics);
+
 DEFINE_COORDINATOR_RPC(QueryRegion);
 DEFINE_COORDINATOR_RPC(CreateRegion);
 DEFINE_COORDINATOR_RPC(DropRegion);

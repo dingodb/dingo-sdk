@@ -298,6 +298,45 @@ Status Client::GetDocumentIndexById(int64_t index_id, std::shared_ptr<DocumentIn
   return data_->stub->GetDocumentIndexCache()->GetDocumentIndexById(index_id, out_doc_index);
 }
 
+Status Client::GetStoreOwnMetrics(std::vector<int64_t> store_ids,
+                                  std::map<std::int64_t, StoreOwnMetics>& store_id_to_store_own_metrics) {
+  GetStoreOwnMetricsRpc rpc;
+  rpc.MutableRequest()->mutable_store_ids()->Add(store_ids.begin(), store_ids.end());
+  Status status = data_->stub->GetCoordinatorRpcController()->SyncCall(rpc);
+  if (!status.IsOK()) {
+    DINGO_LOG(ERROR) << fmt::format("Get store own metrics fail, error: {} {}", status.Errno(), status.ToString());
+    return status;
+  }
+  if (!store_ids.empty()) {
+    CHECK(rpc.Response()->store_own_metrics_size() == store_ids.size());
+  }
+  store_id_to_store_own_metrics.clear();
+  for (const auto& store_own_metrics : rpc.Response()->store_own_metrics()) {
+    CHECK(store_own_metrics.id() != 0);
+
+    StoreOwnMetics store_metrics;
+    store_metrics.store_id = store_own_metrics.id();
+    store_metrics.process_used_memory = store_own_metrics.process_used_memory();
+    store_metrics.system_available_memory = store_own_metrics.system_available_memory();
+    store_metrics.system_total_memory = store_own_metrics.system_total_memory();
+    store_metrics.system_total_swap = store_own_metrics.system_total_swap();
+    store_metrics.system_free_swap = store_own_metrics.system_free_swap();
+    store_metrics.system_free_memory = store_own_metrics.system_free_memory();
+    store_metrics.system_cpu_usage = store_own_metrics.system_cpu_usage();
+    store_metrics.system_total_capacity = store_own_metrics.system_total_capacity();
+    store_metrics.system_free_capacity = store_own_metrics.system_free_capacity();
+    store_metrics.system_capacity_usage =
+        static_cast<float>(store_own_metrics.system_total_capacity() - store_own_metrics.system_free_capacity()) /
+        static_cast<float>(store_own_metrics.system_total_capacity()) * 100;
+    store_metrics.system_shared_memory = store_own_metrics.system_shared_memory();
+    store_metrics.system_buffer_memory = store_own_metrics.system_buffer_memory();
+    store_metrics.system_cached_memory = store_own_metrics.system_cached_memory();
+
+    store_id_to_store_own_metrics[store_own_metrics.id()] = store_metrics;
+  }
+  return status;
+}
+
 RawKV::RawKV(Data* data) : data_(data) {}
 
 RawKV::~RawKV() { delete data_; }
@@ -497,7 +536,7 @@ Status RegionCreator::Create(int64_t& out_region_id) {
   rpc.MutableRequest()->set_replica_num(data_->replica_num);
   rpc.MutableRequest()->mutable_range()->set_start_key(data_->lower_bound);
   rpc.MutableRequest()->mutable_range()->set_end_key(data_->upper_bound);
-  
+
   // region_id <= 0 means auto create region id , region_id > 0 means create region with region_id
   rpc.MutableRequest()->set_region_id(out_region_id);
 
