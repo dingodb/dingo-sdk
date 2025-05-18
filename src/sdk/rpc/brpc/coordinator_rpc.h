@@ -30,6 +30,8 @@ namespace coordinator {
 DECLARE_COORDINATOR_RPC(Hello);
 };
 
+DECLARE_COORDINATOR_RPC(GetStoreOwnMetrics);
+
 DECLARE_COORDINATOR_RPC(QueryRegion);
 DECLARE_COORDINATOR_RPC(CreateRegion);
 DECLARE_COORDINATOR_RPC(DropRegion);

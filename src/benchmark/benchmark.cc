@@ -29,6 +29,7 @@
 
 #include "benchmark/color.h"
 #include "dingosdk/client.h"
+#include "dingosdk/status.h"
 #include "dingosdk/vector.h"
 #include "fmt/core.h"
 #include "gflags/gflags.h"
@@ -130,6 +131,12 @@ DECLARE_string(txn_isolation_level);
 
 DECLARE_string(filter_field);
 
+// monitor cpu memory usage
+DEFINE_bool(enable_monitor_vector_performance_info, false, "Monitor performance information");
+DEFINE_int32(default_index_port_1, 21001, "default index port 1");
+DEFINE_int32(default_index_port_2, 21002, "default index port 2");
+DEFINE_int32(default_index_port_3, 21003, "default index port 3");
+
 namespace dingodb {
 namespace benchmark {
 
@@ -174,6 +181,7 @@ void Stats::Add(size_t duration, size_t write_bytes, size_t read_bytes) {
   ++req_num_;
   write_bytes_ += write_bytes;
   read_bytes_ += read_bytes;
+  latency_min_ = (latency_min_ == 0) ? duration : std::min(latency_min_, duration);
   *latency_recorder_ << duration;
 }
 
@@ -182,6 +190,7 @@ void Stats::Add(size_t duration, size_t write_bytes, size_t read_bytes, const st
   write_bytes_ += write_bytes;
   read_bytes_ += read_bytes;
   *latency_recorder_ << duration;
+  latency_min_ = (latency_min_ == 0) ? duration : std::min(latency_min_, duration);
   for (auto recall : recalls) {
     *recall_recorder_ << recall;
   }
@@ -195,11 +204,13 @@ void Stats::Clear() {
   write_bytes_ = 0;
   read_bytes_ = 0;
   error_count_ = 0;
+  latency_min_ = 0;
   latency_recorder_ = std::make_shared<bvar::LatencyRecorder>();
   recall_recorder_ = std::make_shared<bvar::LatencyRecorder>();
 }
 
-void Stats::Report(bool is_cumulative, size_t milliseconds) const {
+void Stats::Report(bool is_cumulative, size_t milliseconds,
+                   const std::map<std::int64_t, sdk::StoreOwnMetics>& store_id_to_store_own_metrics) const {
   double seconds = milliseconds / static_cast<double>(1000);
 
   if (is_cumulative) {
@@ -221,12 +232,33 @@ void Stats::Report(bool is_cumulative, size_t milliseconds) const {
                              latency_recorder_->latency_percentile(0.99))
               << '\n';
   } else {
-    std::cout << fmt::format("{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>8}{:>8}{:>8}{:>8}{:>16.2f}", epoch_, req_num_,
-                             error_count_, (req_num_ / seconds), (write_bytes_ / seconds / 1048576),
-                             latency_recorder_->latency(), latency_recorder_->max_latency(),
-                             latency_recorder_->latency_percentile(0.5), latency_recorder_->latency_percentile(0.95),
-                             latency_recorder_->latency_percentile(0.99), recall_recorder_->latency() / 100.0)
-              << '\n';
+    if (FLAGS_enable_monitor_vector_performance_info) {
+      std::cout
+          << fmt::format(
+                 "{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>8}{:>8}{:>8}{:>8}{:>8}{:>16.2f}{:>16}{:>16}{:>16.2f}{:>16}"
+                 "{:>16}{:>16.2f}{:>16}{:>16}{:>16.2f}",
+                 epoch_, req_num_, error_count_, (req_num_ / seconds), (write_bytes_ / seconds / 1048576),
+                 latency_recorder_->latency(), latency_recorder_->max_latency(), latency_min_,
+                 latency_recorder_->latency_percentile(0.5), latency_recorder_->latency_percentile(0.95),
+                 latency_recorder_->latency_percentile(0.99), recall_recorder_->latency() / 100.0,
+                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_1).system_cpu_usage,
+                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_1).process_used_memory / 1024 / 1024,
+                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_1).system_capacity_usage,
+                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_2).system_cpu_usage,
+                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_2).process_used_memory / 1024 / 1024,
+                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_2).system_capacity_usage,
+                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_3).system_cpu_usage,
+                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_3).process_used_memory / 1024 / 1024,
+                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_3).system_capacity_usage)
+          << '\n';
+    } else {
+      std::cout << fmt::format("{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>8}{:>8}{:>8}{:>8}{:>16.2f}", epoch_, req_num_,
+                               error_count_, (req_num_ / seconds), (write_bytes_ / seconds / 1048576),
+                               latency_recorder_->latency(), latency_recorder_->max_latency(),
+                               latency_recorder_->latency_percentile(0.5), latency_recorder_->latency_percentile(0.95),
+                               latency_recorder_->latency_percentile(0.99), recall_recorder_->latency() / 100.0)
+                << '\n';
+    }
   }
 }
 
@@ -235,6 +267,14 @@ std::string Stats::Header() {
     return fmt::format("{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>8}{:>8}{:>8}{:>8}", "EPOCH", "REQ_NUM", "ERRORS", "QPS",
                        "MB/s", "LATENCY AVG(us)", "MAX(us)", "P50(us)", "P95(us)", "P99(us)");
   } else {
+    if (FLAGS_enable_monitor_vector_performance_info) {
+      return fmt::format(
+          "{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>16}{:>16}{:>16}{:>16}{:>16}{:>16}{:>"
+          "16}{:>16}{:>16}",
+          "EPOCH", "REQ_NUM", "ERRORS", "QPS", "MB/s", "LATENCY AVG(us)", "MAX(us)", "MIN(us)", "P50(us)", "P95(us)",
+          "P99(us)", "RECALL AVG(%)", "INDEX_1_CPU(%)", "INDEX_1_MEMORY(GB)", "INDEX_1_DISK(%)", "INDEX_2_CPU(%)",
+          "INDEX_2_MEMORY(GB)", "INDEX_2_DISK(%)", "INDEX_3_CPU(%)", "INDEX_3_MEMORY(GB)", "INDEX_3_DISK(%)");
+    }
     return fmt::format("{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>8}{:>8}{:>8}{:>8}{:>16}", "EPOCH", "REQ_NUM", "ERRORS", "QPS",
                        "MB/s", "LATENCY AVG(us)", "MAX(us)", "P50(us)", "P95(us)", "P99(us)", "RECALL AVG(%)");
   }
@@ -870,13 +910,31 @@ void Benchmark::IntervalReport() {
 }
 
 void Benchmark::Report(bool is_cumulative, size_t milliseconds) {
+  std::map<std::int64_t, sdk::StoreOwnMetics> store_id_to_store_own_metrics;
+  if (FLAGS_enable_monitor_vector_performance_info) {
+    // monitor cpu memory disk usage
+    std::vector<int64_t> store_ids;
+    store_ids.push_back(FLAGS_default_index_port_1);
+    store_ids.push_back(FLAGS_default_index_port_2);
+    store_ids.push_back(FLAGS_default_index_port_3);
+
+    sdk::Status s = client_->GetStoreOwnMetrics(store_ids, store_id_to_store_own_metrics);
+    if (!s.ok()) {
+      std::cerr << fmt::format("Get store own metrics failed, status: {}", s.ToString()) << '\n';
+      store_id_to_store_own_metrics.clear();
+      store_id_to_store_own_metrics[FLAGS_default_index_port_1] = sdk::StoreOwnMetics();
+      store_id_to_store_own_metrics[FLAGS_default_index_port_2] = sdk::StoreOwnMetics();
+      store_id_to_store_own_metrics[FLAGS_default_index_port_3] = sdk::StoreOwnMetics();
+    }
+  }
+
   std::lock_guard lock(mutex_);
 
   if (is_cumulative) {
-    stats_cumulative_->Report(true, milliseconds);
+    stats_cumulative_->Report(true, milliseconds, store_id_to_store_own_metrics);
     stats_interval_->Clear();
   } else {
-    stats_interval_->Report(false, milliseconds);
+    stats_interval_->Report(false, milliseconds, store_id_to_store_own_metrics);
     stats_interval_->Clear();
   }
 }

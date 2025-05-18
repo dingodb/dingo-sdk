@@ -95,6 +95,8 @@ DEFINE_bool(use_coprocessor, false, "Vector search use coprocessor");
 DEFINE_uint32(vector_search_filter_vector_id_num, 10000, "Vector search filter vector id num");
 DEFINE_bool(filter_vector_id_is_negation, false, "Use negation vector id filter");
 
+DECLARE_bool(enable_monitor_vector_performance_info);
+
 namespace dingodb {
 namespace benchmark {
 
@@ -989,6 +991,8 @@ bool VectorSearchOperation::ArrangeAutoData(VectorIndexEntryPtr entry) {
   std::vector<std::thread> threads;
   threads.reserve(FLAGS_vector_arrange_concurrency);
 
+  uint64_t monitor_interval = dingodb::benchmark::Timestamp();
+
   uint32_t put_count_per_thread = FLAGS_arrange_kv_num / FLAGS_vector_arrange_concurrency;
 
   std::atomic<int> stop_count = 0;
@@ -1046,6 +1050,13 @@ bool VectorSearchOperation::ArrangeAutoData(VectorIndexEntryPtr entry) {
     thread.join();
   }
 
+  if (FLAGS_enable_monitor_vector_performance_info) {
+    std::cout << '\r'
+              << fmt::format("put all vector data elapsed time: {} s",
+                             dingodb::benchmark::Timestamp() - monitor_interval)
+              << '\n';
+  }
+
   std::cout << "\r"
             << fmt::format("vector index({}) put data success({}) fail({}) .................. done", entry->index_id,
                            count.load(), fail_count.load())
@@ -1060,6 +1071,8 @@ bool VectorSearchOperation::ArrangeManualData(VectorIndexEntryPtr entry, Dataset
 
   std::vector<std::thread> threads;
   threads.reserve(FLAGS_vector_arrange_concurrency);
+
+  uint64_t monitor_interval = dingodb::benchmark::Timestamp();
 
   std::atomic<int> stop_count = 0;
   std::atomic<uint32_t> count = 0;
@@ -1122,6 +1135,13 @@ bool VectorSearchOperation::ArrangeManualData(VectorIndexEntryPtr entry, Dataset
 
   for (auto& thread : threads) {
     thread.join();
+  }
+
+  if (FLAGS_enable_monitor_vector_performance_info) {
+    std::cout << '\r'
+              << fmt::format("put all vector data elapsed time: {} s",
+                             dingodb::benchmark::Timestamp() - monitor_interval)
+              << '\n';
   }
 
   std::cout << "\r"
@@ -1215,7 +1235,7 @@ Operation::Result VectorSearchOperation::ExecuteManualData(VectorIndexEntryPtr e
           exit(-1);
         }
         already_prepare_for_diskann_ = true;
-      } // if (!already_prepare_for_diskann_) {
+      }  // if (!already_prepare_for_diskann_) {
     }  // if (!already_prepare_for_diskann_) {
   }
 
