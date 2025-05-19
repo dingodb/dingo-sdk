@@ -164,6 +164,13 @@ class LaionDataset : public BaseDataset {
   std::string GetType() override { return "LaionDataset"; }
 };
 
+class EmbeddingsDataset : public BaseDataset {
+ public:
+  EmbeddingsDataset(std::string filepath) : BaseDataset(filepath) {}
+  ~EmbeddingsDataset() override = default;
+  std::string GetType() override { return "EmbeddingsDataset"; }
+};
+
 struct BatchVectorEntry {
   std::vector<sdk::VectorWithId> vector_with_ids;
 };
