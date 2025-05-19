@@ -20,9 +20,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <random>
+#include <sstream>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -96,6 +100,10 @@ DEFINE_uint32(vector_search_filter_vector_id_num, 10000, "Vector search filter v
 DEFINE_bool(filter_vector_id_is_negation, false, "Use negation vector id filter");
 
 DECLARE_bool(enable_monitor_vector_performance_info);
+
+DEFINE_bool(enable_dump_vector_search_result, false, "dump vector search result");
+DEFINE_uint32(dump_vector_search_result_count, 1000, "dump vector search result count");
+DEFINE_string(dump_vector_search_result_file_path, "./search_result", "dump vector search result file path");
 
 namespace dingodb {
 namespace benchmark {
@@ -1347,6 +1355,52 @@ Operation::Result VectorSearchOperation::ExecuteManualData(VectorIndexEntryPtr e
       auto& search_result = result.vector_search_results[i];
 
       result.recalls.push_back(CalculateRecallRate(entry->neighbors, search_result.vector_datas));
+
+      if (FLAGS_enable_dump_vector_search_result && dump_vector_count_.load() > 0) {
+        int64_t dump_vector_seq = dump_vector_count_.fetch_sub(1);
+        if (dump_vector_seq > 0) {
+          std::thread dump_thread([entry, search_result, dump_vector_seq]() {
+            try {
+              std::filesystem::create_directory(FLAGS_dump_vector_search_result_file_path);
+              std::ostringstream file_name;
+              auto now = std::chrono::system_clock::now();
+              std::time_t t = std::chrono::system_clock::to_time_t(now);
+              std::tm tm;
+              localtime_r(&t, &tm);
+              auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+              file_name << FLAGS_dump_vector_search_result_file_path << "/" << std::put_time(&tm, "%Y%m%d_%H%M%S")
+                        << std::setfill('0') << std::setw(3) << ms.count() << "_"
+                        << FLAGS_dump_vector_search_result_count + 1 - dump_vector_seq << "th_search_result.txt";
+
+              std::ofstream file(file_name.str());
+
+              if (file.is_open()) {
+                file << "Search the result of the " << FLAGS_dump_vector_search_result_count + 1 - dump_vector_seq
+                     << "th query:\n";
+                file << "Target vector : " << "\n" << entry->vector_with_id.ToString() << "\n";
+
+                std::ostringstream neighbor_oss;
+                neighbor_oss << "Neighbors : \n";
+                for (const auto& neighbor : entry->neighbors) {
+                  neighbor_oss << "vector_id : " << neighbor.first << " , distance : " << std::fixed
+                               << std::setprecision(2) << neighbor.second << "\n";
+                }
+
+                file << neighbor_oss.str();
+                file << "Result : " << "\n" << search_result.ToString() << " \n";
+
+              } else {
+                std::cerr << "Failed to open file: " << FLAGS_dump_vector_search_result_file_path << std::endl;
+              }
+            } catch (const std::filesystem::filesystem_error& e) {
+              std::cerr << "Filesystem Error: " << e.what() << '\n';
+            } catch (const std::exception& e) {
+              std::cerr << "Error: " << e.what() << '\n';
+            }
+          });
+          dump_thread.detach();
+        }
+      }
     } else {
       result.recalls.push_back(0);
     }

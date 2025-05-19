@@ -135,9 +135,9 @@ DECLARE_string(filter_field);
 
 // monitor cpu memory usage
 DEFINE_bool(enable_monitor_vector_performance_info, false, "Monitor performance information");
-DEFINE_int32(default_index_port_1, 21001, "default index port 1");
-DEFINE_int32(default_index_port_2, 21002, "default index port 2");
-DEFINE_int32(default_index_port_3, 21003, "default index port 3");
+DEFINE_int32(index_store_id_1, 21001, "index store_id 1");
+DEFINE_int32(index_store_id_2, 21002, "index store_id 2");
+DEFINE_int32(index_store_id_3, 21003, "index store_id 3");
 
 namespace dingodb {
 namespace benchmark {
@@ -227,7 +227,7 @@ void Stats::Report(bool is_cumulative, size_t milliseconds,
   }
 
   if (FLAGS_vector_dataset.empty()) {
-    std::cout << fmt::format("{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>8}{:>8}{:>8}{:>8}", epoch_, req_num_,
+    std::cout << fmt::format("{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>12}{:>12}{:>12}{:>12}", epoch_, req_num_,
                              error_count_, (req_num_ / seconds), (write_bytes_ / seconds / 1048576),
                              latency_recorder_->latency(), latency_recorder_->max_latency(),
                              latency_recorder_->latency_percentile(0.5), latency_recorder_->latency_percentile(0.95),
@@ -237,24 +237,24 @@ void Stats::Report(bool is_cumulative, size_t milliseconds,
     if (FLAGS_enable_monitor_vector_performance_info) {
       std::cout
           << fmt::format(
-                 "{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>8}{:>8}{:>8}{:>8}{:>8}{:>16.2f}{:>16}{:>16}{:>16.2f}{:>16}"
-                 "{:>16}{:>16.2f}{:>16}{:>16}{:>16.2f}",
+                 "{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>12}{:>12}{:>12}{:>12}{:>12}{:>16.2f}{:>20}{:>20}{:>20.2f}{:>20}"
+                 "{:>20}{:>20.2f}{:>20}{:>20}{:>20.2f}",
                  epoch_, req_num_, error_count_, (req_num_ / seconds), (write_bytes_ / seconds / 1048576),
                  latency_recorder_->latency(), latency_recorder_->max_latency(), latency_min_,
                  latency_recorder_->latency_percentile(0.5), latency_recorder_->latency_percentile(0.95),
                  latency_recorder_->latency_percentile(0.99), recall_recorder_->latency() / 100.0,
-                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_1).system_cpu_usage,
-                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_1).process_used_memory / 1024 / 1024,
-                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_1).system_capacity_usage,
-                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_2).system_cpu_usage,
-                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_2).process_used_memory / 1024 / 1024,
-                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_2).system_capacity_usage,
-                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_3).system_cpu_usage,
-                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_3).process_used_memory / 1024 / 1024,
-                 store_id_to_store_own_metrics.at(FLAGS_default_index_port_3).system_capacity_usage)
+                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_1).system_cpu_usage,
+                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_1).process_used_memory / 1024 / 1024,
+                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_1).system_capacity_usage,
+                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_2).system_cpu_usage,
+                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_2).process_used_memory / 1024 / 1024,
+                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_2).system_capacity_usage,
+                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_3).system_cpu_usage,
+                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_3).process_used_memory / 1024 / 1024,
+                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_3).system_capacity_usage)
           << '\n';
     } else {
-      std::cout << fmt::format("{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>8}{:>8}{:>8}{:>8}{:>16.2f}", epoch_, req_num_,
+      std::cout << fmt::format("{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>12}{:>12}{:>12}{:>12}{:>16.2f}", epoch_, req_num_,
                                error_count_, (req_num_ / seconds), (write_bytes_ / seconds / 1048576),
                                latency_recorder_->latency(), latency_recorder_->max_latency(),
                                latency_recorder_->latency_percentile(0.5), latency_recorder_->latency_percentile(0.95),
@@ -266,19 +266,19 @@ void Stats::Report(bool is_cumulative, size_t milliseconds,
 
 std::string Stats::Header() {
   if (FLAGS_vector_dataset.empty()) {
-    return fmt::format("{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>8}{:>8}{:>8}{:>8}", "EPOCH", "REQ_NUM", "ERRORS", "QPS",
+    return fmt::format("{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>12}{:>12}{:>12}{:>12}", "EPOCH", "REQ_NUM", "ERRORS", "QPS",
                        "MB/s", "LATENCY AVG(us)", "MAX(us)", "P50(us)", "P95(us)", "P99(us)");
   } else {
     if (FLAGS_enable_monitor_vector_performance_info) {
       return fmt::format(
-          "{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>16}{:>16}{:>16}{:>16}{:>16}{:>16}{:>"
-          "16}{:>16}{:>16}",
+          "{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>12}{:>12}{:>12}{:>12}{:>12}{:>16}{:>20}{:>20}{:>20}{:>20}{:>20}{:>20}{:>"
+          "20}{:>20}{:>20}",
           "EPOCH", "REQ_NUM", "ERRORS", "QPS", "MB/s", "LATENCY AVG(us)", "MAX(us)", "MIN(us)", "P50(us)", "P95(us)",
           "P99(us)", "RECALL AVG(%)", "INDEX_1_CPU(%)", "INDEX_1_MEMORY(GB)", "INDEX_1_DISK(%)", "INDEX_2_CPU(%)",
           "INDEX_2_MEMORY(GB)", "INDEX_2_DISK(%)", "INDEX_3_CPU(%)", "INDEX_3_MEMORY(GB)", "INDEX_3_DISK(%)");
     }
-    return fmt::format("{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>8}{:>8}{:>8}{:>8}{:>16}", "EPOCH", "REQ_NUM", "ERRORS", "QPS",
-                       "MB/s", "LATENCY AVG(us)", "MAX(us)", "P50(us)", "P95(us)", "P99(us)", "RECALL AVG(%)");
+    return fmt::format("{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>12}{:>12}{:>12}{:>12}{:>16}", "EPOCH", "REQ_NUM", "ERRORS",
+                       "QPS", "MB/s", "LATENCY AVG(us)", "MAX(us)", "P50(us)", "P95(us)", "P99(us)", "RECALL AVG(%)");
   }
 }
 
@@ -916,17 +916,17 @@ void Benchmark::Report(bool is_cumulative, size_t milliseconds) {
   if (FLAGS_enable_monitor_vector_performance_info) {
     // monitor cpu memory disk usage
     std::vector<int64_t> store_ids;
-    store_ids.push_back(FLAGS_default_index_port_1);
-    store_ids.push_back(FLAGS_default_index_port_2);
-    store_ids.push_back(FLAGS_default_index_port_3);
+    store_ids.push_back(FLAGS_index_store_id_1);
+    store_ids.push_back(FLAGS_index_store_id_2);
+    store_ids.push_back(FLAGS_index_store_id_3);
 
     sdk::Status s = client_->GetStoreOwnMetrics(store_ids, store_id_to_store_own_metrics);
     if (!s.ok()) {
       std::cerr << fmt::format("Get store own metrics failed, status: {}", s.ToString()) << '\n';
       store_id_to_store_own_metrics.clear();
-      store_id_to_store_own_metrics[FLAGS_default_index_port_1] = sdk::StoreOwnMetics();
-      store_id_to_store_own_metrics[FLAGS_default_index_port_2] = sdk::StoreOwnMetics();
-      store_id_to_store_own_metrics[FLAGS_default_index_port_3] = sdk::StoreOwnMetics();
+      store_id_to_store_own_metrics[FLAGS_index_store_id_1] = sdk::StoreOwnMetics();
+      store_id_to_store_own_metrics[FLAGS_index_store_id_2] = sdk::StoreOwnMetics();
+      store_id_to_store_own_metrics[FLAGS_index_store_id_3] = sdk::StoreOwnMetics();
     }
   }
 
