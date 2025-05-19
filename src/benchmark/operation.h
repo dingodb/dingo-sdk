@@ -19,14 +19,19 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
-#include <mutex>
 
 #include "benchmark/dataset.h"
 #include "dingosdk/client.h"
 #include "dingosdk/status.h"
 #include "dingosdk/vector.h"
+#include "gflags/gflags_declare.h"
+#include "glog/logging.h"
+
+DECLARE_bool(enable_dump_vector_search_result);
+DECLARE_uint32(dump_vector_search_result_count);
 
 namespace dingodb {
 namespace benchmark {
@@ -244,7 +249,7 @@ class VectorFillRandomOperation : public BaseOperation {
 
 class VectorSearchOperation : public BaseOperation {
  public:
-  VectorSearchOperation(std::shared_ptr<sdk::Client> client) : BaseOperation(client) {  ready_report.store(false);}
+  VectorSearchOperation(std::shared_ptr<sdk::Client> client) : BaseOperation(client) { ready_report.store(false); }
   ~VectorSearchOperation() override = default;
 
   bool Arrange(VectorIndexEntryPtr entry, DatasetPtr dataset) override;
@@ -260,13 +265,16 @@ class VectorSearchOperation : public BaseOperation {
 
   // for diskann
   bool PrepareForDiskANNBeforeVectorSearch(VectorIndexEntryPtr entry);
-  bool already_prepare_for_diskann_ {false};
+  bool already_prepare_for_diskann_{false};
   std::mutex mutex_;
+  std::atomic<int64_t> dump_vector_count_{FLAGS_dump_vector_search_result_count};
 };
 
 class VectorQueryOperation : public VectorSearchOperation {
  public:
-  VectorQueryOperation(std::shared_ptr<sdk::Client> client) : VectorSearchOperation(client) {ready_report.store(true);}
+  VectorQueryOperation(std::shared_ptr<sdk::Client> client) : VectorSearchOperation(client) {
+    ready_report.store(true);
+  }
   ~VectorQueryOperation() override = default;
 
   Result Execute(VectorIndexEntryPtr entry) override;
