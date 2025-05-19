@@ -95,6 +95,8 @@ std::shared_ptr<Dataset> Dataset::New(std::string filepath) {
     return std::make_shared<MiraclDataset>(filepath);
   } else if (filepath.find("laion") != std::string::npos) {
     return std::make_shared<LaionDataset>(filepath);
+  } else if (filepath.find("embeddings") != std::string::npos) {
+    return std::make_shared<EmbeddingsDataset>(filepath);
   } else if (filepath.find("bioasq_medium") != std::string::npos) {
     return std::make_shared<BioasqMediumDataset>(filepath);
   } else if (filepath.find("openai_large") != std::string::npos) {
