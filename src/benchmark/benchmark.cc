@@ -24,7 +24,6 @@
 #include <ostream>
 #include <string>
 #include <thread>
-#include <utility>
 #include <vector>
 
 #include "benchmark/color.h"
@@ -38,6 +37,7 @@
 #include "sdk/common/helper.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "util.h"
+#include "dingosdk/metric.h"
 
 DEFINE_string(coordinator_addrs, "file://./coor_list", "coordinator addrs");
 DEFINE_bool(show_version, false, "Show dingo-store version info");

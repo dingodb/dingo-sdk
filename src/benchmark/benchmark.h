@@ -28,8 +28,7 @@
 #include "bvar/latency_recorder.h"
 #include "dingosdk/client.h"
 #include "sdk/client_stub.h"
-#include "sdk/common/common.h"
-
+#include "dingosdk/metric.h"
 namespace dingodb {
 namespace benchmark {
 
