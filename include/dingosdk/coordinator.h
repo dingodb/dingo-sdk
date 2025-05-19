@@ -17,11 +17,9 @@
 
 #include <cstdint>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "dingosdk/status.h"
-#include "sdk/common/common.h"
 
 namespace dingodb {
 namespace sdk {

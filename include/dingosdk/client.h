@@ -23,6 +23,7 @@
 #include "dingosdk/document.h"
 #include "dingosdk/status.h"
 #include "dingosdk/vector.h"
+#include "dingosdk/metric.h"
 
 namespace dingodb {
 namespace sdk {
