@@ -37,7 +37,6 @@
 #include "sdk/common/helper.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "util.h"
-#include "dingosdk/metric.h"
 
 DEFINE_string(coordinator_addrs, "file://./coor_list", "coordinator addrs");
 DEFINE_bool(show_version, false, "Show dingo-store version info");
@@ -235,27 +234,27 @@ void Stats::Report(bool is_cumulative, size_t milliseconds,
               << '\n';
   } else {
     if (FLAGS_enable_monitor_vector_performance_info) {
-      std::cout
-          << fmt::format(
-                 "{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>12}{:>12}{:>12}{:>12}{:>12}{:>16.2f}{:>20}{:>20}{:>20.2f}{:>20}"
-                 "{:>20}{:>20.2f}{:>20}{:>20}{:>20.2f}",
-                 epoch_, req_num_, error_count_, (req_num_ / seconds), (write_bytes_ / seconds / 1048576),
-                 latency_recorder_->latency(), latency_recorder_->max_latency(), latency_min_,
-                 latency_recorder_->latency_percentile(0.5), latency_recorder_->latency_percentile(0.95),
-                 latency_recorder_->latency_percentile(0.99), recall_recorder_->latency() / 100.0,
-                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_1).system_cpu_usage,
-                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_1).process_used_memory / 1024 / 1024,
-                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_1).system_capacity_usage,
-                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_2).system_cpu_usage,
-                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_2).process_used_memory / 1024 / 1024,
-                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_2).system_capacity_usage,
-                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_3).system_cpu_usage,
-                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_3).process_used_memory / 1024 / 1024,
-                 store_id_to_store_own_metrics.at(FLAGS_index_store_id_3).system_capacity_usage)
-          << '\n';
+      std::cout << fmt::format(
+                       "{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>12}{:>12}{:>12}{:>12}{:>12}{:>16.2f}{:>20}{:>20}{:>20."
+                       "2f}{:>20}"
+                       "{:>20}{:>20.2f}{:>20}{:>20}{:>20.2f}",
+                       epoch_, req_num_, error_count_, (req_num_ / seconds), (write_bytes_ / seconds / 1048576),
+                       latency_recorder_->latency(), latency_recorder_->max_latency(), latency_min_,
+                       latency_recorder_->latency_percentile(0.5), latency_recorder_->latency_percentile(0.95),
+                       latency_recorder_->latency_percentile(0.99), recall_recorder_->latency() / 100.0,
+                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_1).system_cpu_usage,
+                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_1).process_used_memory / 1024 / 1024,
+                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_1).system_capacity_usage,
+                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_2).system_cpu_usage,
+                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_2).process_used_memory / 1024 / 1024,
+                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_2).system_capacity_usage,
+                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_3).system_cpu_usage,
+                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_3).process_used_memory / 1024 / 1024,
+                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_3).system_capacity_usage)
+                << '\n';
     } else {
-      std::cout << fmt::format("{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>12}{:>12}{:>12}{:>12}{:>16.2f}", epoch_, req_num_,
-                               error_count_, (req_num_ / seconds), (write_bytes_ / seconds / 1048576),
+      std::cout << fmt::format("{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>12}{:>12}{:>12}{:>12}{:>16.2f}", epoch_,
+                               req_num_, error_count_, (req_num_ / seconds), (write_bytes_ / seconds / 1048576),
                                latency_recorder_->latency(), latency_recorder_->max_latency(),
                                latency_recorder_->latency_percentile(0.5), latency_recorder_->latency_percentile(0.95),
                                latency_recorder_->latency_percentile(0.99), recall_recorder_->latency() / 100.0)
@@ -486,9 +485,62 @@ bool Benchmark::ArrangeData() {
   for (auto& region_entry : region_entries_) {
     operation_->Arrange(region_entry);
   }
+  // monitor cpu memoory disk usage before put data
+  if (FLAGS_enable_monitor_vector_performance_info) {
+    std::map<std::int64_t, sdk::StoreOwnMetics> store_id_to_store_own_metrics;
+    std::vector<int64_t> store_ids;
+    store_ids.push_back(FLAGS_index_store_id_1);
+    store_ids.push_back(FLAGS_index_store_id_2);
+    store_ids.push_back(FLAGS_index_store_id_3);
+
+    sdk::Status s = client_->GetStoreOwnMetrics(store_ids, store_id_to_store_own_metrics);
+    if (!s.ok()) {
+      std::cerr << fmt::format("Get store own metrics failed, status: {}", s.ToString()) << '\n';
+      store_id_to_store_own_metrics.clear();
+      store_id_to_store_own_metrics[FLAGS_index_store_id_1] = sdk::StoreOwnMetics();
+      store_id_to_store_own_metrics[FLAGS_index_store_id_2] = sdk::StoreOwnMetics();
+      store_id_to_store_own_metrics[FLAGS_index_store_id_3] = sdk::StoreOwnMetics();
+    }
+    int index = 0;
+    std::cout << "Monitor performance before put data \n";
+    for (const auto& store_id_to_store_own_metric : store_id_to_store_own_metrics) {
+      std::cout << fmt::format("INDEX_{} :  cpu_usage : {}%  memory_usage : {}GB  disk_usage : {}%", ++index,
+                               store_id_to_store_own_metric.second.system_cpu_usage,
+                               store_id_to_store_own_metric.second.process_used_memory / 1024 / 1024,
+                               store_id_to_store_own_metric.second.system_capacity_usage)
+                << "\n";
+    }
+  }
 
   for (auto& vector_index_entry : vector_index_entries_) {
     operation_->Arrange(vector_index_entry, dataset_);
+  }
+
+  // monitor cpu memoory disk usage after put data
+  if (FLAGS_enable_monitor_vector_performance_info) {
+    std::map<std::int64_t, sdk::StoreOwnMetics> store_id_to_store_own_metrics;
+    std::vector<int64_t> store_ids;
+    store_ids.push_back(FLAGS_index_store_id_1);
+    store_ids.push_back(FLAGS_index_store_id_2);
+    store_ids.push_back(FLAGS_index_store_id_3);
+
+    sdk::Status s = client_->GetStoreOwnMetrics(store_ids, store_id_to_store_own_metrics);
+    if (!s.ok()) {
+      std::cerr << fmt::format("Get store own metrics failed, status: {}", s.ToString()) << '\n';
+      store_id_to_store_own_metrics.clear();
+      store_id_to_store_own_metrics[FLAGS_index_store_id_1] = sdk::StoreOwnMetics();
+      store_id_to_store_own_metrics[FLAGS_index_store_id_2] = sdk::StoreOwnMetics();
+      store_id_to_store_own_metrics[FLAGS_index_store_id_3] = sdk::StoreOwnMetics();
+    }
+    int index = 0;
+    std::cout << "Monitor performance after put data \n";
+    for (const auto& store_id_to_store_own_metric : store_id_to_store_own_metrics) {
+      std::cout << fmt::format("INDEX_{} :  cpu_usage : {}%  memory_usage : {}GB  disk_usage : {}%", ++index,
+                               store_id_to_store_own_metric.second.system_cpu_usage,
+                               store_id_to_store_own_metric.second.process_used_memory / 1024 / 1024,
+                               store_id_to_store_own_metric.second.system_capacity_usage)
+                << "\n";
+    }
   }
 
   return true;

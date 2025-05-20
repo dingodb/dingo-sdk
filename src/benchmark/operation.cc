@@ -1058,17 +1058,27 @@ bool VectorSearchOperation::ArrangeAutoData(VectorIndexEntryPtr entry) {
     thread.join();
   }
 
-  if (FLAGS_enable_monitor_vector_performance_info) {
-    std::cout << '\r'
-              << fmt::format("put all vector data elapsed time: {} s",
-                             dingodb::benchmark::Timestamp() - monitor_interval)
-              << '\n';
-  }
-
   std::cout << "\r"
             << fmt::format("vector index({}) put data success({}) fail({}) .................. done", entry->index_id,
                            count.load(), fail_count.load())
             << '\n';
+
+  if (FLAGS_enable_monitor_vector_performance_info) {
+    std::string monitor_elapsed_time;
+    int total_seconds = static_cast<int>(dingodb::benchmark::Timestamp() - monitor_interval);
+    int hours = total_seconds / 3600;
+    int minutes = (total_seconds % 3600) / 60;
+    int secs = total_seconds % 60;
+
+    if (hours > 0) {
+      monitor_elapsed_time += fmt::format("{}h ", hours);
+    }
+    if (minutes > 0 || hours > 0) {
+      monitor_elapsed_time += fmt::format("{}min ", minutes);
+    }
+    monitor_elapsed_time += fmt::format("{}s", secs);
+    std::cout << '\r' << fmt::format("put all vector data elapsed time: {} ", monitor_elapsed_time) << '\n';
+  }
 
   return true;
 }
@@ -1146,10 +1156,20 @@ bool VectorSearchOperation::ArrangeManualData(VectorIndexEntryPtr entry, Dataset
   }
 
   if (FLAGS_enable_monitor_vector_performance_info) {
-    std::cout << '\r'
-              << fmt::format("put all vector data elapsed time: {} s",
-                             dingodb::benchmark::Timestamp() - monitor_interval)
-              << '\n';
+    std::string monitor_elapsed_time;
+    int total_seconds = static_cast<int>(dingodb::benchmark::Timestamp() - monitor_interval);
+    int hours = total_seconds / 3600;
+    int minutes = (total_seconds % 3600) / 60;
+    int secs = total_seconds % 60;
+
+    if (hours > 0) {
+      monitor_elapsed_time += fmt::format("{}h ", hours);
+    }
+    if (minutes > 0 || hours > 0) {
+      monitor_elapsed_time += fmt::format("{}min ", minutes);
+    }
+    monitor_elapsed_time += fmt::format("{}s", secs);
+    std::cout << '\r' << fmt::format("put all vector data elapsed time: {} ", monitor_elapsed_time) << '\n';
   }
 
   std::cout << "\r"
@@ -1157,6 +1177,22 @@ bool VectorSearchOperation::ArrangeManualData(VectorIndexEntryPtr entry, Dataset
                            count.load(), fail_count.load())
             << '\n';
 
+  if (FLAGS_enable_monitor_vector_performance_info) {
+    std::string monitor_elapsed_time;
+    int total_seconds = static_cast<int>(dingodb::benchmark::Timestamp() - monitor_interval);
+    int hours = total_seconds / 3600;
+    int minutes = (total_seconds % 3600) / 60;
+    int secs = total_seconds % 60;
+
+    if (hours > 0) {
+      monitor_elapsed_time += fmt::format("{}h ", hours);
+    }
+    if (minutes > 0 || hours > 0) {
+      monitor_elapsed_time += fmt::format("{}min ", minutes);
+    }
+    monitor_elapsed_time += fmt::format("{}s", secs);
+    std::cout << '\r' << fmt::format("put all vector data elapsed time: {} ", monitor_elapsed_time) << '\n';
+  }
   return true;
 }
 
