@@ -9,6 +9,7 @@
 #include "sdk/client_stub.h"
 #include "sdk/rpc/index_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+#include "sdk/utils/rw_lock.h"
 #include "sdk/vector/vector_index.h"
 #include "sdk/vector/vector_task.h"
 
@@ -37,7 +38,7 @@ class VectorImportAddTask : public VectorTask {
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<VectorImportRpc>> rpcs_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::unordered_map<int64_t, int64_t> vector_id_to_idx_;
   Status status_;
 
@@ -67,7 +68,7 @@ class VectorImportDeleteTask : public VectorTask {
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<VectorImportRpc>> rpcs_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::set<int64_t> next_vector_ids_;
   Status status_;
 

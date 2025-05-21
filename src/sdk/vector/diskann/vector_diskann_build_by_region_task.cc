@@ -8,12 +8,12 @@
 #include <vector>
 
 #include "common/logging.h"
+#include "dingosdk/status.h"
+#include "dingosdk/vector.h"
 #include "glog/logging.h"
 #include "proto/error.pb.h"
 #include "sdk/common/common.h"
 #include "sdk/region.h"
-#include "dingosdk/status.h"
-#include "dingosdk/vector.h"
 #include "sdk/vector/vector_index.h"
 
 namespace dingodb {
@@ -34,7 +34,7 @@ Status VectorBuildByRegionTask ::Init() {
     return Status::InvalidArgument("region_ids is empty");
   }
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
 
   for (const auto& id : region_id_) {
     if (!region_ids_.insert(id).second) {
@@ -48,7 +48,7 @@ Status VectorBuildByRegionTask ::Init() {
 void VectorBuildByRegionTask::DoAsync() {
   std::set<int64_t> region_ids;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     status_ = Status::OK();
     region_ids = region_ids_;
   }
@@ -85,7 +85,7 @@ void VectorBuildByRegionTask::DoAsync() {
   }
 
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     result_.region_status = tmp_result.region_status;
   }
 
@@ -121,7 +121,7 @@ void VectorBuildByRegionTask::VectorBuildByRegionRpcCallback(const Status& statu
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (pb::error::Errno::EDISKANN_IS_NO_DATA != status.Errno()) {
       RegionStatus region_status;
       region_status.region_id = rpc->Request()->context().region_id();
@@ -131,7 +131,7 @@ void VectorBuildByRegionTask::VectorBuildByRegionRpcCallback(const Status& statu
       region_ids_.erase(rpc->Request()->context().region_id());
     }
   } else {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     region_ids_.erase(rpc->Request()->context().region_id());
   }
 

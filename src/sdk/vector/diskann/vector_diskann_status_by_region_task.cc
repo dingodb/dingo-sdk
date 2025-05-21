@@ -36,7 +36,7 @@ Status VectorStatusByRegionTask ::Init() {
   std::set<int64_t> tmp_region_ids;
 
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
 
     for (const auto& id : region_id_) {
       if (!region_ids_.insert(id).second) {
@@ -69,7 +69,7 @@ Status VectorStatusByRegionTask ::Init() {
 void VectorStatusByRegionTask::DoAsync() {
   std::set<int64_t> region_ids;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     status_ = Status::OK();
     region_ids = region_ids_;
   }
@@ -126,13 +126,13 @@ void VectorStatusByRegionTask::VectorStatusByRegionRpcCallback(const Status& sta
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       status_ = status;
     }
 
   } else {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     region_ids_.erase(rpc->Request()->context().region_id());
 
     RegionState region_states;
@@ -144,7 +144,7 @@ void VectorStatusByRegionTask::VectorStatusByRegionRpcCallback(const Status& sta
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);

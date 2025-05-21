@@ -25,6 +25,7 @@
 #include "sdk/client_stub.h"
 #include "sdk/rpc/index_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+#include "sdk/utils/rw_lock.h"
 #include "sdk/vector/vector_task.h"
 
 namespace dingodb {
@@ -69,7 +70,7 @@ class VectorGetIndexMetricsTask : public VectorTask {
 
   std::shared_ptr<VectorIndex> vector_index_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::set<int64_t> next_part_ids_;
   Status status_;
   IndexMetricsResult tmp_result_;
@@ -85,7 +86,7 @@ class VectorGetIndexMetricsPartTask : public VectorTask {
   ~VectorGetIndexMetricsPartTask() override = default;
 
   IndexMetricsResult GetResult() {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
     IndexMetricsResult to_return = CreateIndexMetricsResult();
     to_return.index_type = vector_index_->GetVectorIndexType();
     for (auto& [region_id, metrics] : region_id_to_metrics_) {
@@ -112,7 +113,7 @@ class VectorGetIndexMetricsPartTask : public VectorTask {
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<VectorGetRegionMetricsRpc>> rpcs_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   Status status_;
   std::unordered_map<int64_t, IndexMetricsResult> region_id_to_metrics_;
 

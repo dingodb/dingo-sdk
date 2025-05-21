@@ -24,6 +24,7 @@
 #include "sdk/client_stub.h"
 #include "sdk/rpc/index_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+#include "sdk/utils/rw_lock.h"
 #include "sdk/vector/vector_index.h"
 #include "sdk/vector/vector_task.h"
 
@@ -65,7 +66,7 @@ class VectorSearchTask : public VectorTask {
 
   std::shared_ptr<VectorIndex> vector_index_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::set<int64_t> next_part_ids_;
   Status status_;
 
@@ -86,7 +87,7 @@ class VectorSearchPartTask : public VectorTask {
   ~VectorSearchPartTask() override = default;
 
   std::unordered_map<int64_t, std::vector<VectorWithDistance>>& GetSearchResult() {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
     return search_result_;
   }
 
@@ -125,7 +126,7 @@ class VectorSearchPartTask : public VectorTask {
   std::vector<std::unique_ptr<VectorSearchRpc>> nodata_rpcs_;
   std::vector<StoreRpcController> nodata_controllers_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   Status status_;
   std::vector<std::shared_ptr<Region>> regions_;
   std::unordered_map<int64_t, int32_t> region_id_to_region_index_;

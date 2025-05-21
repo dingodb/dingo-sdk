@@ -23,7 +23,7 @@ namespace dingodb {
 namespace sdk {
 
 Status DocumentBatchQueryTask::Init() {
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
 
   for (long id : query_param_.doc_ids) {
     if (id <= 0) {
@@ -46,7 +46,7 @@ Status DocumentBatchQueryTask::Init() {
 void DocumentBatchQueryTask::DoAsync() {
   std::set<int64_t> next_batch;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_batch = doc_ids_;
     status_ = Status::OK();
   }
@@ -129,7 +129,7 @@ void DocumentBatchQueryTask::DocumentBatchQueryRpcCallback(const Status& status,
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
@@ -140,7 +140,7 @@ void DocumentBatchQueryTask::DocumentBatchQueryRpcCallback(const Status& status,
         << " response vectors_size: " << rpc->Response()->doucments_size()
         << " request: " << rpc->Request()->DebugString() << " response: " << rpc->Response()->DebugString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     for (const auto& doc_pb : rpc->Response()->doucments()) {
       if (doc_pb.id() > 0) {
         out_result_.docs.emplace_back(DocumentTranslater::InternalDocumentWithIdPB2DocWithId(doc_pb));
@@ -155,7 +155,7 @@ void DocumentBatchQueryTask::DocumentBatchQueryRpcCallback(const Status& status,
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);

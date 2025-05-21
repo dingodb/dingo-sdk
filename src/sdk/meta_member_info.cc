@@ -27,7 +27,7 @@ EndPoint MetaMemberInfo::PickNextLeader() {
   EndPoint leader;
 
   {
-    std::shared_lock lock(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
 
     if (leader_.IsValid()) {
       leader = leader_;
@@ -42,7 +42,8 @@ EndPoint MetaMemberInfo::PickNextLeader() {
 
 void MetaMemberInfo::MarkLeader(const EndPoint& end_point) {
   CHECK(end_point.IsValid()) << "end_point is invalid: " << end_point.ToString();
-  std::unique_lock lock(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
+
   leader_ = end_point;
 
   auto it = std::find(members_.begin(), members_.end(), end_point);
@@ -53,7 +54,8 @@ void MetaMemberInfo::MarkLeader(const EndPoint& end_point) {
 
 void MetaMemberInfo::MarkFollower(const EndPoint& end_point) {
   CHECK(end_point.IsValid()) << "end_point is invalid: " << end_point.ToString();
-  std::unique_lock lock(rw_lock_);
+
+  WriteLockGuard guard(rw_lock_);
   if (leader_ == end_point) {
     leader_.ReSet();
   }
@@ -65,12 +67,12 @@ void MetaMemberInfo::MarkFollower(const EndPoint& end_point) {
 }
 
 void MetaMemberInfo::SetMembers(std::vector<EndPoint> members) {
-  std::unique_lock lock(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   members_ = std::move(members);
 }
 
-std::vector<EndPoint> MetaMemberInfo::GetMembers() const {
-  std::shared_lock lock(rw_lock_);
+std::vector<EndPoint> MetaMemberInfo::GetMembers() {
+  ReadLockGuard guard(rw_lock_);
   return members_;
 }
 

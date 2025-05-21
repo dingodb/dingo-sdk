@@ -12,6 +12,7 @@
 #include "sdk/client_stub.h"
 #include "sdk/rpc/index_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+#include "sdk/utils/rw_lock.h"
 #include "sdk/vector/vector_index.h"
 #include "sdk/vector/vector_task.h"
 
@@ -39,7 +40,7 @@ class VectorStatusByIndexTask : public VectorTask {
 
   std::shared_ptr<VectorIndex> vector_index_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::set<int64_t> next_part_ids_;
   Status status_;
 
@@ -75,7 +76,7 @@ class VectorStatusPartTask : public VectorTask {
   std::vector<std::unique_ptr<VectorStatusRpc>> rpcs_;
   StateResult result_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   Status status_;
 
   std::atomic<int> sub_tasks_count_{0};

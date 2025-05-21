@@ -110,7 +110,7 @@ TEST_F(SDKTxnImplTest, Get) {
     cb();
   });
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   Status tmp = txn->Get("b", value);
   EXPECT_TRUE(tmp.ok());
@@ -131,7 +131,7 @@ TEST_F(SDKTxnImplTest, SingleOP) {
     cb();
   });
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   {
     std::string value;
@@ -215,7 +215,7 @@ TEST_F(SDKTxnImplTest, BatchGet) {
     cb();
   });
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   std::vector<KVPair> kvs;
   Status tmp = txn->BatchGet(keys, kvs);
@@ -236,7 +236,7 @@ TEST_F(SDKTxnImplTest, BatchGetFromBuffer) {
 
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   txn->BatchPut(kvs);
 
@@ -271,7 +271,7 @@ TEST_F(SDKTxnImplTest, BatchOp) {
 
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   {
     txn->BatchPut(kvs);
@@ -308,20 +308,20 @@ TEST_F(SDKTxnImplTest, CommitEmpty) {
 
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kPreCommitted);
+  EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
   s = txn->Commit();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kCommitted);
+  EXPECT_EQ(txn->TEST_IsCommittedState(), true);
 }
 
 TEST_F(SDKTxnImplTest, CommitWithData) {
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   {
     txn->Put("a", "a");
@@ -377,17 +377,17 @@ TEST_F(SDKTxnImplTest, CommitWithData) {
 
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kPreCommitted);
+  EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
 
   s = txn->Commit();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kCommitted);
+  EXPECT_EQ(txn->TEST_IsCommittedState(), true);
 }
 
 TEST_F(SDKTxnImplTest, PrimaryKeyLockConflict) {
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   {
     txn->Put("a", "a");
@@ -455,17 +455,17 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflict) {
 
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kPreCommitted);
+  EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
 
   s = txn->Commit();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kCommitted);
+  EXPECT_EQ(txn->TEST_IsCommittedState(), true);
 }
 
 TEST_F(SDKTxnImplTest, PrimaryKeyLockConflictExceed) {
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   {
     txn->Put("a", "a");
@@ -511,13 +511,13 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflictExceed) {
 
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.IsTxnLockConflict());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kPreCommitting);
+  EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
 }
 
 TEST_F(SDKTxnImplTest, PrimaryKeyWriteLockConfict) {
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   {
     txn->Put("a", "a");
@@ -560,13 +560,13 @@ TEST_F(SDKTxnImplTest, PrimaryKeyWriteLockConfict) {
 
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.IsTxnWriteConflict());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kPreCommitting);
+  EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
 }
 
 TEST_F(SDKTxnImplTest, PreWriteSecondLockConflict) {
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   {
     txn->Put("a", "a");
@@ -622,13 +622,13 @@ TEST_F(SDKTxnImplTest, PreWriteSecondLockConflict) {
 
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.IsTxnLockConflict());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kPreCommitting);
+  EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
 }
 
 TEST_F(SDKTxnImplTest, PreWriteSecondWriteConflict) {
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   {
     txn->Put("a", "a");
@@ -689,13 +689,13 @@ TEST_F(SDKTxnImplTest, PreWriteSecondWriteConflict) {
 
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.IsTxnWriteConflict());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kPreCommitting);
+  EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
 }
 
 TEST_F(SDKTxnImplTest, CommitPrimaryKeyMeetRollback) {
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   {
     txn->Put("a", "a");
@@ -744,17 +744,17 @@ TEST_F(SDKTxnImplTest, CommitPrimaryKeyMeetRollback) {
 
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kPreCommitted);
+  EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
 
   s = txn->Commit();
   EXPECT_TRUE(s.IsTxnRolledBack());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kRollbackted);
+  EXPECT_EQ(txn->TEST_IsRollbacktedState(), true);
 }
 
 TEST_F(SDKTxnImplTest, CommitSencondError) {
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   {
     txn->Put("a", "a");
@@ -796,17 +796,17 @@ TEST_F(SDKTxnImplTest, CommitSencondError) {
 
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kPreCommitted);
+  EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
 
   s = txn->Commit();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kCommitted);
+  EXPECT_EQ(txn->TEST_IsCommittedState(), true);
 }
 
 TEST_F(SDKTxnImplTest, PreCommitFailThenRollback) {
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   {
     txn->Put("a", "a");
@@ -861,17 +861,17 @@ TEST_F(SDKTxnImplTest, PreCommitFailThenRollback) {
 
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.IsTxnWriteConflict());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kPreCommitting);
+  EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
 
   s = txn->Rollback();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kRollbackted);
+  EXPECT_EQ(txn->TEST_IsRollbacktedState(), true);
 }
 
 TEST_F(SDKTxnImplTest, RollbackPrimaryKeyFail) {
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   {
     txn->Put("a", "a");
@@ -933,17 +933,17 @@ TEST_F(SDKTxnImplTest, RollbackPrimaryKeyFail) {
 
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.IsTxnWriteConflict());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kPreCommitting);
+  EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
 
   s = txn->Rollback();
   EXPECT_TRUE(s.IsTxnLockConflict());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kRollbacking);
+  EXPECT_EQ(txn->TEST_IsRollbackingState(), true);
 }
 
 TEST_F(SDKTxnImplTest, RollbackSecondKeysFail) {
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kActive);
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
   {
     txn->Put("a", "a");
@@ -1008,11 +1008,11 @@ TEST_F(SDKTxnImplTest, RollbackSecondKeysFail) {
 
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.IsTxnWriteConflict());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kPreCommitting);
+  EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
 
   s = txn->Rollback();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_GetTransactionState(), TxnImpl::State::kRollbackted);
+  EXPECT_EQ(txn->TEST_IsRollbacktedState(), true);
 }
 
 }  // namespace sdk

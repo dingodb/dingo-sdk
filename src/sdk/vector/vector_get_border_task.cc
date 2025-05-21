@@ -16,9 +16,9 @@
 
 #include <cstdint>
 
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "sdk/common/common.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/scoped_cleanup.h"
 
 namespace dingodb {
@@ -30,7 +30,7 @@ Status VectorGetBorderTask::Init() {
   DCHECK_NOTNULL(tmp);
   vector_index_ = std::move(tmp);
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   auto part_ids = vector_index_->GetPartitionIds();
 
   for (const auto& part_id : part_ids) {
@@ -43,7 +43,7 @@ Status VectorGetBorderTask::Init() {
 void VectorGetBorderTask::DoAsync() {
   std::set<int64_t> next_part_ids;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_part_ids = next_part_ids_;
     status_ = Status::OK();
   }
@@ -67,13 +67,13 @@ void VectorGetBorderTask::SubTaskCallback(Status status, VectorGetBorderPartTask
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "sub_task: " << sub_task->Name() << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     int64_t result_vecotr_id = sub_task->GetResult();
     target_vector_id_ =
         is_max_ ? std::max(target_vector_id_, result_vecotr_id) : std::min(target_vector_id_, result_vecotr_id);
@@ -84,7 +84,7 @@ void VectorGetBorderTask::SubTaskCallback(Status status, VectorGetBorderPartTask
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
       if (tmp.ok()) {
         out_vector_id_ = target_vector_id_;
@@ -105,7 +105,7 @@ void VectorGetBorderPartTask::DoAsync() {
   }
 
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     result_vector_id_ = is_max_ ? -1 : INT64_MAX;
     status_ = Status::OK();
   }
@@ -142,7 +142,7 @@ void VectorGetBorderPartTask::VectorGetBorderIdRpcCallback(const Status& status,
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
@@ -150,7 +150,7 @@ void VectorGetBorderPartTask::VectorGetBorderIdRpcCallback(const Status& status,
   } else {
     int64_t vector_id = rpc->Response()->id();
     if (vector_id > 0) {
-      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      WriteLockGuard guard(rw_lock_);
       result_vector_id_ = is_max_ ? std::max(result_vector_id_, vector_id) : std::min(result_vector_id_, vector_id);
     }
   }
@@ -158,7 +158,7 @@ void VectorGetBorderPartTask::VectorGetBorderIdRpcCallback(const Status& status,
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);

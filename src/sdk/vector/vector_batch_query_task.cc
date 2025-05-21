@@ -28,7 +28,7 @@ Status VectorBatchQueryTask::Init() {
   DCHECK_NOTNULL(tmp);
   vector_index_ = std::move(tmp);
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   for (long id : query_param_.vector_ids) {
     if (!vector_ids_.insert(id).second) {
       return Status::InvalidArgument("duplicate vector id: " + std::to_string(id));
@@ -41,7 +41,7 @@ Status VectorBatchQueryTask::Init() {
 void VectorBatchQueryTask::DoAsync() {
   std::set<int64_t> next_batch;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_batch = vector_ids_;
     status_ = Status::OK();
   }
@@ -127,7 +127,7 @@ void VectorBatchQueryTask::VectorBatchQueryRpcCallback(const Status& status, Vec
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
@@ -138,7 +138,7 @@ void VectorBatchQueryTask::VectorBatchQueryRpcCallback(const Status& status, Vec
         << " response vectors_size: " << rpc->Response()->vectors_size()
         << " request: " << rpc->Request()->DebugString() << " response: " << rpc->Response()->DebugString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     for (const auto& vectorid_pb : rpc->Response()->vectors()) {
       if (vectorid_pb.id() > 0) {
         out_result_.vectors.emplace_back(InternalVectorIdPB2VectorWithId(vectorid_pb));
@@ -153,7 +153,7 @@ void VectorBatchQueryTask::VectorBatchQueryRpcCallback(const Status& status, Vec
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);

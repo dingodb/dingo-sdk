@@ -3,10 +3,10 @@
 
 #include <cstdint>
 
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "sdk/common/common.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/scoped_cleanup.h"
 
 namespace dingodb {
@@ -22,7 +22,7 @@ Status VectorCountMemoryByIndexTask::Init() {
   if (vector_index_->GetVectorIndexType() != VectorIndexType::kDiskAnn) {
     return Status::InvalidArgument("vector_index is not diskann");
   }
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   auto part_ids = vector_index_->GetPartitionIds();
 
   for (const auto& part_id : part_ids) {
@@ -34,7 +34,7 @@ Status VectorCountMemoryByIndexTask::Init() {
 void VectorCountMemoryByIndexTask::DoAsync() {
   std::set<int64_t> next_part_ids;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_part_ids = next_part_ids_;
     status_ = Status::OK();
   }
@@ -54,21 +54,21 @@ void VectorCountMemoryByIndexTask::SubTaskCallback(Status status, VectorCountMem
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "sub_task: " << sub_task->Name() << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
     tmp_count_.fetch_add(sub_task->GetCount());
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_part_ids_.erase(sub_task->part_id_);
   }
 
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
 
@@ -91,7 +91,7 @@ void VectorCountMemoryPartTask::DoAsync() {
   }
 
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     status_ = Status::OK();
   }
 
@@ -126,7 +126,7 @@ void VectorCountMemoryPartTask::VectorCountMemoryRpcCallback(const Status& statu
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
@@ -140,7 +140,7 @@ void VectorCountMemoryPartTask::VectorCountMemoryRpcCallback(const Status& statu
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);

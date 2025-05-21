@@ -32,7 +32,7 @@ DocumentIndexCache::DocumentIndexCache(const ClientStub& stub) : stub_(stub) {}
 
 Status DocumentIndexCache::GetIndexIdByKey(const DocumentIndexCacheKey& index_key, int64_t& index_id) {
   {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
     auto iter = index_key_to_id_.find(index_key);
     if (iter != index_key_to_id_.end()) {
       index_id = iter->second;
@@ -50,7 +50,7 @@ Status DocumentIndexCache::GetIndexIdByKey(const DocumentIndexCacheKey& index_ke
 Status DocumentIndexCache::GetDocumentIndexByKey(const DocumentIndexCacheKey& index_key,
                                                  std::shared_ptr<DocumentIndex>& out_doc_index) {
   {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
     auto iter = index_key_to_id_.find(index_key);
     if (iter != index_key_to_id_.end()) {
       auto index_iter = id_to_index_.find(iter->second);
@@ -65,7 +65,7 @@ Status DocumentIndexCache::GetDocumentIndexByKey(const DocumentIndexCacheKey& in
 
 Status DocumentIndexCache::GetDocumentIndexById(int64_t index_id, std::shared_ptr<DocumentIndex>& out_doc_index) {
   {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
     auto iter = id_to_index_.find(index_id);
     if (iter != id_to_index_.end()) {
       out_doc_index = iter->second;
@@ -77,7 +77,7 @@ Status DocumentIndexCache::GetDocumentIndexById(int64_t index_id, std::shared_pt
 }
 
 void DocumentIndexCache::RemoveDocumentIndexById(int64_t index_id) {
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   auto id_iter = id_to_index_.find(index_id);
   if (id_iter != id_to_index_.end()) {
     auto doc_index = id_iter->second;
@@ -91,7 +91,7 @@ void DocumentIndexCache::RemoveDocumentIndexById(int64_t index_id) {
 }
 
 void DocumentIndexCache::RemoveDocumentIndexByKey(const DocumentIndexCacheKey& index_key) {
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
 
   auto name_iter = index_key_to_id_.find(index_key);
   if (name_iter != index_key_to_id_.end()) {
@@ -147,7 +147,7 @@ Status DocumentIndexCache::ProcessIndexDefinitionWithId(const pb::meta::IndexDef
                                                         std::shared_ptr<DocumentIndex>& out_doc_index) {
   int64_t index_id = index_def_with_id.index_id().entity_id();
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   auto iter = id_to_index_.find(index_id);
   if (iter != id_to_index_.end()) {
     CHECK_EQ(iter->second->GetName(), index_def_with_id.index_definition().name());

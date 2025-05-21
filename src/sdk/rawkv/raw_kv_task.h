@@ -18,6 +18,7 @@
 #include "dingosdk/status.h"
 #include "sdk/client_stub.h"
 #include "sdk/utils/callback.h"
+#include "sdk/utils/rw_lock.h"
 
 namespace dingodb {
 namespace sdk {
@@ -49,7 +50,7 @@ class RawKvTask {
   void FireCallback();
 
   Status status_;
-  mutable std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   StatusCallback call_back_;
   int retry_count_{0};
 };

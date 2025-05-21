@@ -24,6 +24,7 @@
 #include "sdk/document/document_task.h"
 #include "sdk/rpc/document_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+#include "sdk/utils/rw_lock.h"
 
 namespace dingodb {
 namespace sdk {
@@ -51,7 +52,7 @@ class DocumentUpdateTask : public DocumentTask {
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<DocumentAddRpc>> rpcs_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::unordered_map<int64_t, int64_t> doc_id_to_idx_;
   Status status_;
 

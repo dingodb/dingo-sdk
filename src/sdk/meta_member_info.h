@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "sdk/utils/net_util.h"
+#include "sdk/utils/rw_lock.h"
 
 namespace dingodb {
 namespace sdk {
@@ -40,12 +41,12 @@ class MetaMemberInfo {
 
   void MarkFollower(const EndPoint& end_point);
 
-  std::vector<EndPoint> GetMembers() const;
+  std::vector<EndPoint> GetMembers();
 
   void SetMembers(std::vector<EndPoint> members);
 
-  std::string ToString() const {
-    std::shared_lock lock(rw_lock_);
+  std::string ToString() {
+    ReadLockGuard guard(rw_lock_);
 
     std::stringstream ss;
     ss << "leader: " << leader_.ToString() << ", members: [";
@@ -58,7 +59,7 @@ class MetaMemberInfo {
   }
 
  private:
-  mutable std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   EndPoint leader_;
   std::vector<EndPoint> members_;
 

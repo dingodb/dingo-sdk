@@ -15,16 +15,21 @@
 #ifndef DINGODB_SDK_ASYNC_UTIL_H_
 #define DINGODB_SDK_ASYNC_UTIL_H_
 
-#include <glog/logging.h>
-
-#include <condition_variable>
 #include <cstdint>
-#include <mutex>
-#include <thread>
 #include <vector>
 
-#ifndef USE_GRPC
+#include "glog/logging.h"
+
+#ifdef USE_GRPC
+
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+
+#else
+
 #include "bthread/bthread.h"
+
 #endif  // USE_GRPC
 
 #include "dingosdk/status.h"

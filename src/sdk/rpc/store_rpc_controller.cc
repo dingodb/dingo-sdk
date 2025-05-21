@@ -18,7 +18,7 @@
 
 #include "common/logging.h"
 #include "dingosdk/status.h"
-#include "fmt/format.h"
+#include "fmt/core.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "sdk/client_stub.h"

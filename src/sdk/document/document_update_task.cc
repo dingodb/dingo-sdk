@@ -17,13 +17,13 @@
 #include <cstdint>
 #include <unordered_map>
 
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "sdk/auto_increment_manager.h"
 #include "sdk/common/common.h"
 #include "sdk/document/document_helper.h"
 #include "sdk/document/document_index.h"
 #include "sdk/document/document_translater.h"
-#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {
@@ -45,7 +45,7 @@ Status DocumentUpdateTask::Init() {
     }
   }
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   doc_id_to_idx_.clear();
 
   for (int64_t i = 0; i < docs_.size(); i++) {
@@ -61,7 +61,7 @@ Status DocumentUpdateTask::Init() {
 void DocumentUpdateTask::DoAsync() {
   std::unordered_map<int64_t, int64_t> next_batch;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_batch = doc_id_to_idx_;
     status_ = Status::OK();
   }
@@ -135,13 +135,13 @@ void DocumentUpdateTask::DocumentAddRpcCallback(const Status& status, DocumentAd
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     for (const auto& doc : rpc->Request()->documents()) {
       doc_id_to_idx_.erase(doc.id());
     }
@@ -150,7 +150,7 @@ void DocumentUpdateTask::DocumentAddRpcCallback(const Status& status, DocumentAd
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);

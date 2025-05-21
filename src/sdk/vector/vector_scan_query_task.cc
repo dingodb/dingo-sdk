@@ -14,9 +14,9 @@
 
 #include "sdk/vector/vector_scan_query_task.h"
 
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "sdk/common/common.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/scoped_cleanup.h"
 #include "sdk/vector/vector_common.h"
 
@@ -48,7 +48,7 @@ Status VectorScanQueryTask::Init() {
   DCHECK_NOTNULL(tmp);
   vector_index_ = std::move(tmp);
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   auto part_ids = vector_index_->GetPartitionIds();
 
   for (const auto& part_id : part_ids) {
@@ -61,7 +61,7 @@ Status VectorScanQueryTask::Init() {
 void VectorScanQueryTask::DoAsync() {
   std::set<int64_t> next_part_ids;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_part_ids = next_part_ids_;
     status_ = Status::OK();
   }
@@ -85,13 +85,13 @@ void VectorScanQueryTask::SubTaskCallback(Status status, VectorScanQueryPartTask
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "sub_task: " << sub_task->Name() << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     std::vector<VectorWithId> vectors = sub_task->GetResult();
     for (auto& result : vectors) {
       CHECK(vector_ids_.find(result.id) == vector_ids_.end()) << "scan query find duplicate vector id: " << result.id;
@@ -104,7 +104,7 @@ void VectorScanQueryTask::SubTaskCallback(Status status, VectorScanQueryPartTask
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       ConstructResultUnlocked();
       tmp = status_;
     }
@@ -138,7 +138,7 @@ void VectorScanQueryPartTask::DoAsync() {
   }
 
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     result_vectors_.clear();
     status_ = Status::OK();
   }
@@ -202,14 +202,14 @@ void VectorScanQueryPartTask::VectorScanQueryRpcCallback(Status status, VectorSc
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
     {
-      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      WriteLockGuard guard(rw_lock_);
       for (const auto& vectorid_pb : rpc->Response()->vectors()) {
         result_vectors_.emplace_back(InternalVectorIdPB2VectorWithId(vectorid_pb));
       }
@@ -219,7 +219,7 @@ void VectorScanQueryPartTask::VectorScanQueryRpcCallback(Status status, VectorSc
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);

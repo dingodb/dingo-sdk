@@ -14,11 +14,10 @@
 
 #include "dingosdk/coordinator.h"
 
-#include <fmt/core.h>
-
 #include <cstdint>
 #include <vector>
 
+#include "fmt/core.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "sdk/client_stub.h"

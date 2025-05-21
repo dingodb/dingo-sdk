@@ -65,10 +65,9 @@ class TxnRegionScannerImpl : public RegionScanner {
   }
 
  private:
-  std::unique_ptr<TxnScanRpc> PrepareTxnScanRpc();
+  std::unique_ptr<TxnScanRpc> GenTxnScanRpc();
 
-  static bool NeedRetryAndInc(int& times);
-  static void DelayRetry(int64_t delay_ms);
+  static bool IsNeedRetry(int& times);
 
   const TransactionOptions txn_options_;
   int64_t txn_start_ts_;
@@ -86,7 +85,7 @@ class TxnRegionScannerFactoryImpl final : public RegionScannerFactory {
 
   ~TxnRegionScannerFactoryImpl() override;
 
-  Status NewRegionScanner(const ScannerOptions& options, std::shared_ptr<RegionScanner>& scanner) override;
+  Status NewRegionScanner(const ScannerOptions& options, RegionScannerPtr& scanner) override;
 };
 
 }  // namespace sdk

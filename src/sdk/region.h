@@ -17,7 +17,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <shared_mutex>
 #include <vector>
 
 #include "dingosdk/status.h"
@@ -25,6 +24,7 @@
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "sdk/utils/net_util.h"
+#include "sdk/utils/rw_lock.h"
 
 namespace dingodb {
 namespace sdk {
@@ -68,12 +68,13 @@ class Region {
 
   bool IsStale() { return stale_.load(std::memory_order_relaxed); }
 
-  std::string ReplicasAsString() const;
+  std::string ReplicasAsString();
 
   std::string DescribeEpoch() const { return fmt::format("{},{}", epoch_.version(), epoch_.conf_version()); }
 
-  std::string ToString() const {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+  std::string ToString() {
+    ReadLockGuard guard(rw_lock_);
+
     // region_id, start_key-end_key, version, config_version, type, replicas
     return fmt::format("({}, [{}-{}], [{},{}], {}, {})", region_id_, range_.start_key(), range_.end_key(),
                        epoch_.version(), epoch_.conf_version(), RegionType_Name(region_type_),
@@ -102,14 +103,14 @@ class Region {
   const pb::common::RegionEpoch epoch_;
   const pb::common::RegionType region_type_;
 
-  mutable std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   EndPoint leader_addr_;
   std::vector<Replica> replicas_;
 
   std::atomic<bool> stale_;
 };
 
-inline std::ostream& operator<<(std::ostream& os, const Region& region) { return os << region.ToString(); }
+inline std::ostream& operator<<(std::ostream& os, Region& region) { return os << region.ToString(); }
 
 static std::string RaftRoleName(const RaftRole& role) {
   switch (role) {

@@ -30,7 +30,7 @@ Status VectorStatusByIndexTask::Init() {
     return Status::InvalidArgument("vector_index is not diskann");
   }
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   auto part_ids = vector_index_->GetPartitionIds();
 
   for (const auto& part_id : part_ids) {
@@ -43,7 +43,7 @@ Status VectorStatusByIndexTask::Init() {
 void VectorStatusByIndexTask::DoAsync() {
   std::set<int64_t> next_part_ids;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_part_ids = next_part_ids_;
     status_ = Status::OK();
   }
@@ -65,13 +65,13 @@ void VectorStatusByIndexTask::SubTaskCallback(const Status& status, VectorStatus
   if (!status.ok()) {
     DINGO_LOG(INFO) << "sub_task: " << sub_task->Name() << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       status_ = status;
     }
 
   } else {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     StateResult result = sub_task->GetResult();
     for (auto& err_status : result.region_states) {
       result_.region_states.push_back(err_status);
@@ -81,7 +81,7 @@ void VectorStatusByIndexTask::SubTaskCallback(const Status& status, VectorStatus
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
 
@@ -100,7 +100,7 @@ void VectorStatusPartTask::DoAsync() {
   }
 
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     status_ = Status::OK();
   }
 
@@ -134,7 +134,7 @@ void VectorStatusPartTask::VectorStatusRpcCallback(const Status& status, VectorS
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       status_ = status;
     }
@@ -150,7 +150,7 @@ void VectorStatusPartTask::VectorStatusRpcCallback(const Status& status, VectorS
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);

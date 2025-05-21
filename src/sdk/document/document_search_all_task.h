@@ -27,6 +27,7 @@
 #include "sdk/region.h"
 #include "sdk/rpc/document_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+#include "sdk/utils/rw_lock.h"
 
 namespace dingodb {
 namespace sdk {
@@ -55,7 +56,7 @@ class DocumentSearchAllTask : public DocumentTask {
 
   std::shared_ptr<DocumentIndex> doc_index_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::set<int64_t> next_part_ids_;
   Status status_;
 
@@ -71,7 +72,7 @@ class DocumentSearchAllPartTask : public DocumentTask {
   ~DocumentSearchAllPartTask() override = default;
 
   std::vector<DocWithStore> GetDocSearchResult() {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
     return std::move(search_result_);
   }
 
@@ -105,7 +106,7 @@ class DocumentSearchAllPartTask : public DocumentTask {
 
   std::map<int64_t, std::shared_ptr<Region>> region_id_to_region_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   Status status_;
   std::vector<DocWithStore> search_result_;
 

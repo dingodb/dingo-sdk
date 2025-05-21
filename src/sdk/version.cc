@@ -14,13 +14,12 @@
 
 #include "dingosdk/version.h"
 
-#include <fmt/core.h>
-#include <glog/logging.h>
-
 #include <cstdint>
 #include <utility>
 
 #include "common/logging.h"
+#include "fmt/core.h"
+#include "glog/logging.h"
 #include "proto/version.pb.h"
 #include "sdk/client_stub.h"
 #include "sdk/rpc/version_rpc.h"

@@ -34,7 +34,7 @@ Status RawKvBatchCompareAndSetTask::Init() {
     DINGO_LOG(ERROR) << msg;
     return Status::InvalidArgument(msg);
   }
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   next_keys_.clear();
   for (auto i = 0; i < kvs_.size(); i++) {
     const auto& kv = kvs_[i];
@@ -59,7 +59,7 @@ Status RawKvBatchCompareAndSetTask::Init() {
 void RawKvBatchCompareAndSetTask::DoAsync() {
   std::set<std::string_view> next_batch;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_batch = next_keys_;
     status_ = Status::OK();
   }
@@ -138,7 +138,7 @@ void RawKvBatchCompareAndSetTask::KvBatchCompareAndSetRpcCallback(const Status& 
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
@@ -146,7 +146,7 @@ void RawKvBatchCompareAndSetTask::KvBatchCompareAndSetRpcCallback(const Status& 
   } else {
     CHECK_EQ(rpc->Request()->kvs_size(), rpc->Response()->key_states_size());
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     for (auto i = 0; i < rpc->Request()->kvs_size(); i++) {
       std::string key = rpc->Request()->kvs(i).key();
       next_keys_.erase(key);
@@ -157,7 +157,7 @@ void RawKvBatchCompareAndSetTask::KvBatchCompareAndSetRpcCallback(const Status& 
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);
@@ -165,7 +165,7 @@ void RawKvBatchCompareAndSetTask::KvBatchCompareAndSetRpcCallback(const Status& 
 }
 
 void RawKvBatchCompareAndSetTask::PostProcess() {
-  std::shared_lock<std::shared_mutex> r(rw_lock_);
+  ReadLockGuard guard(rw_lock_);
   out_states_.swap(tmp_out_states_);
 }
 

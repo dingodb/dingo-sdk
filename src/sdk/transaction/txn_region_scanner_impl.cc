@@ -14,6 +14,8 @@
 
 #include "sdk/transaction/txn_region_scanner_impl.h"
 
+#include <fmt/format.h>
+
 #include <memory>
 
 #include "glog/logging.h"
@@ -57,7 +59,7 @@ void TxnRegionScannerImpl::Close() {
 
 bool TxnRegionScannerImpl::HasMore() const { return has_more_; }
 
-std::unique_ptr<TxnScanRpc> TxnRegionScannerImpl::PrepareTxnScanRpc() {
+std::unique_ptr<TxnScanRpc> TxnRegionScannerImpl::GenTxnScanRpc() {
   auto rpc = std::make_unique<TxnScanRpc>();
   rpc->MutableRequest()->set_start_ts(txn_start_ts_);
   FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
@@ -78,57 +80,49 @@ std::unique_ptr<TxnScanRpc> TxnRegionScannerImpl::PrepareTxnScanRpc() {
 }
 
 Status TxnRegionScannerImpl::NextBatch(std::vector<KVPair>& kvs) {
-  CHECK(opened_);
+  CHECK(opened_) << "scanner is not opened.";
 
-  std::unique_ptr<TxnScanRpc> rpc = PrepareTxnScanRpc();
+  auto rpc = GenTxnScanRpc();
 
+  Status status;
   int retry = 0;
-  Status ret;
-  while (true) {
+  do {
     DINGO_RETURN_NOT_OK(LogAndSendRpc(stub, *rpc, region));
 
     const auto* response = rpc->Response();
     if (response->has_txn_result()) {
-      ret = CheckTxnResultInfo(response->txn_result());
+      status = CheckTxnResultInfo(response->txn_result());
     }
 
-    if (ret.ok()) {
-      break;
-    } else if (ret.IsTxnLockConflict()) {
-      ret = stub.GetTxnLockResolver()->ResolveLock(response->txn_result().locked(), txn_start_ts_);
-      if (!ret.ok()) {
+    if (status.IsTxnLockConflict()) {
+      status = stub.GetTxnLockResolver()->ResolveLock(response->txn_result().locked(), txn_start_ts_);
+      if (!status.ok()) {
         break;
       }
     } else {
-      DINGO_LOG(WARNING) << "unexpect txn scan rpc response, status:" << ret.ToString()
-                         << " response:" << response->DebugString();
       break;
     }
 
-    if (NeedRetryAndInc(retry)) {
-      DINGO_LOG(INFO) << "try to delay:" << FLAGS_txn_op_delay_ms << "ms";
-      DelayRetry(FLAGS_txn_op_delay_ms);
-    } else {
-      break;
-    }
-  }
+  } while (IsNeedRetry(retry));
 
-  if (!ret.ok()) {
-    DINGO_LOG(WARNING) << "Fail scan, txn start_tx:" << txn_start_ts_ << ", region:" << region->RegionId()
-                       << ", status:" << ret.ToString();
-    return ret;
+  if (!status.ok()) {
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] scan fail, retry({}) region({}) status({}).", txn_start_ts_, retry,
+                                      region->RegionId(), status.ToString());
+    return status;
   }
 
   const auto* response = rpc->Response();
 
   for (const auto& kv : response->kvs()) {
-    DINGO_LOG(DEBUG) << "Success scan, key:" << kv.key() << ", value:" << kv.value() << ", end_key:" << end_key_;
+    DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] scan region({}) key({}) value({}).", txn_start_ts_,
+                                    region->RegionId(), StringToHex(kv.key()), StringToHex(kv.value()));
     kvs.push_back({kv.key(), kv.value()});
   }
+
   has_more_ = response->stream_meta().has_more();
   stream_id_ = response->stream_meta().stream_id();
 
-  return ret;
+  return status;
 }
 
 Status TxnRegionScannerImpl::SetBatchSize(int64_t size) {
@@ -145,20 +139,20 @@ Status TxnRegionScannerImpl::SetBatchSize(int64_t size) {
   return Status::OK();
 }
 
-bool TxnRegionScannerImpl::NeedRetryAndInc(int& times) {
-  bool retry = times < FLAGS_txn_op_max_retry;
-  times++;
+bool TxnRegionScannerImpl::IsNeedRetry(int& times) {
+  bool retry = times++ < FLAGS_txn_op_max_retry;
+  if (retry) {
+    (void)usleep(FLAGS_txn_op_delay_ms * 1000);
+  }
+
   return retry;
 }
-
-void TxnRegionScannerImpl::DelayRetry(int64_t delay_ms) { (void)usleep(delay_ms * 1000); }
 
 TxnRegionScannerFactoryImpl::TxnRegionScannerFactoryImpl() = default;
 
 TxnRegionScannerFactoryImpl::~TxnRegionScannerFactoryImpl() = default;
 
-Status TxnRegionScannerFactoryImpl::NewRegionScanner(const ScannerOptions& options,
-                                                     std::shared_ptr<RegionScanner>& scanner) {
+Status TxnRegionScannerFactoryImpl::NewRegionScanner(const ScannerOptions& options, RegionScannerPtr& scanner) {
   if (!options.txn_options) {
     return Status::InvalidArgument("txn options not set");
   }
@@ -169,14 +163,13 @@ Status TxnRegionScannerFactoryImpl::NewRegionScanner(const ScannerOptions& optio
 
   CHECK(options.start_key < options.end_key);
   CHECK(options.start_key >= options.region->Range().start_key())
-      << fmt::format("start_key:{} should greater than region range start_key:{}", options.start_key,
+      << fmt::format("start_key({}) should greater than region range start_key({})", options.start_key,
                      options.region->Range().start_key());
   CHECK(options.end_key <= options.region->Range().end_key()) << fmt::format(
-      "end_key:{} should little than region range end_key:{}", options.end_key, options.region->Range().end_key());
+      "end_key({}) should little than region range end_key({})", options.end_key, options.region->Range().end_key());
 
-  std::shared_ptr<RegionScanner> tmp(new TxnRegionScannerImpl(options.stub, options.region, options.txn_options.value(),
-                                                              options.start_ts.value(), options.start_key,
-                                                              options.end_key));
+  RegionScannerPtr tmp(new TxnRegionScannerImpl(options.stub, options.region, options.txn_options.value(),
+                                                options.start_ts.value(), options.start_key, options.end_key));
   scanner = std::move(tmp);
 
   return Status::OK();

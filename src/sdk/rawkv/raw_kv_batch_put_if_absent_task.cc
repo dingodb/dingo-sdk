@@ -25,7 +25,7 @@ RawKvBatchPutIfAbsentTask::RawKvBatchPutIfAbsentTask(const ClientStub& stub, con
     : RawKvTask(stub), kvs_(kvs), out_states_(out_states) {}
 
 Status RawKvBatchPutIfAbsentTask::Init() {
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   next_keys_.clear();
   for (const auto& kv : kvs_) {
     if (!next_keys_.insert(kv.key).second) {
@@ -41,7 +41,7 @@ Status RawKvBatchPutIfAbsentTask::Init() {
 void RawKvBatchPutIfAbsentTask::DoAsync() {
   std::set<std::string_view> next_batch;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_batch = next_keys_;
     status_ = Status::OK();
   }
@@ -117,7 +117,7 @@ void RawKvBatchPutIfAbsentTask::KvBatchPutIfAbsentRpcCallback(const Status& stat
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
@@ -125,7 +125,7 @@ void RawKvBatchPutIfAbsentTask::KvBatchPutIfAbsentRpcCallback(const Status& stat
   } else {
     CHECK_EQ(rpc->Request()->kvs_size(), rpc->Response()->key_states_size());
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     for (auto i = 0; i < rpc->Request()->kvs_size(); i++) {
       std::string key = rpc->Request()->kvs(i).key();
       next_keys_.erase(key);
@@ -136,7 +136,7 @@ void RawKvBatchPutIfAbsentTask::KvBatchPutIfAbsentRpcCallback(const Status& stat
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);
@@ -144,7 +144,7 @@ void RawKvBatchPutIfAbsentTask::KvBatchPutIfAbsentRpcCallback(const Status& stat
 }
 
 void RawKvBatchPutIfAbsentTask::PostProcess() {
-  std::shared_lock<std::shared_mutex> r(rw_lock_);
+  ReadLockGuard guard(rw_lock_);
   out_states_.swap(tmp_out_states_);
 }
 

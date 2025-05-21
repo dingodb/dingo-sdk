@@ -104,8 +104,8 @@ class TestBase : public ::testing::Test {
 
   void SetUp() override { PreFillMetaCache(); }
 
-  std::unique_ptr<TxnImpl> NewTransactionImpl(const TransactionOptions& options) const {
-    auto txn = std::make_unique<TxnImpl>(*stub, options);
+  std::unique_ptr<Transaction::TxnImpl> NewTransactionImpl(const TransactionOptions& options) const {
+    auto txn = std::make_unique<Transaction::TxnImpl>(*stub, options);
     CHECK_NOTNULL(txn.get());
     CHECK(txn->Begin().ok());
     return std::move(txn);

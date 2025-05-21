@@ -15,38 +15,38 @@
 #include "sdk/admin_tool.h"
 
 #include "common/logging.h"
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "rpc/coordinator_rpc.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/common.h"
 #include "sdk/rpc/coordinator_rpc.h"
-#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {
 
-Status AdminTool::GetCurrentTsoTimeStamp(pb::meta::TsoTimestamp& timestamp) {
+Status AdminTool::GetCurrentTsoTimeStamp(pb::meta::TsoTimestamp& timestamp, uint32_t count) {
   TsoServiceRpc rpc;
   rpc.MutableRequest()->set_op_type(pb::meta::TsoOpType::OP_GEN_TSO);
-  rpc.MutableRequest()->set_count(1);
+  rpc.MutableRequest()->set_count(count);
 
   Status status = stub_.GetMetaRpcController()->SyncCall(rpc);
 
   if (!status.IsOK()) {
-    DINGO_LOG(WARNING) << "Fail tsoService request fail, status:" << status.ToString()
-                       << ", response:" << rpc.Response()->DebugString();
+    DINGO_LOG(WARNING) << "[sdk.tso] Fail tsoService request fail, status:" << status.ToString()
+                       << ", response:" << rpc.Response()->ShortDebugString();
   } else {
     CHECK(rpc.Response()->has_start_timestamp());
     timestamp = rpc.Response()->start_timestamp();
-    DINGO_LOG(DEBUG) << "tso timestamp: " << timestamp.DebugString();
+    DINGO_LOG(DEBUG) << "[sdk.tso] tso timestamp: " << timestamp.ShortDebugString();
   }
 
   return status;
 }
 
-Status AdminTool::GetCurrentTimeStamp(int64_t& timestamp) {
+Status AdminTool::GetCurrentTimeStamp(int64_t& timestamp, uint32_t count) {
   pb::meta::TsoTimestamp tso;
-  DINGO_RETURN_NOT_OK(GetCurrentTsoTimeStamp(tso));
+  DINGO_RETURN_NOT_OK(GetCurrentTsoTimeStamp(tso, count));
   timestamp = Tso2Timestamp(tso);
   return Status::OK();
 }
@@ -60,8 +60,8 @@ Status AdminTool::IsCreateRegionInProgress(int64_t region_id, bool& out_create_i
     return status;
   }
 
-  CHECK(rpc.Response()->has_region()) << "query region internal error, req:" << rpc.Request()->DebugString()
-                                      << ", resp:" << rpc.Response()->DebugString();
+  CHECK(rpc.Response()->has_region()) << "query region internal error, req:" << rpc.Request()->ShortDebugString()
+                                      << ", resp:" << rpc.Response()->ShortDebugString();
   CHECK_EQ(rpc.Response()->region().id(), region_id);
   out_create_in_progress = (rpc.Response()->region().state() == pb::common::REGION_NEW);
 

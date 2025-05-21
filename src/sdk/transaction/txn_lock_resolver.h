@@ -40,7 +40,7 @@ struct TxnStatus {
 
   bool IsLocked() const { return lock_ttl > 0; }
 
-  std::string ToString() const { return fmt::format("(lock_ttl:{}, commit_ts:{})", lock_ttl, commit_ts); }
+  std::string ToString() const { return fmt::format("lock_ttl({}) commit_ts({})", lock_ttl, commit_ts); }
 };
 
 class TxnLockResolver {

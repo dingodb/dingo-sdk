@@ -15,8 +15,6 @@
 #ifndef DINGODB_SDK_HELPER_H_
 #define DINGODB_SDK_HELPER_H_
 
-#include <fmt/format.h>
-
 #include <cstdint>
 #include <filesystem>
 #include <fstream>

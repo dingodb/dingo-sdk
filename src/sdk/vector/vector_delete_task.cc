@@ -28,7 +28,7 @@ Status VectorDeleteTask::Init() {
   DCHECK_NOTNULL(tmp);
   vector_index_ = std::move(tmp);
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   next_vector_ids_.clear();
 
   for (const auto& id : vector_ids_) {
@@ -43,7 +43,7 @@ Status VectorDeleteTask::Init() {
 void VectorDeleteTask::DoAsync() {
   std::set<int64_t> next_batch;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_batch = next_vector_ids_;
     status_ = Status::OK();
   }
@@ -116,13 +116,13 @@ void VectorDeleteTask::VectorDeleteRpcCallback(const Status& status, VectorDelet
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     CHECK_EQ(rpc->Request()->ids_size(), rpc->Response()->key_states_size());
     for (auto i = 0; i < rpc->Response()->key_states_size(); i++) {
       int64_t id = rpc->Request()->ids(i);
@@ -133,7 +133,7 @@ void VectorDeleteTask::VectorDeleteRpcCallback(const Status& status, VectorDelet
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);

@@ -32,7 +32,7 @@ VectorIndexCache::VectorIndexCache(const ClientStub& stub) : stub_(stub) {}
 
 Status VectorIndexCache::GetIndexIdByKey(const VectorIndexCacheKey& index_key, int64_t& index_id) {
   {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
     auto iter = index_key_to_id_.find(index_key);
     if (iter != index_key_to_id_.end()) {
       index_id = iter->second;
@@ -50,7 +50,7 @@ Status VectorIndexCache::GetIndexIdByKey(const VectorIndexCacheKey& index_key, i
 Status VectorIndexCache::GetVectorIndexByKey(const VectorIndexCacheKey& index_key,
                                              std::shared_ptr<VectorIndex>& out_vector_index) {
   {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
     auto iter = index_key_to_id_.find(index_key);
     if (iter != index_key_to_id_.end()) {
       auto index_iter = id_to_index_.find(iter->second);
@@ -65,7 +65,7 @@ Status VectorIndexCache::GetVectorIndexByKey(const VectorIndexCacheKey& index_ke
 
 Status VectorIndexCache::GetVectorIndexById(int64_t index_id, std::shared_ptr<VectorIndex>& out_vector_index) {
   {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
     auto iter = id_to_index_.find(index_id);
     if (iter != id_to_index_.end()) {
       out_vector_index = iter->second;
@@ -77,7 +77,7 @@ Status VectorIndexCache::GetVectorIndexById(int64_t index_id, std::shared_ptr<Ve
 }
 
 void VectorIndexCache::RemoveVectorIndexById(int64_t index_id) {
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   auto id_iter = id_to_index_.find(index_id);
   if (id_iter != id_to_index_.end()) {
     auto vector_index = id_iter->second;
@@ -91,7 +91,7 @@ void VectorIndexCache::RemoveVectorIndexById(int64_t index_id) {
 }
 
 void VectorIndexCache::RemoveVectorIndexByKey(const VectorIndexCacheKey& index_key) {
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
 
   auto name_iter = index_key_to_id_.find(index_key);
   if (name_iter != index_key_to_id_.end()) {
@@ -147,7 +147,7 @@ Status VectorIndexCache::ProcessIndexDefinitionWithId(const pb::meta::IndexDefin
                                                       std::shared_ptr<VectorIndex>& out_vector_index) {
   int64_t index_id = index_def_with_id.index_id().entity_id();
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   auto iter = id_to_index_.find(index_id);
   if (iter != id_to_index_.end()) {
     CHECK_EQ(iter->second->GetName(), index_def_with_id.index_definition().name());

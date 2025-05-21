@@ -19,21 +19,21 @@
 #include <memory>
 
 #include "common/logging.h"
+#include "dingosdk/document.h"
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "proto/document.pb.h"
 #include "sdk/common/common.h"
 #include "sdk/common/param_config.h"
-#include "dingosdk/document.h"
 #include "sdk/document/document_translater.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/scoped_cleanup.h"
 
 namespace dingodb {
 namespace sdk {
 
 Status DocumentSearchTask::Init() {
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
 
   std::shared_ptr<DocumentIndex> tmp;
   DINGO_RETURN_NOT_OK(stub.GetDocumentIndexCache()->GetDocumentIndexById(index_id_, tmp));
@@ -54,7 +54,7 @@ Status DocumentSearchTask::Init() {
 void DocumentSearchTask::DoAsync() {
   std::set<int64_t> next_part_ids;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_part_ids = next_part_ids_;
     status_ = Status::OK();
   }
@@ -78,13 +78,13 @@ void DocumentSearchTask::SubTaskCallback(Status status, DocumentSearchPartTask* 
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "sub_task: " << sub_task->Name() << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     std::vector<DocWithStore> sub_results = sub_task->GetDocSearchResult();
     std::move(sub_results.begin(), sub_results.end(), std::back_inserter(out_result_.doc_sores));
     next_part_ids_.erase(sub_task->part_id_);
@@ -93,7 +93,7 @@ void DocumentSearchTask::SubTaskCallback(Status status, DocumentSearchPartTask* 
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      WriteLockGuard guard(rw_lock_);
 
       std::sort(out_result_.doc_sores.begin(), out_result_.doc_sores.end(),
                 [](const DocWithStore& a, const DocWithStore& b) { return a.score > b.score; });
@@ -128,7 +128,7 @@ void DocumentSearchPartTask::DoAsync() {
   }
 
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     search_result_.clear();
     status_ = Status::OK();
   }
@@ -170,14 +170,14 @@ void DocumentSearchPartTask::DocumentSearchRpcCallback(const Status& status, Doc
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
     {
-      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      WriteLockGuard guard(rw_lock_);
       for (const auto& doc_with_score : rpc->Response()->document_with_scores()) {
         DocWithStore distance = DocumentTranslater::InternalDocumentWithScore2DocWithStore(doc_with_score);
         search_result_.push_back(std::move(distance));
@@ -188,7 +188,7 @@ void DocumentSearchPartTask::DocumentSearchRpcCallback(const Status& status, Doc
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);

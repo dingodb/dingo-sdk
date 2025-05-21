@@ -94,6 +94,7 @@ Status AutoIncrementer::RunOperation(std::function<Status()> operation) {
   Req req;
   {
     std::unique_lock<std::mutex> lk(mutex_);
+
     queue_.push_back(&req);
     while (&req != queue_.front()) {
       req.cv.wait(lk);
@@ -158,7 +159,8 @@ void DocumentIndexAutoInrementer::PrepareUpdateAutoIncrementRequest(pb::meta::Up
 
 std::shared_ptr<AutoIncrementer> AutoIncrementerManager::GetOrCreateVectorIndexIncrementer(
     std::shared_ptr<VectorIndex>& index) {
-  std::unique_lock<std::mutex> lk(mutex_);
+  WriteLockGuard guard(rw_lock_);
+
   int64_t index_id = index->GetId();
   auto iter = auto_incrementer_map_.find(index_id);
   if (iter != auto_incrementer_map_.end()) {
@@ -172,7 +174,8 @@ std::shared_ptr<AutoIncrementer> AutoIncrementerManager::GetOrCreateVectorIndexI
 
 std::shared_ptr<AutoIncrementer> AutoIncrementerManager::GetOrCreateDocumentIndexIncrementer(
     std::shared_ptr<DocumentIndex>& index) {
-  std::unique_lock<std::mutex> lk(mutex_);
+  WriteLockGuard guard(rw_lock_);
+
   int64_t index_id = index->GetId();
   auto iter = auto_incrementer_map_.find(index_id);
   if (iter != auto_incrementer_map_.end()) {
@@ -185,7 +188,8 @@ std::shared_ptr<AutoIncrementer> AutoIncrementerManager::GetOrCreateDocumentInde
 }
 
 void AutoIncrementerManager::RemoveIndexIncrementerById(int64_t index_id) {
-  std::unique_lock<std::mutex> lk(mutex_);
+  WriteLockGuard guard(rw_lock_);
+
   auto iter = auto_incrementer_map_.find(index_id);
   if (iter != auto_incrementer_map_.end()) {
     auto_incrementer_map_.erase(iter);

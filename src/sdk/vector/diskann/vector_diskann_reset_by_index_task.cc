@@ -3,10 +3,10 @@
 
 #include <cstdint>
 
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "sdk/common/common.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/scoped_cleanup.h"
 
 namespace dingodb {
@@ -23,7 +23,7 @@ Status VectorResetByIndexTask::Init() {
     return Status::InvalidArgument("vector_index is not diskann");
   }
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   auto part_ids = vector_index_->GetPartitionIds();
 
   for (const auto& part_id : part_ids) {
@@ -36,7 +36,7 @@ Status VectorResetByIndexTask::Init() {
 void VectorResetByIndexTask::DoAsync() {
   std::set<int64_t> next_part_ids;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_part_ids = next_part_ids_;
     status_ = Status::OK();
   }
@@ -58,7 +58,7 @@ void VectorResetByIndexTask::SubTaskCallback(const Status& status, VectorResetPa
   if (!status.ok()) {
     DINGO_LOG(INFO) << "sub_task: " << sub_task->Name() << " fail: " << status.ToString();
     if (status.IsResetFailed()) {
-      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      WriteLockGuard guard(rw_lock_);
       ErrStatusResult result = sub_task->GetResult();
       for (auto& err_status : result.region_status) {
         result_.region_status.push_back(err_status);
@@ -67,7 +67,7 @@ void VectorResetByIndexTask::SubTaskCallback(const Status& status, VectorResetPa
         status_ = status;
       }
     } else {
-      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      WriteLockGuard guard(rw_lock_);
       status_ = status;
     }
   }
@@ -75,7 +75,7 @@ void VectorResetByIndexTask::SubTaskCallback(const Status& status, VectorResetPa
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
 
@@ -94,7 +94,7 @@ void VectorResetPartTask::DoAsync() {
   }
 
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     status_ = Status::OK();
   }
 
@@ -128,7 +128,7 @@ void VectorResetPartTask::VectorResetRpcCallback(const Status& status, VectorRes
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
 
     if (pb::error::Errno::EDISKANN_IS_NO_DATA == status.Errno()) {
       DINGO_LOG(INFO) << "ignore error : " << status.ToString()
@@ -144,12 +144,12 @@ void VectorResetPartTask::VectorResetRpcCallback(const Status& status, VectorRes
 
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     if (status_.ok() && !result_.region_status.empty()) {
-      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      WriteLockGuard guard(rw_lock_);
       status_ = Status::ResetFailed("");
     }
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);
@@ -185,7 +185,6 @@ bool VectorResetPartTask::NeedRetry() {
 
   return false;
 }
-
 
 }  // namespace sdk
 }  // namespace dingodb

@@ -22,6 +22,7 @@
 #include "sdk/document/document_task.h"
 #include "sdk/rpc/document_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+#include "sdk/utils/rw_lock.h"
 
 namespace dingodb {
 namespace sdk {
@@ -59,7 +60,7 @@ class DocumentCountTask : public DocumentTask {
 
   std::atomic<int64_t> tmp_count_{0};
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::set<int64_t> next_part_ids_;
   Status status_;
 
@@ -99,7 +100,7 @@ class DocumentCountPartTask : public DocumentTask {
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<DocumentCountRpc>> rpcs_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   Status status_;
 
   std::atomic<int64_t> ret_count_{0};
