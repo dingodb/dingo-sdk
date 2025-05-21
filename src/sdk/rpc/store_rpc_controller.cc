@@ -17,19 +17,19 @@
 #include <utility>
 
 #include "common/logging.h"
-#include "fmt/core.h"
+#include "dingosdk/status.h"
+#include "fmt/format.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/common.h"
 #include "sdk/common/param_config.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/async_util.h"
 
 namespace dingodb {
 namespace sdk {
 
-StoreRpcController::StoreRpcController(const ClientStub& stub, Rpc& rpc, std::shared_ptr<Region> region)
+StoreRpcController::StoreRpcController(const ClientStub& stub, Rpc& rpc, RegionPtr region)
     : stub_(stub), rpc_(rpc), region_(std::move(region)), rpc_retry_times_(0), next_replica_index_(0) {}
 
 StoreRpcController::StoreRpcController(const ClientStub& stub, Rpc& rpc)
@@ -67,9 +67,9 @@ void StoreRpcController::DoAsyncCall() {
 
 bool StoreRpcController::PreCheck() {
   if (region_->IsStale()) {
-    std::string msg = fmt::format("region:{} is stale", region_->RegionId());
-    DINGO_LOG(INFO) << "store rpc fail, " << msg;
-    status_ = Status::Incomplete(pb::error::Errno::EREGION_VERSION, msg);
+    status_ =
+        Status::Incomplete(pb::error::Errno::EREGION_VERSION, fmt::format("region:{} is stale", region_->RegionId()));
+    DINGO_LOG(INFO) << fmt::format("[sdk.rpc.{}] store rpc fail, status({}).", rpc_.Method(), status_.ToString());
     return false;
   }
   return true;
@@ -79,8 +79,7 @@ bool StoreRpcController::PrepareRpc() {
   if (NeedPickLeader()) {
     EndPoint next_leader;
     if (!PickNextLeader(next_leader)) {
-      std::string msg = fmt::format("rpc:{} no valid endpoint, region:{}", rpc_.Method(), region_->RegionId());
-      status_ = Status::Aborted(msg);
+      status_ = Status::Aborted("not found leader");
       return false;
     }
 
@@ -94,108 +93,107 @@ bool StoreRpcController::PrepareRpc() {
 }
 
 void StoreRpcController::SendStoreRpc() {
-  CHECK(region_.get() != nullptr) << "region should not nullptr, please check";
+  CHECK(region_.get() != nullptr) << "region should not nullptr.";
+
   MaybeDelay();
   stub_.GetStoreRpcClient()->SendRpc(rpc_, [this] { SendStoreRpcCallBack(); });
 }
 
 void StoreRpcController::MaybeDelay() {
   if (NeedDelay()) {
-    auto delay = FLAGS_store_rpc_retry_delay_ms * rpc_retry_times_;
-    DINGO_LOG(INFO) << "try to delay:" << delay << "ms, rpr_retry_times:" << rpc_retry_times_;
-    (void)usleep(delay * 1000);
+    auto delay_ms = FLAGS_store_rpc_retry_delay_ms * rpc_retry_times_;
+    Sleep(delay_ms * 1000);
   }
 }
 
 void StoreRpcController::SendStoreRpcCallBack() {
-  Status sent = rpc_.GetStatus();
-  if (!sent.ok()) {
+  Status status = rpc_.GetStatus();
+  if (!status.ok()) {
     region_->MarkFollower(rpc_.GetEndPoint());
-    DINGO_LOG(WARNING) << "Fail connect to store server, status:" << sent.ToString();
-    status_ = sent;
-  } else {
-    auto error = GetRpcResponseError(rpc_);
-    if (error.errcode() == pb::error::Errno::OK) {
-      status_ = Status::OK();
-    } else {
-      std::string base_msg =
-          fmt::format("log_id:{} region:{} method:{} endpoint:{}, error_code:{}, error_msg:{}", rpc_.LogId(),
-                      region_->RegionId(), rpc_.Method(), rpc_.GetEndPoint().ToString(),
-                      dingodb::pb::error::Errno_Name(error.errcode()), error.errmsg());
-
-      if (error.errcode() == pb::error::Errno::ERAFT_NOTLEADER) {
-        region_->MarkFollower(rpc_.GetEndPoint());
-        if (error.has_leader_location()) {
-          auto endpoint = LocationToEndPoint(error.leader_location());
-          if (!endpoint.IsValid()) {
-            DINGO_LOG(WARNING) << base_msg << " not leader, but leader hint:" << error.leader_location().DebugString()
-                               << ", endpoint: " << endpoint.ToString() << " is invalid";
-            status_ = Status::NoLeader(error.errcode(), error.errmsg());
-          } else {
-            region_->MarkLeader(endpoint);
-            DINGO_LOG(WARNING) << base_msg << " not leader, leader hint:" << endpoint.ToString();
-            status_ = Status::NotLeader(error.errcode(), error.errmsg());
-          }
-        } else {
-          DINGO_LOG(WARNING) << base_msg << " not leader, no leader hint";
-          status_ = Status::NoLeader(error.errcode(), error.errmsg());
-        }
-      } else if (error.errcode() == pb::error::EREGION_VERSION) {
-        stub_.GetMetaCache()->ClearRange(region_);
-        if (error.has_store_region_info()) {
-          auto region = ProcessStoreRegionInfo(error.store_region_info());
-          stub_.GetMetaCache()->MaybeAddRegion(region);
-          DINGO_LOG(WARNING) << base_msg << ", recive new version region:" << region->ToString();
-        } else {
-          DINGO_LOG(WARNING) << base_msg;
-        }
-        status_ = Status::Incomplete(error.errcode(), error.errmsg());
-      } else if (error.errcode() == pb::error::Errno::EREGION_NOT_FOUND) {
-        stub_.GetMetaCache()->ClearRange(region_);
-        status_ = Status::Incomplete(error.errcode(), error.errmsg());
-        DINGO_LOG(WARNING) << base_msg;
-      } else if (error.errcode() == pb::error::Errno::EKEY_OUT_OF_RANGE) {
-        stub_.GetMetaCache()->ClearRange(region_);
-        status_ = Status::Incomplete(error.errcode(), error.errmsg());
-        DINGO_LOG(WARNING) << base_msg;
-      } else if (error.errcode() == pb::error::Errno::EREQUEST_FULL) {
-        status_ = Status::RemoteError(error.errcode(), error.errmsg());
-        DINGO_LOG(WARNING) << base_msg;
-      } else {
-        // NOTE: other error we not clean cache, caller decide how to process
-        status_ = Status::Incomplete(error.errcode(), error.errmsg());
-        DINGO_LOG(WARNING) << base_msg;
-      }
-    }
+    DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}] connect to store fail, region({}) status({}).", rpc_.Method(),
+                                      region_->RegionId(), status.ToString());
+    status_ = status;
+    RetrySendRpcOrFireCallback();
+    return;
   }
+
+  auto error = GetRpcResponseError(rpc_);
+  if (error.errcode() == pb::error::Errno::OK) {
+    status_ = Status::OK();
+    RetrySendRpcOrFireCallback();
+    return;
+  }
+
+  std::string msg = fmt::format("[sdk.rpc.{}] log_id:{} region:{} endpoint:{}, error({} {})", rpc_.Method(),
+                                rpc_.LogId(), region_->RegionId(), rpc_.GetEndPoint().ToString(),
+                                pb::error::Errno_Name(error.errcode()), error.errmsg());
+
+  if (error.errcode() == pb::error::Errno::ERAFT_NOTLEADER) {
+    region_->MarkFollower(rpc_.GetEndPoint());
+    if (error.has_leader_location()) {
+      auto endpoint = LocationToEndPoint(error.leader_location());
+      if (!endpoint.IsValid()) {
+        msg += fmt::format(", leader({}) is invalid", endpoint.ToString());
+        status_ = Status::NoLeader(error.errcode(), error.errmsg());
+      } else {
+        region_->MarkLeader(endpoint);
+        msg += fmt::format(", leader({}).", endpoint.ToString());
+        status_ = Status::NotLeader(error.errcode(), error.errmsg());
+      }
+    } else {
+      status_ = Status::NoLeader(error.errcode(), error.errmsg());
+    }
+
+  } else if (error.errcode() == pb::error::EREGION_VERSION) {
+    stub_.GetMetaCache()->ClearRange(region_);
+    if (error.has_store_region_info()) {
+      auto region = ProcessStoreRegionInfo(error.store_region_info());
+      stub_.GetMetaCache()->MaybeAddRegion(region);
+      msg += fmt::format(", region version({}).", region->ToString());
+    }
+    status_ = Status::Incomplete(error.errcode(), error.errmsg());
+
+  } else if (error.errcode() == pb::error::Errno::EREGION_NOT_FOUND) {
+    stub_.GetMetaCache()->ClearRange(region_);
+    status_ = Status::Incomplete(error.errcode(), error.errmsg());
+
+  } else if (error.errcode() == pb::error::Errno::EKEY_OUT_OF_RANGE) {
+    stub_.GetMetaCache()->ClearRange(region_);
+    status_ = Status::Incomplete(error.errcode(), error.errmsg());
+
+  } else if (error.errcode() == pb::error::Errno::EREQUEST_FULL) {
+    status_ = Status::RemoteError(error.errcode(), error.errmsg());
+
+  } else {
+    // NOTE: other error we not clean cache, caller decide how to process
+    status_ = Status::Incomplete(error.errcode(), error.errmsg());
+  }
+
+  DINGO_LOG(WARNING) << msg;
 
   RetrySendRpcOrFireCallback();
 }
 
 void StoreRpcController::RetrySendRpcOrFireCallback() {
-  if (status_.IsOK()) {
-    FireCallback();
-    return;
-  }
-
-  if (status_.IsNetworkError() || status_.IsRemoteError() || status_.IsNotLeader() || status_.IsNoLeader()) {
+  if (!status_.IsOK() &&
+      (status_.IsNetworkError() || status_.IsRemoteError() || status_.IsNotLeader() || status_.IsNoLeader())) {
     if (NeedRetry()) {
       rpc_retry_times_++;
       DoAsyncCall();
+      return;
+
     } else {
       status_ = Status::Aborted("rpc retry times exceed");
-      FireCallback();
-      return;
     }
-  } else {
-    FireCallback();
   }
+
+  FireCallback();
 }
 
 void StoreRpcController::FireCallback() {
   if (!status_.ok()) {
-    DINGO_LOG(WARNING) << "Fail send store rpc status:" << status_.ToString() << ", region:" << region_->RegionId()
-                       << ", retry_times:" << rpc_retry_times_ << ", max_retry_limit:" << FLAGS_store_rpc_max_retry;
+    DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}] rpc fail, region({}) retry({}) status({}).", rpc_.Method(),
+                                      region_->RegionId(), rpc_retry_times_, status_.ToString());
   }
 
   if (call_back_) {
@@ -218,25 +216,24 @@ bool StoreRpcController::PickNextLeader(EndPoint& leader) {
   auto endpoint = endpoints[next_replica_index_ % endpoints.size()];
   next_replica_index_++;
   leader = endpoint;
-  std::string msg =
-      fmt::format("region:{} get leader fail, pick replica:{} as leader", region_->RegionId(), endpoint.ToString());
-  DINGO_LOG(INFO) << msg;
+
+  DINGO_LOG(INFO) << fmt::format("[sdk.rpc.{}] get leader fail, region({}) pick new leader({}).", rpc_.Method(),
+                                 region_->RegionId(), endpoint.ToString());
   return true;
 }
 
-void StoreRpcController::ResetRegion(std::shared_ptr<Region> region) {
+void StoreRpcController::ResetRegion(RegionPtr region) {
   if (region_) {
     if (!(EpochCompare(region_->Epoch(), region->Epoch()) > 0)) {
-      DINGO_LOG(WARNING) << "reset region:" << region->ToString()
-                         << " expect newer than old region: " << region_->ToString();
+      DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}] reset region fail, epoch not match, {} {}.", rpc_.Method(),
+                                        region->DescribeEpoch(), region_->DescribeEpoch());
     }
   }
   region_.reset();
   region_ = std::move(region);
 }
 
-std::shared_ptr<Region> StoreRpcController::ProcessStoreRegionInfo(
-    const dingodb::pb::error::StoreRegionInfo& store_region_info) {
+RegionPtr StoreRpcController::ProcessStoreRegionInfo(const pb::error::StoreRegionInfo& store_region_info) {
   CHECK_NOTNULL(region_);
   CHECK(store_region_info.has_current_region_epoch());
   CHECK(store_region_info.has_current_range());
@@ -246,13 +243,12 @@ std::shared_ptr<Region> StoreRpcController::ProcessStoreRegionInfo(
   std::vector<Replica> replicas;
   for (const auto& peer : store_region_info.peers()) {
     CHECK(peer.has_server_location());
-    auto end_point = LocationToEndPoint(peer.server_location());
-    CHECK(end_point.IsValid()) << "end_point should valid, end_point:" << end_point.ToString()
-                               << " peer server_location:" << peer.DebugString();
-    replicas.push_back({end_point, kFollower});
+    auto endpoint = LocationToEndPoint(peer.server_location());
+    CHECK(endpoint.IsValid()) << "endpoint is invalid, endpoint:" << endpoint.ToString();
+    replicas.push_back({endpoint, kFollower});
   }
 
-  std::shared_ptr<Region> region = std::make_shared<Region>(
+  RegionPtr region = std::make_shared<Region>(
       id, store_region_info.current_range(), store_region_info.current_region_epoch(), region_->RegionType(), replicas);
 
   EndPoint leader;

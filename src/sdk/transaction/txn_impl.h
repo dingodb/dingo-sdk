@@ -18,8 +18,11 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
+#include <vector>
 
 #include "dingosdk/client.h"
+#include "dingosdk/status.h"
 #include "proto/meta.pb.h"
 #include "proto/store.pb.h"
 #include "sdk/client_stub.h"
@@ -30,42 +33,12 @@
 namespace dingodb {
 namespace sdk {
 
-enum TransactionState : uint8_t {
-  kInit,
-  kActive,
-  kRollbacking,
-  kRollbackted,
-  kPreCommitting,
-  kPreCommitted,
-  kCommitting,
-  kCommitted
-};  // NOLINT
-
-static const char* TransactionState2Str(TransactionState state) {
-  switch (state) {
-    case kInit:
-      return "INIT";
-    case kActive:
-      return "ACTIVE";
-    case kRollbacking:
-      return "ROLLBACKING";
-    case kRollbackted:
-      return "ROLLBACKTED";
-    case kPreCommitting:
-      return "PRECOMMITTING";
-    case kPreCommitted:
-      return "PRECOMMITTED";
-    case kCommitting:
-      return "COMMITTING";
-    case kCommitted:
-      return "COMMITTED";
-    default:
-      CHECK(false) << "unknow transaction state";
-  }
-}
+using pb::store::TxnBatchRollbackResponse;
+using pb::store::TxnCommitResponse;
+using pb::store::TxnPrewriteResponse;
 
 // TODO: support read only txn
-class Transaction::TxnImpl {
+class TxnImpl {
  public:
   TxnImpl(const TxnImpl&) = delete;
   const TxnImpl& operator=(const TxnImpl&) = delete;
@@ -73,6 +46,42 @@ class Transaction::TxnImpl {
   explicit TxnImpl(const ClientStub& stub, const TransactionOptions& options);
 
   ~TxnImpl() = default;
+
+  enum State : uint8_t {
+    kInit,
+    kActive,
+    kRollbacking,
+    kRollbackted,
+    kPreCommitting,
+    kPreCommitted,
+    kCommitting,
+    kCommitted
+  };
+
+  static const char* StateName(State state) {
+    switch (state) {
+      case kInit:
+        return "INIT";
+      case kActive:
+        return "ACTIVE";
+      case kRollbacking:
+        return "ROLLBACKING";
+      case kRollbackted:
+        return "ROLLBACKTED";
+      case kPreCommitting:
+        return "PRECOMMITTING";
+      case kPreCommitted:
+        return "PRECOMMITTED";
+      case kCommitting:
+        return "COMMITTING";
+      case kCommitted:
+        return "COMMITTED";
+      default:
+        CHECK(false) << "unknow transaction state";
+    }
+  }
+
+  int64_t ID() const { return start_ts_; }
 
   Status Begin();
 
@@ -103,7 +112,7 @@ class Transaction::TxnImpl {
 
   bool IsOnePc() const { return is_one_pc_; }
 
-  TransactionState TEST_GetTransactionState() { return state_; }         // NOLINT
+  State TEST_GetTransactionState() { return state_; }                    // NOLINT
   int64_t TEST_GetStartTs() { return start_ts_; }                        // NOLINT
   int64_t TEST_GetCommitTs() { return commit_ts_; }                      // NOLINT
   int64_t TEST_MutationsSize() { return buffer_->MutationsSize(); }      // NOLINT
@@ -119,58 +128,68 @@ class Transaction::TxnImpl {
   };
 
   struct TxnSubTask {
-    Rpc* rpc;
-    std::shared_ptr<Region> region;
+    std::vector<std::string_view> keys;
+    std::vector<const TxnMutation*> mutations;
+    RegionPtr region;
     Status status;
     std::vector<KVPair> result_kvs;
 
-    TxnSubTask(Rpc* p_rpc, std::shared_ptr<Region> p_region) : rpc(p_rpc), region(std::move(p_region)) {}
+    TxnSubTask(const std::vector<std::string_view>& keys, RegionPtr p_region)
+        : keys(keys), region(std::move(p_region)) {}
+    TxnSubTask(const std::vector<const TxnMutation*>& mutations, RegionPtr p_region)
+        : mutations(mutations), region(std::move(p_region)) {}
   };
 
+  static bool IsNeedRetry(int& times);
+  Status LookupRegion(const std::string_view& key, RegionPtr& region);
+  Status LookupRegion(std::string_view start_key, std::string_view end_key, std::shared_ptr<Region>& region);
+  bool IsSingleRegionTxn(TxnBuffer& buffer);
+
   // txn get
-  std::unique_ptr<TxnGetRpc> PrepareTxnGetRpc(const std::shared_ptr<Region>& region) const;
   Status DoTxnGet(const std::string& key, std::string& value);
 
   // txn batch get
-  std::unique_ptr<TxnBatchGetRpc> PrepareTxnBatchGetRpc(const std::shared_ptr<Region>& region) const;
-  void ProcessTxnBatchGetSubTask(TxnSubTask* sub_task);
+  void DoSubTaskForBatchGet(TxnSubTask* sub_task);
   Status DoTxnBatchGet(const std::vector<std::string>& keys, std::vector<KVPair>& kvs);
 
-  // txn commit
-  std::unique_ptr<TxnPrewriteRpc> PrepareTxnPrewriteRpc(const std::shared_ptr<Region>& region) const;
-  void CheckAndLogPreCommitPrimaryKeyResponse(const pb::store::TxnPrewriteResponse* response) const;
-  Status TryResolveTxnPrewriteLockConflict(const pb::store::TxnPrewriteResponse* response) const;
-  Status PreCommitPrimaryKey(bool is_one_pc);
-  void ProcessTxnPrewriteSubTask(TxnSubTask* sub_task);
+  // txn scan
+  static Status ProcessScanState(ScanState& scan_state, uint64_t limit, std::vector<KVPair>& out_kvs);
+  Status DoScan(const std::string& start_key, const std::string& end_key, uint64_t limit, std::vector<KVPair>& out_kvs);
 
-  std::unique_ptr<TxnCommitRpc> PrepareTxnCommitRpc(const std::shared_ptr<Region>& region) const;
-  Status ProcessTxnCommitResponse(const pb::store::TxnCommitResponse* response, bool is_primary) const;
+  // txn prewrite
+  std::unique_ptr<TxnPrewriteRpc> GenPrewriteRpc(const RegionPtr& region) const;
+  void CheckPreCommitPrimaryKeyResponse(const TxnPrewriteResponse* response) const;
+  Status TryResolveTxnPrewriteLockConflict(const TxnPrewriteResponse* response) const;
+  Status PreCommitPrimaryKey();
+  void DoSubTaskForPrewrite(TxnSubTask* sub_task);
+  Status PreCommityOrdinaryKey();
+  Status DoPreCommit();
+
+  // txn commit
+  std::unique_ptr<TxnCommitRpc> GenCommitRpc(const RegionPtr& region) const;
+  Status ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary) const;
   Status CommitPrimaryKey();
-  void ProcessTxnCommitSubTask(TxnSubTask* sub_task);
+  void DoSubTaskForCommit(TxnSubTask* sub_task);
+  Status CommitOrdinaryKey();
+  Status DoCommit();
 
   // txn rollback
-  std::unique_ptr<TxnBatchRollbackRpc> PrepareTxnBatchRollbackRpc(const std::shared_ptr<Region>& region) const;
-  void CheckAndLogTxnBatchRollbackResponse(const pb::store::TxnBatchRollbackResponse* response) const;
-  void ProcessBatchRollbackSubTask(TxnSubTask* sub_task);
+  std::unique_ptr<TxnBatchRollbackRpc> GenBatchRollbackRpc(const RegionPtr& region) const;
+  void CheckTxnBatchRollbackResponse(const TxnBatchRollbackResponse* response) const;
+  void DoSubTaskForRollback(TxnSubTask* sub_task);
+  Status RollbackPrimaryKey();
+  Status RollbackOrdinaryKey();
+  Status DoRollback();
 
   Status HeartBeat();
 
-  static bool NeedRetryAndInc(int& times);
-
-  static void DelayRetry(int64_t delay_ms);
-
-  static Status ProcessScanState(ScanState& scan_state, uint64_t limit, std::vector<KVPair>& out_kvs);
-
   const ClientStub& stub_;
   const TransactionOptions options_;
-  TransactionState state_;
+  State state_;
   std::unique_ptr<TxnBuffer> buffer_;
 
-  pb::meta::TsoTimestamp start_tso_;
-  int64_t start_ts_;
-
-  pb::meta::TsoTimestamp commit_tso_;
-  int64_t commit_ts_;
+  int64_t start_ts_{0};
+  int64_t commit_ts_{0};
 
   // for stream scan
   // start_key+end_key -> ScanState

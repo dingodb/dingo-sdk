@@ -210,12 +210,15 @@ struct TransactionOptions {
   uint32_t keep_alive_ms;
 };
 
+class TxnImpl;
 class Transaction {
  public:
   Transaction(const Transaction&) = delete;
   const Transaction& operator=(const Transaction&) = delete;
 
   ~Transaction();
+
+  int64_t ID() const;
 
   Status Get(const std::string& key, std::string& value);
 
@@ -253,11 +256,11 @@ class Transaction {
  private:
   friend class Client;
   friend class TestBase;
+  friend class SDKTxnImplTest;
 
   Status Begin();
 
   // own
-  class TxnImpl;
   TxnImpl* impl_;
 
   explicit Transaction(TxnImpl* impl);

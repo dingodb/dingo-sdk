@@ -165,7 +165,7 @@ Status Client::NewRawKV(RawKV** raw_kv) {
 }
 
 Status Client::NewTransaction(const TransactionOptions& options, Transaction** txn) {
-  Transaction* tmp_txn = new Transaction(new Transaction::TxnImpl(*data_->stub, options));
+  Transaction* tmp_txn = new Transaction(new TxnImpl(*data_->stub, options));
   Status s = tmp_txn->Begin();
   if (!s.ok()) {
     delete tmp_txn;
@@ -443,6 +443,8 @@ Transaction::Transaction(TxnImpl* impl) : impl_(impl) {}
 Transaction::~Transaction() { delete impl_; }
 
 Status Transaction::Begin() { return impl_->Begin(); }
+
+int64_t Transaction::ID() const { return impl_->ID(); }
 
 Status Transaction::Get(const std::string& key, std::string& value) { return impl_->Get(key, value); }
 

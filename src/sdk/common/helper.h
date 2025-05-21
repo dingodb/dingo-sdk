@@ -15,6 +15,9 @@
 #ifndef DINGODB_SDK_HELPER_H_
 #define DINGODB_SDK_HELPER_H_
 
+#include <fmt/format.h>
+
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -22,6 +25,7 @@
 #include "common/logging.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
+#include "proto/meta.pb.h"
 #include "sdk/client_stub.h"
 #include "sdk/rpc/store_rpc_controller.h"
 #include "sdk/utils/net_util.h"
@@ -29,28 +33,22 @@
 namespace dingodb {
 namespace sdk {
 
+inline uint64_t TimestampMs() {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+      .count();
+}
+
 // TODO: log in rpc when we support async
 template <class StoreClientRpc>
 static Status LogAndSendRpc(const ClientStub& stub, StoreClientRpc& rpc, std::shared_ptr<Region> region) {
-  if (fLB::FLAGS_log_rpc_time) {
-    auto start_time_ms =
-        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
-            .count();
-    StoreRpcController controller(stub, rpc, region);
-    Status s = controller.Call();
+  auto start_time_ms = TimestampMs();
 
-    DINGO_LOG(INFO) << "rpc: " << rpc.Method() << " region: " << region->RegionId() << " cost: "
-                    << std::chrono::duration_cast<std::chrono::milliseconds>(
-                           std::chrono::system_clock::now().time_since_epoch())
-                               .count() -
-                           start_time_ms
-                    << "ms";
-    return s;
-  } else {
-    StoreRpcController controller(stub, rpc, region);
-    Status s = controller.Call();
-    return s;
-  }
+  StoreRpcController controller(stub, rpc, region);
+  Status s = controller.Call();
+
+  DINGO_LOG_IF(INFO, fLB::FLAGS_log_rpc_time) << fmt::format("[rpc.{}][{}ms][region.{}] rpc finish", rpc.Method(),
+                                                             TimestampMs() - start_time_ms, region->RegionId());
+  return s;
 }
 
 static std::vector<std::string> Split(const std::string& s, const std::string& delimiters) {
@@ -148,6 +146,14 @@ static std::vector<EndPoint> FileNamingServiceUrlEndpoints(const std::string& na
 }
 
 static std::string StringToHex(const std::string& str) {
+  std::stringstream ss;
+  for (const auto& ch : str) {
+    ss << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(static_cast<unsigned char>(ch));
+  }
+  return ss.str();
+}
+
+static std::string StringToHex(const std::string_view& str) {
   std::stringstream ss;
   for (const auto& ch : str) {
     ss << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(static_cast<unsigned char>(ch));
