@@ -14,10 +14,10 @@
 
 #include "sdk/document/document_scan_query_task.h"
 
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "sdk/common/common.h"
 #include "sdk/document/document_translater.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/scoped_cleanup.h"
 
 namespace dingodb {
@@ -55,7 +55,7 @@ Status DocumentScanQueryTask::Init() {
   DCHECK_NOTNULL(tmp);
   doc_index_ = std::move(tmp);
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   auto part_ids = doc_index_->GetPartitionIds();
 
   for (const auto& part_id : part_ids) {
@@ -68,7 +68,7 @@ Status DocumentScanQueryTask::Init() {
 void DocumentScanQueryTask::DoAsync() {
   std::set<int64_t> next_part_ids;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_part_ids = next_part_ids_;
     status_ = Status::OK();
   }
@@ -92,13 +92,13 @@ void DocumentScanQueryTask::SubTaskCallback(Status status, DocumentScanQueryPart
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "sub_task: " << sub_task->Name() << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     std::vector<DocWithId> vectors = sub_task->GetResult();
     for (auto& result : vectors) {
       CHECK(vector_ids_.find(result.id) == vector_ids_.end()) << "scan query find duplicate vector id: " << result.id;
@@ -111,7 +111,7 @@ void DocumentScanQueryTask::SubTaskCallback(Status status, DocumentScanQueryPart
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       ConstructResultUnlocked();
       tmp = status_;
     }
@@ -145,7 +145,7 @@ void DocumentScanQueryPartTask::DoAsync() {
   }
 
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     result_docs_.clear();
     status_ = Status::OK();
   }
@@ -197,14 +197,14 @@ void DocumentScanQueryPartTask::DocumentScanQueryRpcCallback(Status status, Docu
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
     {
-      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      WriteLockGuard guard(rw_lock_);
       for (const auto& doc_with_id : rpc->Response()->documents()) {
         result_docs_.emplace_back(DocumentTranslater::InternalDocumentWithIdPB2DocWithId(doc_with_id));
       }
@@ -214,7 +214,7 @@ void DocumentScanQueryPartTask::DocumentScanQueryRpcCallback(Status status, Docu
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);

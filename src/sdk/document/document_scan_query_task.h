@@ -22,6 +22,7 @@
 #include "sdk/document/document_task.h"
 #include "sdk/rpc/document_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+#include "sdk/utils/rw_lock.h"
 
 namespace dingodb {
 namespace sdk {
@@ -53,7 +54,7 @@ class DocumentScanQueryTask : public DocumentTask {
 
   std::shared_ptr<DocumentIndex> doc_index_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::vector<DocWithId> result_docs_;
   std::set<int64_t> vector_ids_;  // for unique check
   std::set<int64_t> next_part_ids_;
@@ -71,7 +72,7 @@ class DocumentScanQueryPartTask : public DocumentTask {
   ~DocumentScanQueryPartTask() override = default;
 
   std::vector<DocWithId> GetResult() {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
     return std::move(result_docs_);
   }
 
@@ -96,7 +97,7 @@ class DocumentScanQueryPartTask : public DocumentTask {
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<DocumentScanQueryRpc>> rpcs_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::vector<DocWithId> result_docs_;
   Status status_;
 

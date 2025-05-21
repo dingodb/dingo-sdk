@@ -25,6 +25,7 @@
 #include "dingosdk/status.h"
 #include "proto/meta.pb.h"
 #include "sdk/document/document_index.h"
+#include "sdk/utils/rw_lock.h"
 #include "sdk/vector/vector_index.h"
 
 namespace dingodb {
@@ -107,7 +108,8 @@ class AutoIncrementerManager {
 
  private:
   const ClientStub& stub_;
-  std::mutex mutex_;
+
+  RWLock rw_lock_;
   std::unordered_map<int64_t, std::shared_ptr<AutoIncrementer>> auto_incrementer_map_;
 };
 

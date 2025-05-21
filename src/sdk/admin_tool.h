@@ -35,9 +35,9 @@ class AdminTool {
 
   ~AdminTool() = default;
 
-  Status GetCurrentTsoTimeStamp(pb::meta::TsoTimestamp& tso_timestamp);
+  Status GetCurrentTsoTimeStamp(pb::meta::TsoTimestamp& tso_timestamp, uint32_t count = 1);
 
-  Status GetCurrentTimeStamp(int64_t& timestamp);
+  Status GetCurrentTimeStamp(int64_t& timestamp, uint32_t count = 1);
 
   Status IsCreateRegionInProgress(int64_t region_id, bool& out_create_in_progress);
 

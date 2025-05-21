@@ -21,6 +21,7 @@
 #include "sdk/rawkv/raw_kv_task.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+#include "sdk/utils/rw_lock.h"
 
 namespace dingodb {
 namespace sdk {
@@ -43,7 +44,7 @@ class RawKvBatchPutTask : public RawKvTask {
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<KvBatchPutRpc>> rpcs_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::set<std::string_view> next_keys_;
   Status status_;
 

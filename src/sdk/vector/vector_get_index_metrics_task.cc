@@ -30,7 +30,7 @@ Status VectorGetIndexMetricsTask::Init() {
   DCHECK_NOTNULL(tmp);
   vector_index_ = std::move(tmp);
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   tmp_result_.index_type = vector_index_->GetVectorIndexType();
 
   auto part_ids = vector_index_->GetPartitionIds();
@@ -44,7 +44,7 @@ Status VectorGetIndexMetricsTask::Init() {
 void VectorGetIndexMetricsTask::DoAsync() {
   std::set<int64_t> next_part_ids;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_part_ids = next_part_ids_;
     status_ = Status::OK();
   }
@@ -68,13 +68,13 @@ void VectorGetIndexMetricsTask::SubTaskCallback(Status status, VectorGetIndexMet
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "sub_task: " << sub_task->Name() << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     IndexMetricsResult result = sub_task->GetResult();
     MergeIndexMetricsResult(result, tmp_result_);
     next_part_ids_.erase(sub_task->part_id_);
@@ -83,7 +83,7 @@ void VectorGetIndexMetricsTask::SubTaskCallback(Status status, VectorGetIndexMet
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
       if (tmp.ok()) {
         if (tmp_result_.min_vector_id == INT64_MAX) {
@@ -107,7 +107,7 @@ void VectorGetIndexMetricsPartTask::DoAsync() {
   }
 
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     region_id_to_metrics_.clear();
     status_ = Status::OK();
   }
@@ -145,13 +145,13 @@ void VectorGetIndexMetricsPartTask::VectorGetRegionMetricsRpcCallback(const Stat
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     IndexMetricsResult result = InternalVectorIndexMetrics2IndexMetricsResult(rpc->Response()->metrics());
     result.index_type = vector_index_->GetVectorIndexType();
     CHECK(region_id_to_metrics_.emplace(rpc->Request()->context().region_id(), result).second);
@@ -160,7 +160,7 @@ void VectorGetIndexMetricsPartTask::VectorGetRegionMetricsRpcCallback(const Stat
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);

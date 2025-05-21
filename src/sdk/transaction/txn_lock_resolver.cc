@@ -14,16 +14,18 @@
 
 #include "sdk/transaction/txn_lock_resolver.h"
 
+#include <fmt/format.h>
+
 #include <cstdint>
 
 #include "common/logging.h"
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/common.h"
 #include "sdk/region.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
-#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {
@@ -32,39 +34,44 @@ TxnLockResolver::TxnLockResolver(const ClientStub& stub) : stub_(stub) {}
 
 // TODO: maybe support retry
 Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& lock_info, int64_t caller_start_ts) {
-  DINGO_LOG(DEBUG) << "lock_info:" << lock_info.DebugString();
+  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] resolve lock, lock_info({}).", caller_start_ts,
+                                  lock_info.ShortDebugString());
   TxnStatus txn_status;
-  Status ret = CheckTxnStatus(lock_info.lock_ts(), lock_info.primary_lock(), caller_start_ts, txn_status);
-  if (!ret.ok()) {
-    if (ret.IsNotFound()) {
-      DINGO_LOG(DEBUG) << "txn not exist when check txn status, status:" << ret.ToString()
-                       << ", lock_info:" << lock_info.DebugString();
+  Status status = CheckTxnStatus(lock_info.lock_ts(), lock_info.primary_lock(), caller_start_ts, txn_status);
+  if (!status.ok()) {
+    if (status.IsNotFound()) {
+      DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] not exist txn when check status, status({}) lock({}).",
+                                      status.ToString(), lock_info.ShortDebugString());
+
       return Status::OK();
     } else {
-      return ret;
+      return status;
     }
   }
 
   if (txn_status.IsLocked()) {
-    return Status::TxnLockConflict(ret.ToString());
+    return Status::TxnLockConflict(status.ToString());
   }
 
   CHECK(txn_status.IsCommitted() || txn_status.IsRollbacked()) << "unexpected txn_status:" << txn_status.ToString();
 
   // resolve primary key
-  ret = ResolveLockKey(lock_info.lock_ts(), lock_info.primary_lock(), txn_status.commit_ts);
-  if (!ret.IsOK()) {
-    DINGO_LOG(WARNING) << "resolve txn:" << lock_info.lock_ts() << " primary_key:" << lock_info.primary_lock()
-                       << " txn_status:" << txn_status.ToString() << " fail, status:" << ret.ToString();
-    return ret;
+  status = ResolveLockKey(lock_info.lock_ts(), lock_info.primary_lock(), txn_status.commit_ts);
+  if (!status.IsOK()) {
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] resolve lock fail, lock_ts({}) pk({}) txn_status({}) status({}).",
+                                      caller_start_ts, lock_info.lock_ts(), lock_info.primary_lock(),
+                                      txn_status.ToString(), status.ToString());
+
+    return status;
   }
 
   // resolve conflict key
-  ret = ResolveLockKey(lock_info.lock_ts(), lock_info.key(), txn_status.commit_ts);
-  if (!ret.IsOK()) {
-    DINGO_LOG(WARNING) << "resolve txn:" << lock_info.lock_ts() << " key:" << lock_info.key()
-                       << " txn_status:" << txn_status.ToString() << " fail, status:" << ret.ToString();
-    return ret;
+  status = ResolveLockKey(lock_info.lock_ts(), lock_info.key(), txn_status.commit_ts);
+  if (!status.IsOK()) {
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] resolve lock fail, lock_ts({}) key({}) txn_status({}) status({}).",
+                                      caller_start_ts, lock_info.lock_ts(), lock_info.key(), txn_status.ToString(),
+                                      status.ToString());
+    return status;
   }
 
   return Status::OK();
@@ -101,15 +108,12 @@ Status TxnLockResolver::ProcessTxnCheckStatusResponse(const pb::store::TxnCheckT
   if (response.has_txn_result()) {
     const auto& txn_result = response.txn_result();
     if (txn_result.has_txn_not_found()) {
-      DINGO_LOG(INFO) << "NotFound txn, response" << response.DebugString();
       const auto& not_found = txn_result.txn_not_found();
-      return Status::NotFound(fmt::format("start_ts:{},primary_key:{},key:{}", not_found.start_ts(),
-                                          not_found.primary_key(), not_found.key()));
+      return Status::NotFound(
+          fmt::format("start_ts({}) pk({}) key({})", not_found.start_ts(), not_found.primary_key(), not_found.key()));
+
     } else if (txn_result.has_primary_mismatch()) {
-      DINGO_LOG(ERROR) << "Mismatch txn primary key, response" << response.DebugString();
-      return Status::IllegalState("");
-    } else {
-      DINGO_LOG(DEBUG) << "Ignore txn check status response:" << response.DebugString();
+      return Status::IllegalState("not match primary key");
     }
   }
 
@@ -142,7 +146,7 @@ Status TxnLockResolver::ResolveLockKey(int64_t txn_start_ts, const std::string& 
 
 Status TxnLockResolver::ProcessTxnResolveLockResponse(const pb::store::TxnResolveLockResponse& response) {
   // TODO: need to process lockinfo when support permissive txn
-  DINGO_LOG(INFO) << "txn_resolve_lock_response:" << response.DebugString();
+  DINGO_LOG(INFO) << fmt::format("txn_resolve_lock_response: {}.", response.ShortDebugString());
   return Status::OK();
 }
 

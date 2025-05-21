@@ -30,7 +30,7 @@ Status DocumentGetIndexMetricsTask::Init() {
   DCHECK_NOTNULL(tmp);
   doc_index_ = std::move(tmp);
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
 
   auto part_ids = doc_index_->GetPartitionIds();
   for (const auto& part_id : part_ids) {
@@ -43,7 +43,7 @@ Status DocumentGetIndexMetricsTask::Init() {
 void DocumentGetIndexMetricsTask::DoAsync() {
   std::set<int64_t> next_part_ids;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_part_ids = next_part_ids_;
     status_ = Status::OK();
   }
@@ -67,13 +67,13 @@ void DocumentGetIndexMetricsTask::SubTaskCallback(Status status, DocumentGetInde
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "sub_task: " << sub_task->Name() << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     DocIndexMetricsResult result = sub_task->GetResult();
     MergeDocIndexMetricsResult(result, tmp_result_);
     next_part_ids_.erase(sub_task->part_id_);
@@ -82,7 +82,7 @@ void DocumentGetIndexMetricsTask::SubTaskCallback(Status status, DocumentGetInde
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
       if (tmp.ok()) {
         if (tmp_result_.min_doc_id == INT64_MAX) {
@@ -106,7 +106,7 @@ void DocumentGetIndexMetricsPartTask::DoAsync() {
   }
 
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     region_id_to_metrics_.clear();
     status_ = Status::OK();
   }
@@ -144,20 +144,20 @@ void DocumentGetIndexMetricsPartTask::DocumentGetRegionMetricsRpcCallback(const 
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     CHECK(region_id_to_metrics_.emplace(rpc->Request()->context().region_id(), rpc->Response()->metrics()).second);
   }
 
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
 
       for (const auto& [region_id, metrics] : region_id_to_metrics_) {

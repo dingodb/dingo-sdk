@@ -17,10 +17,10 @@
 #include <cstdint>
 #include <unordered_map>
 
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "sdk/auto_increment_manager.h"
 #include "sdk/common/common.h"
-#include "dingosdk/status.h"
 #include "sdk/vector/vector_common.h"
 #include "sdk/vector/vector_helper.h"
 #include "sdk/vector/vector_index.h"
@@ -38,14 +38,14 @@ Status VectorUpsertTask::Init() {
   DCHECK_NOTNULL(tmp);
   vector_index_ = std::move(tmp);
 
-  for (const auto &vector : vectors_) {
+  for (const auto& vector : vectors_) {
     int64_t id = vector.id;
     if (id <= 0) {
       return Status::InvalidArgument("vector id must be positive");
     }
   }
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   vector_id_to_idx_.clear();
 
   for (int64_t i = 0; i < vectors_.size(); i++) {
@@ -61,7 +61,7 @@ Status VectorUpsertTask::Init() {
 void VectorUpsertTask::DoAsync() {
   std::unordered_map<int64_t, int64_t> next_batch;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_batch = vector_id_to_idx_;
     status_ = Status::OK();
   }
@@ -76,7 +76,7 @@ void VectorUpsertTask::DoAsync() {
 
   auto meta_cache = stub.GetMetaCache();
 
-  for (const auto &[id, idx] : next_batch) {
+  for (const auto& [id, idx] : next_batch) {
     std::shared_ptr<Region> tmp;
     Status s = meta_cache->LookupRegionByKey(vector_helper::VectorIdToRangeKey(*vector_index_, id), tmp);
     if (!s.ok()) {
@@ -96,7 +96,7 @@ void VectorUpsertTask::DoAsync() {
   controllers_.clear();
   rpcs_.clear();
 
-  for (const auto &entry : region_vectors_to_ids) {
+  for (const auto& entry : region_vectors_to_ids) {
     auto region_id = entry.first;
 
     auto iter = region_id_to_region.find(region_id);
@@ -107,7 +107,7 @@ void VectorUpsertTask::DoAsync() {
     FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->Epoch());
     rpc->MutableRequest()->set_is_update(true);
 
-    for (const auto &id : entry.second) {
+    for (const auto& id : entry.second) {
       int64_t idx = vector_id_to_idx_[id];
       FillVectorWithIdPB(rpc->MutableRequest()->add_vectors(), vectors_[idx]);
     }
@@ -124,26 +124,26 @@ void VectorUpsertTask::DoAsync() {
   sub_tasks_count_.store(region_vectors_to_ids.size());
 
   for (auto i = 0; i < region_vectors_to_ids.size(); i++) {
-    auto &controller = controllers_[i];
+    auto& controller = controllers_[i];
 
     controller.AsyncCall(
-        [this, rpc = rpcs_[i].get()](auto &&s) { VectorAddRpcCallback(std::forward<decltype(s)>(s), rpc); });
+        [this, rpc = rpcs_[i].get()](auto&& s) { VectorAddRpcCallback(std::forward<decltype(s)>(s), rpc); });
   }
 }
 
-void VectorUpsertTask::VectorAddRpcCallback(const Status &status, VectorAddRpc *rpc) {
+void VectorUpsertTask::VectorAddRpcCallback(const Status& status, VectorAddRpc* rpc) {
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
-    for (const auto &vector : rpc->Request()->vectors()) {
+    WriteLockGuard guard(rw_lock_);
+    for (const auto& vector : rpc->Request()->vectors()) {
       vector_id_to_idx_.erase(vector.id());
     }
   }
@@ -151,7 +151,7 @@ void VectorUpsertTask::VectorAddRpcCallback(const Status &status, VectorAddRpc *
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);

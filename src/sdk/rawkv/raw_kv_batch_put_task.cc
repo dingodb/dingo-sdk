@@ -25,7 +25,7 @@ RawKvBatchPutTask::RawKvBatchPutTask(const ClientStub& stub, const std::vector<K
     : RawKvTask(stub), kvs_(kvs) {}
 
 Status RawKvBatchPutTask::Init() {
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   next_keys_.clear();
   for (const auto& kv : kvs_) {
     if (!next_keys_.insert(kv.key).second) {
@@ -41,7 +41,7 @@ Status RawKvBatchPutTask::Init() {
 void RawKvBatchPutTask::DoAsync() {
   std::set<std::string_view> next_batch;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_batch = next_keys_;
     status_ = Status::OK();
   }
@@ -116,13 +116,13 @@ void RawKvBatchPutTask::KvBatchPutRpcCallback(const Status& status, KvBatchPutRp
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     for (const auto& kv : rpc->Request()->kvs()) {
       next_keys_.erase(kv.key());
     }
@@ -131,7 +131,7 @@ void RawKvBatchPutTask::KvBatchPutRpcCallback(const Status& status, KvBatchPutRp
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);

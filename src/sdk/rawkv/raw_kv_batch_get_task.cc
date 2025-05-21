@@ -30,7 +30,7 @@ RawKvBatchGetTask::RawKvBatchGetTask(const ClientStub& stub, const std::vector<s
     : RawKvTask(stub), keys_(keys), out_kvs_(out_kvs), sub_tasks_count_(0) {}
 
 Status RawKvBatchGetTask::Init() {
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   next_keys_.clear();
   for (const auto& str : keys_) {
     if (!next_keys_.insert(str).second) {
@@ -46,7 +46,7 @@ Status RawKvBatchGetTask::Init() {
 void RawKvBatchGetTask::DoAsync() {
   std::set<std::string_view> next_batch;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_batch = next_keys_;
     status_ = Status::OK();
   }
@@ -117,7 +117,7 @@ void RawKvBatchGetTask::BatchGetRpcCallback(const Status& status, KvBatchGetRpc*
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
@@ -131,7 +131,7 @@ void RawKvBatchGetTask::BatchGetRpcCallback(const Status& status, KvBatchGetRpc*
       }
     }
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     for (auto& kv : result) {
       next_keys_.erase(kv.key);
       if (!kv.value.empty()) {
@@ -143,7 +143,7 @@ void RawKvBatchGetTask::BatchGetRpcCallback(const Status& status, KvBatchGetRpc*
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);
@@ -151,7 +151,7 @@ void RawKvBatchGetTask::BatchGetRpcCallback(const Status& status, KvBatchGetRpc*
 }
 
 void RawKvBatchGetTask::PostProcess() {
-  std::shared_lock<std::shared_mutex> r(rw_lock_);
+  ReadLockGuard guard(rw_lock_);
   out_kvs_.swap(tmp_out_kvs_);
 }
 

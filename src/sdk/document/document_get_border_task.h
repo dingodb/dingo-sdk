@@ -22,6 +22,7 @@
 #include "sdk/document/document_task.h"
 #include "sdk/rpc/document_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+#include "sdk/utils/rw_lock.h"
 
 namespace dingodb {
 namespace sdk {
@@ -50,7 +51,7 @@ class DocumentGetBorderTask : public DocumentTask {
   std::shared_ptr<DocumentIndex> vector_index_;
   int64_t target_doc_id_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::set<int64_t> next_part_ids_;
   Status status_;
 
@@ -68,7 +69,7 @@ class DocumentGetBorderPartTask : public DocumentTask {
   ~DocumentGetBorderPartTask() override = default;
 
   int64_t GetResult() {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
     return result_doc_id_;
   }
 
@@ -90,7 +91,7 @@ class DocumentGetBorderPartTask : public DocumentTask {
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<DocumentGetBorderIdRpc>> rpcs_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   Status status_;
   int64_t result_doc_id_;
 

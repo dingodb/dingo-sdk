@@ -20,6 +20,8 @@
 #include <memory>
 
 #include "common/logging.h"
+#include "dingosdk/status.h"
+#include "dingosdk/vector.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "proto/index.pb.h"
@@ -27,9 +29,7 @@
 #include "sdk/expression/langchain_expr.h"
 #include "sdk/expression/langchain_expr_encoder.h"
 #include "sdk/expression/langchain_expr_factory.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/scoped_cleanup.h"
-#include "dingosdk/vector.h"
 #include "sdk/vector/vector_common.h"
 
 namespace dingodb {
@@ -45,7 +45,7 @@ Status VectorSearchTask::Init() {
   DCHECK_NOTNULL(tmp);
   vector_index_ = std::move(tmp);
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
 
   auto part_ids = vector_index_->GetPartitionIds();
 
@@ -78,7 +78,7 @@ Status VectorSearchTask::Init() {
 void VectorSearchTask::DoAsync() {
   std::set<int64_t> next_part_ids;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_part_ids = next_part_ids_;
     status_ = Status::OK();
   }
@@ -102,13 +102,13 @@ void VectorSearchTask::SubTaskCallback(Status status, VectorSearchPartTask* sub_
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "sub_task: " << sub_task->Name() << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     std::unordered_map<int64_t, std::vector<VectorWithDistance>>& sub_results = sub_task->GetSearchResult();
     // merge
     for (auto& result : sub_results) {
@@ -129,7 +129,7 @@ void VectorSearchTask::SubTaskCallback(Status status, VectorSearchPartTask* sub_
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       ConstructResultUnlocked();
       tmp = status_;
     }
@@ -190,7 +190,7 @@ void VectorSearchPartTask::DoAsync() {
   }
 
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     search_result_.clear();
     status_ = Status::OK();
   }
@@ -245,7 +245,7 @@ void VectorSearchPartTask::VectorSearchRpcCallback(const Status& status, VectorS
 
     } else {
       if (status_.ok()) {
-        std::unique_lock<std::shared_mutex> w(rw_lock_);
+        WriteLockGuard guard(rw_lock_);
         // only return first fail status
         status_ = status;
       }
@@ -258,7 +258,7 @@ void VectorSearchPartTask::VectorSearchRpcCallback(const Status& status, VectorS
     }
 
     {
-      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      WriteLockGuard guard(rw_lock_);
       for (auto i = 0; i < rpc->Response()->batch_results_size(); i++) {
         for (const auto& distancepb : rpc->Response()->batch_results(i).vector_with_distances()) {
           VectorWithDistance distance = InternalVectorWithDistance2VectorWithDistance(distancepb);
@@ -284,7 +284,7 @@ void VectorSearchPartTask::CheckNoDataRegion() {
 void VectorSearchPartTask::Done() {
   Status tmp;
   {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
     tmp = status_;
   }
   DoAsyncDone(tmp);
@@ -327,7 +327,7 @@ void VectorSearchPartTask::NodataRegionRpcCallback(const Status& status, VectorS
                        << " fail: " << status.ToString();
 
     if (status_.ok()) {
-      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      WriteLockGuard guard(rw_lock_);
       // only return first fail status
       status_ = status;
     }
@@ -340,7 +340,7 @@ void VectorSearchPartTask::NodataRegionRpcCallback(const Status& status, VectorS
     }
 
     {
-      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      WriteLockGuard guard(rw_lock_);
       for (auto i = 0; i < rpc->Response()->batch_results_size(); i++) {
         for (const auto& distancepb : rpc->Response()->batch_results(i).vector_with_distances()) {
           VectorWithDistance distance = InternalVectorWithDistance2VectorWithDistance(distancepb);

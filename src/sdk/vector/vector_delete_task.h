@@ -19,6 +19,7 @@
 
 #include "sdk/rpc/index_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+#include "sdk/utils/rw_lock.h"
 #include "sdk/vector/vector_task.h"
 
 namespace dingodb {
@@ -50,7 +51,7 @@ class VectorDeleteTask : public VectorTask {
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<VectorDeleteRpc>> rpcs_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::set<int64_t> next_vector_ids_;
   Status status_;
 

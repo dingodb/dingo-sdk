@@ -19,12 +19,13 @@
 #include <cstdint>
 #include <unordered_map>
 
+#include "dingosdk/document.h"
 #include "fmt/core.h"
 #include "sdk/client_stub.h"
-#include "dingosdk/document.h"
 #include "sdk/document/document_task.h"
 #include "sdk/rpc/document_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+#include "sdk/utils/rw_lock.h"
 
 namespace dingodb {
 namespace sdk {
@@ -66,7 +67,7 @@ class DocumentGetIndexMetricsTask : public DocumentTask {
 
   std::shared_ptr<DocumentIndex> doc_index_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::set<int64_t> next_part_ids_;
   Status status_;
   DocIndexMetricsResult tmp_result_;
@@ -85,7 +86,7 @@ class DocumentGetIndexMetricsPartTask : public DocumentTask {
   ~DocumentGetIndexMetricsPartTask() override = default;
 
   DocIndexMetricsResult GetResult() {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
 
     return total_metrics_;
   }
@@ -107,7 +108,7 @@ class DocumentGetIndexMetricsPartTask : public DocumentTask {
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<DocumentGetRegionMetricsRpc>> rpcs_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   Status status_;
   std::unordered_map<int64_t, pb::common::DocumentIndexMetrics> region_id_to_metrics_;
 

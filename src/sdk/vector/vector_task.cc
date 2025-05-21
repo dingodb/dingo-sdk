@@ -32,7 +32,7 @@ Status VectorTask::Run() {
 void VectorTask::AsyncRun(StatusCallback cb) {
   CHECK(cb) << "cb is invalid";
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     call_back_.swap(cb);
   }
 
@@ -105,7 +105,7 @@ void VectorTask::FireCallback() {
 
   StatusCallback cb;
   {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
     CHECK(call_back_) << "call_back_ is invalid";
     call_back_.swap(cb);
   }

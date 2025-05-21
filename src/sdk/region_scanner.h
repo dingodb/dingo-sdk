@@ -62,6 +62,8 @@ class RegionScanner {
   std::shared_ptr<Region> region;
 };
 
+using RegionScannerPtr = std::shared_ptr<RegionScanner>;
+
 struct ScannerOptions {
   const ClientStub& stub;
   std::shared_ptr<Region> region;

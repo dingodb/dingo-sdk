@@ -39,7 +39,6 @@ std::string Status::ToString() const {
   if (state_ == nullptr) {
     return "OK";
   } else {
-    char tmp[30];
     const char* type;
     switch (code_) {
       case kOk:
@@ -127,8 +126,7 @@ std::string Status::ToString() const {
         type = "ResetFailed";
         break;
       default:
-        std::string tmp = fmt::format("Unknown code({}):", static_cast<int>(code_));
-        CHECK(false) << tmp;
+        CHECK(false) << fmt::format("Unknown code({}):", static_cast<int>(code_));
     }
 
     std::string result(type);

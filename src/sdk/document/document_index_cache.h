@@ -22,6 +22,7 @@
 #include "common/logging.h"
 #include "dingosdk/vector.h"
 #include "sdk/document/document_index.h"
+#include "sdk/utils/rw_lock.h"
 
 namespace dingodb {
 namespace sdk {
@@ -59,7 +60,7 @@ class DocumentIndexCache {
   static bool CheckIndexResponse(const DocumentIndexResponse& response);
 
   const ClientStub& stub_;
-  mutable std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::unordered_map<DocumentIndexCacheKey, int64_t> index_key_to_id_;
   std::unordered_map<int64_t, std::shared_ptr<DocumentIndex>> id_to_index_;
 };

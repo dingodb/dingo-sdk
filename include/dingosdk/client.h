@@ -21,9 +21,9 @@
 
 #include "dingosdk/coordinator.h"
 #include "dingosdk/document.h"
+#include "dingosdk/metric.h"
 #include "dingosdk/status.h"
 #include "dingosdk/vector.h"
-#include "dingosdk/metric.h"
 
 namespace dingodb {
 namespace sdk {
@@ -123,7 +123,8 @@ class Client {
   Status GetDocumentIndexById(int64_t index_id, std::shared_ptr<DocumentIndex>& out_doc_index);
 
   // Get store own metrics , if store_ids is empty, get all stores metrics
-  Status GetStoreOwnMetrics(std::vector<int64_t> store_ids, std::map<std::int64_t, StoreOwnMetics>& store_id_to_store_own_metrics);
+  Status GetStoreOwnMetrics(std::vector<int64_t> store_ids,
+                            std::map<std::int64_t, StoreOwnMetics>& store_id_to_store_own_metrics);
 
  private:
   friend class RawKV;
@@ -261,6 +262,7 @@ class Transaction {
   Status Begin();
 
   // own
+  class TxnImpl;
   TxnImpl* impl_;
 
   explicit Transaction(TxnImpl* impl);

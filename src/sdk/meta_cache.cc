@@ -37,7 +37,8 @@ Status MetaCache::LookupRegionByKey(std::string_view key, std::shared_ptr<Region
   CHECK(!key.empty()) << "key should not empty";
   Status s;
   {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
+
     s = FastLookUpRegionByKeyUnlocked(key, region);
     if (s.IsOK()) {
       return s;
@@ -52,7 +53,7 @@ Status MetaCache::LookupRegionByRegionId(int64_t region_id, std::shared_ptr<Regi
   CHECK_GT(region_id, 0) << "region_id should bigger than 0";
   Status s;
   {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
     s = FastLookUpRegionByRegionIdUnlocked(region_id, region);
     if (s.IsOK()) {
       return s;
@@ -69,7 +70,8 @@ Status MetaCache::LookupRegionBetweenRange(std::string_view start_key, std::stri
   CHECK(!end_key.empty()) << "end_key should not empty";
   Status s;
   {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
+
     s = FastLookUpRegionByKeyUnlocked(start_key, region);
     if (s.IsOK()) {
       return s;
@@ -91,7 +93,8 @@ Status MetaCache::LookupRegionBetweenRangeNoPrefetch(std::string_view start_key,
   CHECK(!end_key.empty()) << "end_key should not empty";
   Status s;
   {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
+
     s = FastLookUpRegionByKeyUnlocked(start_key, region);
     if (s.IsOK()) {
       return s;
@@ -127,7 +130,8 @@ Status MetaCache::ScanRegionsBetweenContinuousRange(std::string_view start_key, 
                                                     std::vector<std::shared_ptr<Region>>& regions) {
   std::vector<std::shared_ptr<Region>> to_return;
   {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
+
     // find region start_key >= start_key
     auto start_iter = region_by_key_.lower_bound(start_key);
     if (start_iter != region_by_key_.end() && start_iter->first == start_key) {
@@ -189,7 +193,8 @@ Status MetaCache::ScanRegionsBetweenContinuousRange(std::string_view start_key, 
 }
 
 void MetaCache::ClearRange(const std::shared_ptr<Region>& region) {
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
+
   auto iter = region_by_id_.find(region->RegionId());
   if (region->IsStale()) {
     DINGO_LOG(DEBUG) << "region is stale, no need clear, region:" << region->ToString();
@@ -201,7 +206,8 @@ void MetaCache::ClearRange(const std::shared_ptr<Region>& region) {
 }
 
 void MetaCache::RemoveRegion(int64_t region_id) {
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
+
   RemoveRegionIfPresentUnlocked(region_id);
 }
 
@@ -212,7 +218,7 @@ void MetaCache::RemoveRegionIfPresentUnlocked(int64_t region_id) {
 }
 
 void MetaCache::ClearCache() {
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   for (const auto& [region_id, region] : region_by_id_) {
     region->MarkStale();
   }
@@ -225,7 +231,9 @@ void MetaCache::MaybeAddRegion(const std::shared_ptr<Region>& new_region) {
     DINGO_LOG(WARNING) << "err : region start_key >= region end_key\n" << new_region->ToString();
     return;
   }
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+
+  WriteLockGuard guard(rw_lock_);
+
   MaybeAddRegionUnlocked(new_region);
 }
 
@@ -313,7 +321,8 @@ Status MetaCache::ProcessQueryRegionsByRegionIdResponse(const pb::coordinator::Q
     std::shared_ptr<Region> new_region;
     ProcesssQueryRegion(region_pb, new_region);
     {
-      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      WriteLockGuard guard(rw_lock_);
+
       MaybeAddRegionUnlocked(new_region);
       auto iter = region_by_id_.find(region_pb.id());
       CHECK(iter != region_by_id_.end());
@@ -335,7 +344,8 @@ Status MetaCache::ProcessScanRegionsByKeyResponse(const pb::coordinator::ScanReg
     std::shared_ptr<Region> new_region;
     ProcessScanRegionInfo(scan_region_info, new_region);
     {
-      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      WriteLockGuard guard(rw_lock_);
+
       MaybeAddRegionUnlocked(new_region);
       auto iter = region_by_id_.find(scan_region_info.region_id());
       CHECK(iter != region_by_id_.end());
@@ -358,7 +368,8 @@ Status MetaCache::ProcessScanRegionsBetweenRangeResponse(const pb::coordinator::
       std::shared_ptr<Region> new_region;
       ProcessScanRegionInfo(scan_region_info, new_region);
       {
-        std::unique_lock<std::shared_mutex> w(rw_lock_);
+        WriteLockGuard guard(rw_lock_);
+
         MaybeAddRegionUnlocked(new_region);
         auto iter = region_by_id_.find(scan_region_info.region_id());
         CHECK(iter != region_by_id_.end());
@@ -489,7 +500,8 @@ void MetaCache::AddRangeToCacheUnlocked(const std::shared_ptr<Region>& region) {
 }
 
 void MetaCache::Dump() {
-  std::shared_lock<std::shared_mutex> r(rw_lock_);
+  ReadLockGuard guard(rw_lock_);
+
   DumpUnlocked();
 }
 

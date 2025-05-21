@@ -17,10 +17,10 @@
 #include <cstdint>
 
 #include "common/logging.h"
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "sdk/common/common.h"
 #include "sdk/document/document_codec.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/scoped_cleanup.h"
 
 namespace dingodb {
@@ -36,7 +36,7 @@ Status DocumentCountTask::Init() {
   DCHECK_NOTNULL(tmp);
   doc_index_ = std::move(tmp);
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   auto part_ids = doc_index_->GetPartitionIds();
   for (const auto& part_id : part_ids) {
     next_part_ids_.emplace(part_id);
@@ -48,7 +48,7 @@ Status DocumentCountTask::Init() {
 void DocumentCountTask::DoAsync() {
   std::set<int64_t> next_part_ids;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_part_ids = next_part_ids_;
     status_ = Status::OK();
   }
@@ -72,21 +72,21 @@ void DocumentCountTask::SubTaskCallback(Status status, DocumentCountPartTask* su
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "sub_task: " << sub_task->Name() << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
     }
   } else {
     tmp_count_.fetch_add(sub_task->GetResult());
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_part_ids_.erase(sub_task->part_id_);
   }
 
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
 
@@ -121,7 +121,7 @@ void DocumentCountPartTask::DoAsync() {
   }
 
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     status_ = Status::OK();
   }
 
@@ -186,7 +186,7 @@ void DocumentCountPartTask::DocumentCountRpcCallback(Status status, DocumentCoun
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
 
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (status_.ok()) {
       // only return first fail status
       status_ = status;
@@ -198,7 +198,7 @@ void DocumentCountPartTask::DocumentCountRpcCallback(Status status, DocumentCoun
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);

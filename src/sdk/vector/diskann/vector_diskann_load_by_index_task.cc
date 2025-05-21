@@ -8,14 +8,14 @@
 #include <vector>
 
 #include "common/logging.h"
+#include "dingosdk/status.h"
+#include "dingosdk/vector.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "proto/error.pb.h"
 #include "sdk/common/common.h"
 #include "sdk/region.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/scoped_cleanup.h"
-#include "dingosdk/vector.h"
 #include "sdk/vector/vector_index.h"
 
 namespace dingodb {
@@ -32,7 +32,7 @@ Status VectorLoadByIndexTask::Init() {
     return Status::InvalidArgument("vector_index is not diskann");
   }
 
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
   auto part_ids = vector_index_->GetPartitionIds();
 
   for (const auto& part_id : part_ids) {
@@ -45,7 +45,7 @@ Status VectorLoadByIndexTask::Init() {
 void VectorLoadByIndexTask::DoAsync() {
   std::set<int64_t> next_part_ids;
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     next_part_ids = next_part_ids_;
     status_ = Status::OK();
   }
@@ -69,7 +69,7 @@ void VectorLoadByIndexTask::SubTaskCallback(const Status& status, VectorLoadPart
   if (!status.ok()) {
     DINGO_LOG(INFO) << "sub_task: " << sub_task->Name() << " fail: " << status.ToString();
     if (status.IsLoadFailed()) {
-      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      WriteLockGuard guard(rw_lock_);
       ErrStatusResult result = sub_task->GetResult();
       for (auto& err_status : result.region_status) {
         result_.region_status.push_back(err_status);
@@ -78,7 +78,7 @@ void VectorLoadByIndexTask::SubTaskCallback(const Status& status, VectorLoadPart
         status_ = status;
       }
     } else {
-      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      WriteLockGuard guard(rw_lock_);
       status_ = status;
     }
   }
@@ -86,7 +86,7 @@ void VectorLoadByIndexTask::SubTaskCallback(const Status& status, VectorLoadPart
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
 
@@ -105,7 +105,7 @@ void VectorLoadPartTask::DoAsync() {
   }
 
   {
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     status_ = Status::OK();
   }
 
@@ -140,7 +140,7 @@ void VectorLoadPartTask::VectorLoadRpcCallback(const Status& status, VectorLoadR
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
                        << " fail: " << status.ToString();
-    std::unique_lock<std::shared_mutex> w(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
 
     if (pb::error::Errno::EDISKANN_IS_NO_DATA == status.Errno()) {
       DINGO_LOG(INFO) << "ignore error : " << status.ToString()
@@ -156,12 +156,12 @@ void VectorLoadPartTask::VectorLoadRpcCallback(const Status& status, VectorLoadR
 
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     if (status_.ok() && !result_.region_status.empty()) {
-      std::unique_lock<std::shared_mutex> w(rw_lock_);
+      WriteLockGuard guard(rw_lock_);
       status_ = Status::LoadFailed("");
     }
     Status tmp;
     {
-      std::shared_lock<std::shared_mutex> r(rw_lock_);
+      ReadLockGuard guard(rw_lock_);
       tmp = status_;
     }
     DoAsyncDone(tmp);
@@ -197,7 +197,6 @@ bool VectorLoadPartTask::NeedRetry() {
 
   return false;
 }
-
 
 }  // namespace sdk
 }  // namespace dingodb

@@ -165,7 +165,7 @@ Status Client::NewRawKV(RawKV** raw_kv) {
 }
 
 Status Client::NewTransaction(const TransactionOptions& options, Transaction** txn) {
-  Transaction* tmp_txn = new Transaction(new TxnImpl(*data_->stub, options));
+  Transaction* tmp_txn = new Transaction(new Transaction::TxnImpl(*data_->stub, options));
   Status s = tmp_txn->Begin();
   if (!s.ok()) {
     delete tmp_txn;

@@ -21,6 +21,7 @@
 #include "dingosdk/vector.h"
 #include "sdk/rpc/index_service_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+#include "sdk/utils/rw_lock.h"
 #include "sdk/vector/vector_task.h"
 
 namespace dingodb {
@@ -50,7 +51,7 @@ class VectorGetBorderTask : public VectorTask {
   std::shared_ptr<VectorIndex> vector_index_;
   int64_t target_vector_id_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::set<int64_t> next_part_ids_;
   Status status_;
 
@@ -68,7 +69,7 @@ class VectorGetBorderPartTask : public VectorTask {
   ~VectorGetBorderPartTask() override = default;
 
   int64_t GetResult() {
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
     return result_vector_id_;
   }
 
@@ -90,7 +91,7 @@ class VectorGetBorderPartTask : public VectorTask {
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<VectorGetBorderIdRpc>> rpcs_;
 
-  std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   Status status_;
   int64_t result_vector_id_;
 

@@ -38,7 +38,7 @@ using pb::store::TxnCommitResponse;
 using pb::store::TxnPrewriteResponse;
 
 // TODO: support read only txn
-class TxnImpl {
+class Transaction::TxnImpl {
  public:
   TxnImpl(const TxnImpl&) = delete;
   const TxnImpl& operator=(const TxnImpl&) = delete;
@@ -112,7 +112,14 @@ class TxnImpl {
 
   bool IsOnePc() const { return is_one_pc_; }
 
-  State TEST_GetTransactionState() { return state_; }                    // NOLINT
+  bool TEST_IsInitState() { return state_ == kInit; }                    // NOLINT
+  bool TEST_IsActiveState() { return state_ == kActive; }                // NOLINT
+  bool TEST_IsRollbackingState() { return state_ == kRollbacking; }      // NOLINT
+  bool TEST_IsRollbacktedState() { return state_ == kRollbackted; }      // NOLINT
+  bool TEST_IsPreCommittingState() { return state_ == kPreCommitting; }  // NOLINT
+  bool TEST_IsPreCommittedState() { return state_ == kPreCommitted; }    // NOLINT
+  bool TEST_IsCommittingState() { return state_ == kCommitting; }        // NOLINT
+  bool TEST_IsCommittedState() { return state_ == kCommitted; }          // NOLINT
   int64_t TEST_GetStartTs() { return start_ts_; }                        // NOLINT
   int64_t TEST_GetCommitTs() { return commit_ts_; }                      // NOLINT
   int64_t TEST_MutationsSize() { return buffer_->MutationsSize(); }      // NOLINT

@@ -35,19 +35,19 @@ static pb::store::IsolationLevel TransactionIsolation2IsolationLevel(Transaction
 
 static Status CheckTxnResultInfo(const pb::store::TxnResultInfo& txn_result_info) {
   if (txn_result_info.has_locked()) {
-    return Status::TxnLockConflict(txn_result_info.locked().DebugString());
+    return Status::TxnLockConflict(txn_result_info.locked().ShortDebugString());
   }
 
   if (txn_result_info.has_write_conflict()) {
-    return Status::TxnWriteConflict(txn_result_info.write_conflict().DebugString());
+    return Status::TxnWriteConflict(txn_result_info.write_conflict().ShortDebugString());
   }
 
   if (txn_result_info.has_txn_not_found()) {
-    return Status::TxnNotFound(txn_result_info.txn_not_found().DebugString());
+    return Status::TxnNotFound(txn_result_info.txn_not_found().ShortDebugString());
   }
 
   if (txn_result_info.has_primary_mismatch()) {
-    return Status::TxnPrimaryMismatch(txn_result_info.primary_mismatch().DebugString());
+    return Status::TxnPrimaryMismatch(txn_result_info.primary_mismatch().ShortDebugString());
   }
 
   return Status::OK();

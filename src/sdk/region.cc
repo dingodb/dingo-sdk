@@ -14,8 +14,6 @@
 
 #include "sdk/region.h"
 
-#include <mutex>
-
 #include "common/logging.h"
 
 namespace dingodb {
@@ -38,12 +36,12 @@ Region::Region(int64_t id, pb::common::Range range, pb::common::RegionEpoch epoc
 }
 
 std::vector<Replica> Region::Replicas() {
-  std::shared_lock<std::shared_mutex> r(rw_lock_);
+  ReadLockGuard guard(rw_lock_);
   return replicas_;
 }
 
 std::vector<EndPoint> Region::ReplicaEndPoint() {
-  std::shared_lock<std::shared_mutex> r(rw_lock_);
+  ReadLockGuard guard(rw_lock_);
 
   std::vector<EndPoint> end_points;
   end_points.reserve(replicas_.size());
@@ -55,7 +53,8 @@ std::vector<EndPoint> Region::ReplicaEndPoint() {
 }
 
 void Region::MarkLeader(const EndPoint& end_point) {
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
+
   for (auto& r : replicas_) {
     if (r.end_point == end_point) {
       r.role = kLeader;
@@ -70,7 +69,8 @@ void Region::MarkLeader(const EndPoint& end_point) {
 }
 
 void Region::MarkFollower(const EndPoint& end_point) {
-  std::unique_lock<std::shared_mutex> w(rw_lock_);
+  WriteLockGuard guard(rw_lock_);
+
   for (auto& r : replicas_) {
     if (r.end_point == end_point) {
       r.role = kFollower;
@@ -86,7 +86,7 @@ void Region::MarkFollower(const EndPoint& end_point) {
 }
 
 Status Region::GetLeader(EndPoint& leader) {
-  std::shared_lock<std::shared_mutex> r(rw_lock_);
+  ReadLockGuard guard(rw_lock_);
 
   if (leader_addr_.IsValid()) {
     leader = leader_addr_;
@@ -98,8 +98,9 @@ Status Region::GetLeader(EndPoint& leader) {
   return Status::NotFound(msg);
 }
 
-std::string Region::ReplicasAsString() const {
-  std::shared_lock<std::shared_mutex> r(rw_lock_);
+std::string Region::ReplicasAsString() {
+  ReadLockGuard guard(rw_lock_);
+
   return ReplicasAsStringUnlocked();
 }
 

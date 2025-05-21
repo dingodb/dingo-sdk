@@ -75,7 +75,8 @@ class MetaCache {
   void MaybeAddRegion(const std::shared_ptr<Region>& new_region);
 
   Status TEST_FastLookUpRegionByKey(std::string_view key, std::shared_ptr<Region>& region) {  // NOLINT
-    std::shared_lock<std::shared_mutex> r(rw_lock_);
+    ReadLockGuard guard(rw_lock_);
+
     return FastLookUpRegionByKeyUnlocked(key, region);
   }
 
@@ -120,7 +121,7 @@ class MetaCache {
 
   std::shared_ptr<CoordinatorRpcController> coordinator_rpc_controller_;
 
-  mutable std::shared_mutex rw_lock_;
+  RWLock rw_lock_;
   std::unordered_map<int64_t, std::shared_ptr<Region>> region_by_id_;
   // start-key -> region
   std::map<std::string, std::shared_ptr<Region>, std::less<void>> region_by_key_;
