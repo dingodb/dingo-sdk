@@ -17,6 +17,8 @@
 
 #include <memory>
 
+#include "dingosdk/client.h"
+#include "dingosdk/vector.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -26,13 +28,11 @@
 #include "mock_rpc_client.h"
 #include "sdk/admin_tool.h"
 #include "sdk/auto_increment_manager.h"
-#include "dingosdk/client.h"
 #include "sdk/client_internal_data.h"
 #include "sdk/meta_cache.h"
 #include "sdk/transaction/txn_impl.h"
 #include "sdk/utils/actuator.h"
 #include "sdk/utils/thread_pool_actuator.h"
-#include "dingosdk/vector.h"
 #include "sdk/vector/vector_index_cache.h"
 #include "test_common.h"
 #include "transaction/mock_txn_lock_resolver.h"
@@ -104,8 +104,8 @@ class TestBase : public ::testing::Test {
 
   void SetUp() override { PreFillMetaCache(); }
 
-  std::unique_ptr<Transaction::TxnImpl> NewTransactionImpl(const TransactionOptions& options) const {
-    auto txn = std::make_unique<Transaction::TxnImpl>(*stub, options);
+  std::unique_ptr<TxnImpl> NewTransactionImpl(const TransactionOptions& options) const {
+    auto txn = std::make_unique<TxnImpl>(*stub, options);
     CHECK_NOTNULL(txn.get());
     CHECK(txn->Begin().ok());
     return std::move(txn);

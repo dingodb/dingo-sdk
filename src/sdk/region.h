@@ -70,6 +70,8 @@ class Region {
 
   std::string ReplicasAsString() const;
 
+  std::string DescribeEpoch() const { return fmt::format("{},{}", epoch_.version(), epoch_.conf_version()); }
+
   std::string ToString() const {
     std::shared_lock<std::shared_mutex> r(rw_lock_);
     // region_id, start_key-end_key, version, config_version, type, replicas

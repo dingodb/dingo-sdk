@@ -15,8 +15,6 @@
 #ifndef DINGODB_SDK_STORE_RPC_CONTROLLER_H_
 #define DINGODB_SDK_STORE_RPC_CONTROLLER_H_
 
-#include <memory>
-
 #include "dingosdk/status.h"
 #include "proto/error.pb.h"
 #include "sdk/client_stub.h"
@@ -31,7 +29,7 @@ class StoreRpcController {
  public:
   explicit StoreRpcController(const ClientStub& stub, Rpc& rpc);
 
-  explicit StoreRpcController(const ClientStub& stub, Rpc& rpc, std::shared_ptr<Region> region);
+  explicit StoreRpcController(const ClientStub& stub, Rpc& rpc, RegionPtr region);
 
   virtual ~StoreRpcController();
 
@@ -40,7 +38,7 @@ class StoreRpcController {
 
   void AsyncCall(StatusCallback cb);
 
-  void ResetRegion(std::shared_ptr<Region> region);
+  void ResetRegion(RegionPtr region);
 
  private:
   void DoAsyncCall();
@@ -59,7 +57,7 @@ class StoreRpcController {
 
   bool PickNextLeader(EndPoint& leader);
 
-  std::shared_ptr<Region> ProcessStoreRegionInfo(const dingodb::pb::error::StoreRegionInfo& store_region_info);
+  RegionPtr ProcessStoreRegionInfo(const pb::error::StoreRegionInfo& store_region_info);
 
   bool NeedRetry() const;
 
@@ -69,7 +67,7 @@ class StoreRpcController {
 
   const ClientStub& stub_;
   Rpc& rpc_;
-  std::shared_ptr<Region> region_;
+  RegionPtr region_;
   int rpc_retry_times_;
   int next_replica_index_;
   Status status_;

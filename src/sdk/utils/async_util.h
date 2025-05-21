@@ -132,7 +132,7 @@ class ParallelExecutor {
       Param* param = new Param{.index = i, .func = new std::function<void(uint32_t)>(func)};
       bthread_t tid;
       CHECK(bthread_start_background(
-                &tid, nullptr,
+                &tid, &BTHREAD_ATTR_SMALL,
                 [](void* arg) -> void* {
                   Param* param = reinterpret_cast<Param*>(arg);
 
@@ -144,7 +144,7 @@ class ParallelExecutor {
                   return nullptr;
                 },
                 param) == 0)
-          << "bthread_start_background failed";
+          << "bthread_start_background fail";
 
       tids.push_back(tid);
     }
@@ -155,6 +155,14 @@ class ParallelExecutor {
 #endif  // USE_GRPC
   }
 };
+
+inline void Sleep(int64_t us) {
+#ifdef USE_GRPC
+  std::this_thread::sleep_for(std::chrono::microseconds(us));
+#else
+  bthread_usleep(us);
+#endif  // USE_GRPC
+}
 
 }  // namespace sdk
 }  // namespace dingodb
