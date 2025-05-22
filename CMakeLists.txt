@@ -99,12 +99,6 @@ find_package(Protobuf CONFIG REQUIRED)
 message("Using protobuf ${Protobuf_VERSION}, include_dir:${Protobuf_INCLUDE_DIRS}" )
 # include_directories(${Protobuf_INCLUDE_DIRS})
 
-find_package(gRPC CONFIG REQUIRED)
-message("Using gRPC ${gRPC_VERSION}")
-
-find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin REQUIRED)
-message("Using grpc_cpp_plugin ${GRPC_CPP_PLUGIN}")
-
 find_program(PROTOC protoc REQUIRED)
 message("Using protoc ${PROTOC}")
 
@@ -113,16 +107,24 @@ message("Using protoc ${PROTOC}")
 set_target_properties(protobuf::libprotobuf PROPERTIES IMPORTED_GLOBAL TRUE)
 add_library(grpc_protobuf ALIAS protobuf::libprotobuf)
   
-set_target_properties(gRPC::grpc++ PROPERTIES IMPORTED_GLOBAL TRUE)
-add_library(grpc++ ALIAS gRPC::grpc++)
-if (ENABLE_GRPC_REFLECTION)
-    set_target_properties(gRPC::grpc++_reflection PROPERTIES IMPORTED_GLOBAL TRUE)
-    add_library(grpc++_reflection ALIAS gRPC::grpc++_reflection)
-endif()
-
 if(SDK_ENABLE_GRPC)
     add_definitions(-DUSE_GRPC=1)
+
+    find_package(gRPC CONFIG REQUIRED)
+    message("Using gRPC ${gRPC_VERSION}")
+
+    find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin REQUIRED)
+    message("Using grpc_cpp_plugin ${GRPC_CPP_PLUGIN}")
+
+    set_target_properties(gRPC::grpc++ PROPERTIES IMPORTED_GLOBAL TRUE)
+    add_library(grpc++ ALIAS gRPC::grpc++)
+    if (ENABLE_GRPC_REFLECTION)
+        set_target_properties(gRPC::grpc++_reflection PROPERTIES IMPORTED_GLOBAL TRUE)
+    add_library(grpc++_reflection ALIAS gRPC::grpc++_reflection)
+    endif()
+
 endif()
+
 
 set(PROTO_OUTPUT_DIR ${CMAKE_BINARY_DIR}/proto)
 add_custom_target(create_proto_output_dir ALL
