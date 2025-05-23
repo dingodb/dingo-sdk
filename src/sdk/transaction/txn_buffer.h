@@ -113,6 +113,9 @@ class TxnBuffer {
   std::map<std::string, TxnMutation> mutation_map_;
 };
 
+using TxnBufferUPtr = std::unique_ptr<TxnBuffer>;
+using TxnBufferSPtr = std::shared_ptr<TxnBuffer>;
+
 static void TxnMutation2MutationPB(const TxnMutation& mutation, pb::store::Mutation* mutation_pb) {
   switch (mutation.type) {
     case kPut:

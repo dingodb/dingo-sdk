@@ -16,6 +16,7 @@
 #define DINGODB_SDK_CLIENT_H_
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -211,7 +212,6 @@ struct TransactionOptions {
   uint32_t keep_alive_ms;
 };
 
-class TxnImpl;
 class Transaction {
  public:
   Transaction(const Transaction&) = delete;
@@ -263,9 +263,11 @@ class Transaction {
 
   // own
   class TxnImpl;
-  TxnImpl* impl_;
+  using TxnImplSPtr = std::shared_ptr<TxnImpl>;
 
-  explicit Transaction(TxnImpl* impl);
+  TxnImplSPtr impl_;
+
+  explicit Transaction(TxnImplSPtr impl);
 };
 
 enum EngineType : uint8_t { kLSM, kBTree, kXDPROCKS };
