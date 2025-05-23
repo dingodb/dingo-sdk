@@ -1050,7 +1050,8 @@ bool VectorSearchOperation::ArrangeAutoData(VectorIndexEntryPtr entry) {
     uint32_t cur_count = count.load();
     std::cout << '\r'
               << fmt::format("vector index({}) put data progress [{} / {} / {} {}%]", entry->index_id, cur_count,
-                             fail_count.load(), FLAGS_arrange_kv_num, cur_count * 100 / FLAGS_arrange_kv_num)
+                             fail_count.load(), FLAGS_arrange_kv_num,
+                             static_cast<double>(cur_count) * 100 / FLAGS_arrange_kv_num)
               << std::flush;
   }
 
@@ -1141,7 +1142,8 @@ bool VectorSearchOperation::ArrangeManualData(VectorIndexEntryPtr entry, Dataset
     if (total_vector_count > 0) {
       std::cout << '\r'
                 << fmt::format("Vector index({}) put data progress [{} / {} / {} {}%]", entry->index_id, cur_count,
-                               fail_count.load(), total_vector_count, cur_count * 100 / total_vector_count)
+                               fail_count.load(), total_vector_count,
+                               static_cast<double>(cur_count) * 100 / total_vector_count)
                 << std::flush;
     } else {
       std::cout << '\r'
