@@ -163,40 +163,36 @@ class Transaction::TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   static bool IsNeedRetry(int& times);
   Status LookupRegion(const std::string_view& key, RegionPtr& region);
   Status LookupRegion(std::string_view start_key, std::string_view end_key, std::shared_ptr<Region>& region);
-  bool IsSingleRegionTxn(TxnBuffer& buffer);
 
   // txn get
   Status DoTxnGet(const std::string& key, std::string& value);
 
   // txn batch get
-  void DoSubTaskForBatchGet(TxnTask* task);
+  void DoTaskForBatchGet(TxnTask& task);
   Status DoTxnBatchGet(const std::vector<std::string>& keys, std::vector<KVPair>& kvs);
 
   // txn scan
   static Status ProcessScanState(ScanState& scan_state, uint64_t limit, std::vector<KVPair>& out_kvs);
   Status DoScan(const std::string& start_key, const std::string& end_key, uint64_t limit, std::vector<KVPair>& out_kvs);
 
-  // txn prewrite
-  std::unique_ptr<TxnPrewriteRpc> GenPrewriteRpc(const RegionPtr& region) const;
-  void CheckPreCommitPrimaryKeyResponse(const TxnPrewriteResponse* response) const;
-  Status TryResolveTxnPrewriteLockConflict(const TxnPrewriteResponse* response) const;
-  Status PreCommitPrimaryKey();
-  void DoSubTaskForPrewrite(TxnTask* task);
-  Status PreCommityOrdinaryKey();
+  // txn precommit
+  void CheckPreCommitResponse(const TxnPrewriteResponse* response) const;
+  Status TryResolveTxnPreCommitConflict(const TxnPrewriteResponse* response) const;
+  void DoTaskForPreCommit(TxnTask& task);
   Status DoPreCommit();
 
   // txn commit
   std::unique_ptr<TxnCommitRpc> GenCommitRpc(const RegionPtr& region) const;
   Status ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary) const;
   Status CommitPrimaryKey();
-  void DoSubTaskForCommit(AsyncTxnTaskSPtr task);
+  void DoTaskForCommit(AsyncTxnTaskSPtr task);
   Status CommitOrdinaryKey();
   Status DoCommit();
 
   // txn rollback
   std::unique_ptr<TxnBatchRollbackRpc> GenBatchRollbackRpc(const RegionPtr& region) const;
   void CheckTxnBatchRollbackResponse(const TxnBatchRollbackResponse* response) const;
-  void DoSubTaskForRollback(TxnTask* task);
+  void DoTaskForRollback(TxnTask& task);
   Status RollbackPrimaryKey();
   Status RollbackOrdinaryKey();
   Status DoRollback();
