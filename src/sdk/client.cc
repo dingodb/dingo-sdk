@@ -165,7 +165,8 @@ Status Client::NewRawKV(RawKV** raw_kv) {
 }
 
 Status Client::NewTransaction(const TransactionOptions& options, Transaction** txn) {
-  Transaction* tmp_txn = new Transaction(new Transaction::TxnImpl(*data_->stub, options));
+  auto txn_impl = std::make_shared<Transaction::TxnImpl>(*data_->stub, options);
+  Transaction* tmp_txn = new Transaction(txn_impl);
   Status s = tmp_txn->Begin();
   if (!s.ok()) {
     delete tmp_txn;
@@ -438,9 +439,9 @@ Status RawKV::Scan(const std::string& start_key, const std::string& end_key, uin
   return task.Run();
 }
 
-Transaction::Transaction(TxnImpl* impl) : impl_(impl) {}
+Transaction::Transaction(TxnImplSPtr impl) : impl_(impl) {}
 
-Transaction::~Transaction() { delete impl_; }
+Transaction::~Transaction() {}  // NOLINT
 
 Status Transaction::Begin() { return impl_->Begin(); }
 

@@ -38,36 +38,18 @@
 namespace dingodb {
 namespace sdk {
 
+#ifdef USE_GRPC
+
 class Synchronizer {
  public:
-  Synchronizer() {
-#ifndef USE_GRPC
-    CHECK(bthread_mutex_init(&mutex_, nullptr) == 0) << "bthread_mutex_init fail.";
-    CHECK(bthread_cond_init(&cond_, nullptr) == 0) << "bthread_cond_init fail.";
-#endif  // USE_GRPC
-  }
-
-  ~Synchronizer() {
-#ifndef USE_GRPC
-    bthread_cond_destroy(&cond_);
-    bthread_mutex_destroy(&mutex_);
-#endif  // USE_GRPC
-  }
+  Synchronizer() {}
+  ~Synchronizer() {}
 
   void Wait() {
-#ifdef USE_GRPC
     std::unique_lock<std::mutex> lk(mutex_);
     while (!fire_) {
       cond_.wait(lk);
     }
-
-#else
-    bthread_mutex_lock(&mutex_);
-    while (!fire_) {
-      bthread_cond_wait(&cond_, &mutex_);
-    }
-    bthread_mutex_unlock(&mutex_);
-#endif  // USE_GRPC
   }
 
   RpcCallback AsRpcCallBack() {
@@ -82,29 +64,14 @@ class Synchronizer {
   }
 
   void Fire() {
-#ifdef USE_GRPC
     std::unique_lock<std::mutex> lk(mutex_);
     fire_ = true;
     cond_.notify_one();
-
-#else
-    bthread_mutex_lock(&mutex_);
-    fire_ = true;
-    bthread_cond_signal(&cond_);
-    bthread_mutex_unlock(&mutex_);
-
-#endif  // USE_GRPC
   }
 
  private:
-#ifdef USE_GRPC
   std::mutex mutex_;
   std::condition_variable cond_;
-#else
-  bthread_mutex_t mutex_;
-  bthread_cond_t cond_;
-
-#endif  // USE_GRPC
 
   bool fire_{false};
 };
@@ -112,8 +79,6 @@ class Synchronizer {
 class ParallelExecutor {
  public:
   static void Execute(uint32_t parallel_num, std::function<void(uint32_t)> func) {
-#ifdef USE_GRPC
-
     std::vector<std::thread> thread_pool;
     thread_pool.reserve(parallel_num);
     for (uint32_t i = 0; i < parallel_num; i++) {
@@ -123,9 +88,74 @@ class ParallelExecutor {
     for (auto& thread : thread_pool) {
       thread.join();
     }
+  }
+
+  template <typename T>
+  static void AsyncExecute(std::vector<T>& tasks, std::function<void(T)> func) {
+    std::vector<std::thread> thread_pool;
+    thread_pool.reserve(tasks.size());
+    for (auto& task : tasks) {
+      thread_pool.emplace_back(func, task);
+    }
+
+    for (auto& thread : thread_pool) {
+      thread.detach();
+    }
+  }
+};
+
+inline void Sleep(int64_t us) { std::this_thread::sleep_for(std::chrono::microseconds(us)); }
 
 #else
 
+class Synchronizer {
+ public:
+  Synchronizer() {
+    CHECK(bthread_mutex_init(&mutex_, nullptr) == 0) << "bthread_mutex_init fail.";
+    CHECK(bthread_cond_init(&cond_, nullptr) == 0) << "bthread_cond_init fail.";
+  }
+
+  ~Synchronizer() {
+    bthread_cond_destroy(&cond_);
+    bthread_mutex_destroy(&mutex_);
+  }
+
+  void Wait() {
+    bthread_mutex_lock(&mutex_);
+    while (!fire_) {
+      bthread_cond_wait(&cond_, &mutex_);
+    }
+    bthread_mutex_unlock(&mutex_);
+  }
+
+  RpcCallback AsRpcCallBack() {
+    return [&]() { Fire(); };
+  }
+
+  StatusCallback AsStatusCallBack(Status& in_staus) {
+    return [&](Status s) {
+      in_staus = s;
+      Fire();
+    };
+  }
+
+  void Fire() {
+    bthread_mutex_lock(&mutex_);
+    fire_ = true;
+    bthread_cond_signal(&cond_);
+    bthread_mutex_unlock(&mutex_);
+  }
+
+ private:
+  bthread_mutex_t mutex_;
+  bthread_cond_t cond_;
+
+  bool fire_{false};
+};
+
+class ParallelExecutor {
+ public:
+  static void Execute(uint32_t parallel_num, std::function<void(uint32_t)> func) {
     struct Param {
       uint32_t index;
       std::function<void(uint32_t)>* func;
@@ -157,17 +187,42 @@ class ParallelExecutor {
     for (auto tid : tids) {
       bthread_join(tid, nullptr);
     }
-#endif  // USE_GRPC
+  }
+
+  template <typename T>
+  static void AsyncExecute(std::vector<T>& tasks, std::function<void(T)> func) {
+    struct Param {
+      T task;
+      std::function<void(T)> func;
+    };
+
+    std::vector<bthread_t> tids;
+    tids.reserve(tasks.size());
+    for (auto& task : tasks) {
+      Param* param = new Param{.task = task, .func = func};
+      bthread_t tid;
+      CHECK(bthread_start_background(
+                &tid, &BTHREAD_ATTR_SMALL,
+                [](void* arg) -> void* {
+                  Param* param = reinterpret_cast<Param*>(arg);
+
+                  param->func(param->task);
+
+                  delete param;
+
+                  return nullptr;
+                },
+                param) == 0)
+          << "bthread_start_background fail";
+
+      tids.push_back(tid);
+    }
   }
 };
 
-inline void Sleep(int64_t us) {
-#ifdef USE_GRPC
-  std::this_thread::sleep_for(std::chrono::microseconds(us));
-#else
-  bthread_usleep(us);
+inline void Sleep(int64_t us) { bthread_usleep(us); }
+
 #endif  // USE_GRPC
-}
 
 }  // namespace sdk
 }  // namespace dingodb
