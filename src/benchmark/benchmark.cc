@@ -14,6 +14,7 @@
 
 #include "benchmark/benchmark.h"
 
+#include <algorithm>
 #include <atomic>
 #include <csignal>
 #include <cstddef>
@@ -24,6 +25,7 @@
 #include <ostream>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "benchmark/color.h"
@@ -31,6 +33,7 @@
 #include "dingosdk/status.h"
 #include "dingosdk/vector.h"
 #include "fmt/core.h"
+#include "fmt/format.h"
 #include "gflags/gflags.h"
 #include "proto/common.pb.h"
 #include "sdk/client_stub.h"
@@ -137,6 +140,9 @@ DEFINE_bool(enable_monitor_vector_performance_info, false, "Monitor performance 
 DEFINE_int32(index_store_id_1, 21001, "index store_id 1");
 DEFINE_int32(index_store_id_2, 21002, "index store_id 2");
 DEFINE_int32(index_store_id_3, 21003, "index store_id 3");
+
+// auto balance region
+DEFINE_bool(auto_balance_region, false, "auto balance region, default false");
 
 namespace dingodb {
 namespace benchmark {
@@ -811,6 +817,13 @@ int64_t Benchmark::CreateVectorIndex(const std::string& name, const std::string&
 
   std::this_thread::sleep_for(std::chrono::seconds(10));
 
+  // auto balance region
+  if (FLAGS_auto_balance_region && FLAGS_replica > 1) {
+    std::cout << fmt::format("enable auto balance region for vector index {}", vector_index_id) << std::endl;
+    LOG(INFO) << fmt::format("enable auto balance region for vector index {}", vector_index_id);
+    AutoBalanceRegion(vector_index_id);
+  }
+
   return vector_index_id;
 }
 
@@ -990,6 +1003,134 @@ void Benchmark::Report(bool is_cumulative, size_t milliseconds) {
   } else {
     stats_interval_->Report(false, milliseconds, store_id_to_store_own_metrics);
     stats_interval_->Clear();
+  }
+}
+
+void Benchmark::AutoBalanceRegion(int64_t vector_index_id) {
+  std::shared_ptr<sdk::VectorIndex> out_vector_index;
+  sdk::Status status;
+  status = client_->GetVectorIndexById(vector_index_id, out_vector_index);
+  CHECK(status.ok()) << fmt::format("Get vector index failed, status: {}", status.ToString());
+
+  // collect all partition ranges
+  std::vector<pb::common::Range> ranges;
+  for (const auto& part_id : out_vector_index->GetPartitionIds()) {
+    pb::common::Range range = out_vector_index->GetPartitionRange(part_id);
+    ranges.emplace_back(std::move(range));
+  }
+
+  // collect all region ids
+  std::vector<int64_t> region_ids;
+  for (const auto& range : ranges) {
+    std::vector<int64_t> single_region_ids;
+    status = client_->ScanRegions(range.start_key(), range.end_key(), 0, single_region_ids);
+    CHECK(status.ok()) << fmt::format("Scan regions failed, status: {}", status.ToString());
+    region_ids.insert(region_ids.end(), single_region_ids.begin(), single_region_ids.end());
+  }
+
+  if (region_ids.empty()) {
+    LOG(ERROR) << fmt::format("No regions found for vector index {}", vector_index_id);
+    return;
+  }
+
+  // get region map
+  std::shared_ptr<dingodb::pb::common::RegionMap> regionmap;
+  int64_t tenant_id = -1;
+  status = client_->GetRegionMap(tenant_id, regionmap);
+  CHECK(status.ok()) << fmt::format("Get region map failed, status: {}", status.ToString());
+
+  // get store map
+  dingodb::pb::common::StoreType store_type = dingodb::pb::common::StoreType::NODE_TYPE_INDEX;
+  dingodb::pb::common::StoreMap storemap;
+  status = client_->GetStoreMap({store_type}, storemap);
+  CHECK(status.ok()) << fmt::format("get store map failed, status: {}", status.ToString());
+
+  std::vector<int64_t> store_ids;
+  for (const auto& store : storemap.stores()) {
+    store_ids.push_back(store.id());
+  }
+
+  if (store_ids.empty()) {
+    LOG(ERROR) << fmt::format("No stores found for vector index {}", vector_index_id);
+    return;
+  }
+
+  // sort store ids
+  std::sort(store_ids.begin(), store_ids.end());
+
+  std::string store_ids_str = fmt::format("store ids ({}): ", store_ids.size());
+
+  for (const auto store_id : store_ids) {
+    store_ids_str += std::to_string(store_id) + " ";
+  }
+
+  std::cout << store_ids_str << std::endl;
+  LOG(INFO) << store_ids_str;
+
+  // sort region ids
+  std::sort(region_ids.begin(), region_ids.end());
+  std::string region_ids_str = fmt::format("region ids ({}): ", region_ids.size());
+  for (const auto region_id : region_ids) {
+    region_ids_str += std::to_string(region_id) + " ";
+  }
+  std::cout << region_ids_str << std::endl;
+  LOG(INFO) << region_ids_str;
+
+  // allocate region ids to store ids in a round-robin manner
+  std::map<int64_t, int64_t> region_id_to_store_id_map;
+
+  int64_t i = 0;
+  for (const auto region_id : region_ids) {
+    auto store_id = store_ids[i];
+    // map region id to store id
+    region_id_to_store_id_map[region_id] = store_id;
+    i = (++i) % store_ids.size();  // round-robin assign store ids
+  }
+
+  std::string region_id_to_store_id_map_str =
+      fmt::format("region_id_to_store_id_map_str ({}): ", region_id_to_store_id_map.size());
+  for (const auto& [region_id, store_id] : region_id_to_store_id_map) {
+    region_id_to_store_id_map_str += fmt::format("{{{}: {}}} ", region_id, store_id);
+  }
+  std::cout << region_id_to_store_id_map_str << std::endl;
+  LOG(INFO) << region_id_to_store_id_map_str;
+
+  for (const auto& [region_id, store_id] : region_id_to_store_id_map) {
+    auto iter = regionmap->regions().begin();
+    for (; iter != regionmap->regions().end(); ++iter) {
+      if (iter->id() == region_id) {
+        break;
+      }
+    }
+
+    CHECK(iter != regionmap->regions().end()) << fmt::format("Region id {} not found in region map", region_id);
+    auto leader_store_id = iter->leader_store_id();
+    if (store_id != leader_store_id) {
+      // change leader store id
+      status = client_->TransferLeaderRegion(region_id, store_id, true);
+      CHECK(status.ok()) << fmt::format("Change region {} leader failed, status: {}", region_id, status.ToString());
+    }
+  }
+
+  std::this_thread::sleep_for(std::chrono::seconds(10));
+  
+  // double check get region map again to ensure the changes are applied
+  status = client_->GetRegionMap(tenant_id, regionmap);
+  CHECK(status.ok()) << fmt::format("Get region map failed, status: {}", status.ToString());
+
+  for (const auto& [region_id, store_id] : region_id_to_store_id_map) {
+    auto iter = regionmap->regions().begin();
+    for (; iter != regionmap->regions().end(); ++iter) {
+      if (iter->id() == region_id) {
+        break;
+      }
+    }
+
+    CHECK(iter != regionmap->regions().end()) << fmt::format("Region id {} not found in region map", region_id);
+    auto leader_store_id = iter->leader_store_id();
+
+    CHECK(store_id == leader_store_id) << fmt::format("Region {} leader store id is {}, but expected {}", region_id,
+                                                      leader_store_id, store_id);
   }
 }
 

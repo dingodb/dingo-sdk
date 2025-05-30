@@ -338,6 +338,75 @@ Status Client::GetStoreOwnMetrics(std::vector<int64_t> store_ids,
   return status;
 }
 
+Status Client::ScanRegions(std::string start_key, std::string end_key, uint64_t limit,
+                           std::vector<int64_t>& region_ids) {
+  ScanRegionsRpc rpc;
+  rpc.MutableRequest()->set_key(start_key);
+  rpc.MutableRequest()->set_range_end(end_key);
+  rpc.MutableRequest()->set_limit(limit);
+  Status status = data_->stub->GetCoordinatorRpcController()->SyncCall(rpc);
+  if (!status.IsOK()) {
+    DINGO_LOG(ERROR) << fmt::format("scan regions fail, error: {} {}", status.Errno(), status.ToString());
+    return status;
+  }
+
+  region_ids.clear();
+
+  for (const auto& region : rpc.Response()->regions()) {
+    region_ids.push_back(region.region_id());
+  }
+
+  return status;
+}
+
+Status Client::GetRegionMap(int64_t tenant_id, std::shared_ptr<dingodb::pb::common::RegionMap>& regionmap) {
+  GetRegionMapRpc rpc;
+  rpc.MutableRequest()->set_tenant_id(tenant_id);
+  Status status = data_->stub->GetCoordinatorRpcController()->SyncCall(rpc);
+  if (!status.IsOK()) {
+    DINGO_LOG(ERROR) << fmt::format("scan regions fail, error: {} {}", status.Errno(), status.ToString());
+    return status;
+  }
+
+  regionmap = std::make_shared<dingodb::pb::common::RegionMap>(rpc.Response()->regionmap());
+
+  return status;
+}
+
+Status Client::GetStoreMap(const std::vector<dingodb::pb::common::StoreType>& store_types,
+                           dingodb::pb::common::StoreMap& storemap) {
+  GetStoreMapRpc rpc;
+
+  for (const auto& store_type : store_types) {
+    rpc.MutableRequest()->add_filter_store_types(store_type);
+  }
+
+  Status status = data_->stub->GetCoordinatorRpcController()->SyncCall(rpc);
+  if (!status.IsOK()) {
+    DINGO_LOG(ERROR) << fmt::format("scan regions fail, error: {} {}", status.Errno(), status.ToString());
+    return status;
+  }
+
+  storemap = rpc.Response()->storemap();
+
+  return status;
+}
+
+ Status Client::TransferLeaderRegion(int64_t region_id, int64_t leader_store_id, bool is_force){
+  TransferLeaderRegionRpc rpc;
+  rpc.MutableRequest()->set_region_id(region_id);
+  rpc.MutableRequest()->set_leader_store_id(leader_store_id);
+  rpc.MutableRequest()->set_is_force(is_force);
+
+  Status status = data_->stub->GetCoordinatorRpcController()->SyncCall(rpc);
+  if (!status.IsOK()) {
+    DINGO_LOG(ERROR) << fmt::format("transfer leader region fail, error: {} {}", status.Errno(), status.ToString());
+    return status;
+  }
+
+  return status;
+ }
+
 RawKV::RawKV(Data* data) : data_(data) {}
 
 RawKV::~RawKV() { delete data_; }
