@@ -148,6 +148,7 @@ class Benchmark {
 
   void IntervalReport();
   void Report(bool is_cumulative, size_t milliseconds);
+  void AutoBalanceRegion(int64_t vector_index_id);
 
   std::shared_ptr<dingodb::sdk::ClientStub> client_stub_;
   std::shared_ptr<sdk::Client> client_;
