@@ -240,24 +240,21 @@ void Stats::Report(bool is_cumulative, size_t milliseconds,
               << '\n';
   } else {
     if (FLAGS_enable_monitor_vector_performance_info) {
-      std::cout << fmt::format(
-                       "{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>12}{:>12}{:>12}{:>12}{:>12}{:>16.2f}{:>20}{:>20}{:>20."
-                       "2f}{:>20}"
-                       "{:>20}{:>20.2f}{:>20}{:>20}{:>20.2f}",
-                       epoch_, req_num_, error_count_, (req_num_ / seconds), (write_bytes_ / seconds / 1048576),
-                       latency_recorder_->latency(), latency_recorder_->max_latency(), latency_min_,
-                       latency_recorder_->latency_percentile(0.5), latency_recorder_->latency_percentile(0.95),
-                       latency_recorder_->latency_percentile(0.99), recall_recorder_->latency() / 100.0,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_1).system_cpu_usage,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_1).process_used_memory / 1024 / 1024,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_1).system_capacity_usage,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_2).system_cpu_usage,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_2).process_used_memory / 1024 / 1024,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_2).system_capacity_usage,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_3).system_cpu_usage,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_3).process_used_memory / 1024 / 1024,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_3).system_capacity_usage)
-                << '\n';
+      std::string string_format =
+          fmt::format("{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>12}{:>12}{:>12}{:>12}{:>16.2f}", epoch_, req_num_,
+                      error_count_, (req_num_ / seconds), (write_bytes_ / seconds / 1048576),
+                      latency_recorder_->latency(), latency_recorder_->max_latency(),
+                      latency_recorder_->latency_percentile(0.5), latency_recorder_->latency_percentile(0.95),
+                      latency_recorder_->latency_percentile(0.99), recall_recorder_->latency() / 100.0);
+
+      for (const auto& [_, store_own_metric] : store_id_to_store_own_metrics) {
+        string_format +=
+            fmt::format("{:>20}{:>20}{:>20.2f}", store_own_metric.system_cpu_usage,
+                        store_own_metric.process_used_memory / 1024 / 1024, store_own_metric.system_capacity_usage);
+      }
+
+      std::cout << string_format << '\n';
+
     } else {
       std::cout << fmt::format("{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>12}{:>12}{:>12}{:>12}{:>16.2f}", epoch_,
                                req_num_, error_count_, (req_num_ / seconds), (write_bytes_ / seconds / 1048576),
@@ -275,12 +272,17 @@ std::string Stats::Header() {
                        "MB/s", "LATENCY AVG(us)", "MAX(us)", "P50(us)", "P95(us)", "P99(us)");
   } else {
     if (FLAGS_enable_monitor_vector_performance_info) {
-      return fmt::format(
-          "{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>12}{:>12}{:>12}{:>12}{:>12}{:>16}{:>20}{:>20}{:>20}{:>20}{:>20}{:>20}{:>"
-          "20}{:>20}{:>20}",
-          "EPOCH", "REQ_NUM", "ERRORS", "QPS", "MB/s", "LATENCY AVG(us)", "MAX(us)", "MIN(us)", "P50(us)", "P95(us)",
-          "P99(us)", "RECALL AVG(%)", "INDEX_1_CPU(%)", "INDEX_1_MEMORY(GB)", "INDEX_1_DISK(%)", "INDEX_2_CPU(%)",
-          "INDEX_2_MEMORY(GB)", "INDEX_2_DISK(%)", "INDEX_3_CPU(%)", "INDEX_3_MEMORY(GB)", "INDEX_3_DISK(%)");
+      std::string string_format =
+          fmt::format("{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>12}{:>12}{:>12}{:>12}{:>16}", "EPOCH", "REQ_NUM", "ERRORS",
+                      "QPS", "MB/s", "LATENCY AVG(us)", "MAX(us)", "P50(us)", "P95(us)", "P99(us)", "RECALL AVG(%)");
+
+      for (uint32_t i = 0; i < Stats::index_nums; i++) {
+        string_format +=
+            fmt::format("{:>20}{:>20}{:>20}", "INDEX_" + std::to_string(i) + "_CPU(%)",
+                        "INDEX_" + std::to_string(i) + "_MEMORY(GB)", "INDEX_" + std::to_string(i) + "_DISK(%)");
+      }
+
+      return string_format;
     }
     return fmt::format("{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>12}{:>12}{:>12}{:>12}{:>16}", "EPOCH", "REQ_NUM", "ERRORS",
                        "QPS", "MB/s", "LATENCY AVG(us)", "MAX(us)", "P50(us)", "P95(us)", "P99(us)", "RECALL AVG(%)");
@@ -291,6 +293,35 @@ Benchmark::Benchmark(std::shared_ptr<dingodb::sdk::ClientStub> client_stub, std:
     : client_stub_(client_stub), client_(client) {
   stats_interval_ = std::make_shared<Stats>();
   stats_cumulative_ = std::make_shared<Stats>();
+
+  if (FLAGS_enable_monitor_vector_performance_info) {
+    // get store map
+    dingodb::pb::common::StoreType store_type = dingodb::pb::common::StoreType::NODE_TYPE_INDEX;
+    dingodb::pb::common::StoreMap storemap;
+    auto status = client_->GetStoreMap({store_type}, storemap);
+    CHECK(status.ok()) << fmt::format("get store map failed, status: {}", status.ToString());
+
+    for (const auto& store : storemap.stores()) {
+      store_ids_.push_back(store.id());
+    }
+
+    CHECK(!store_ids_.empty()) << fmt::format("No stores found for NODE_TYPE_INDEX");
+
+    // sort store ids
+    std::sort(store_ids_.begin(), store_ids_.end());
+
+    std::string store_ids_str = fmt::format("index ids ({}): ", store_ids_.size());
+
+    for (const auto store_id : store_ids_) {
+      store_ids_str += std::to_string(store_id) + " ";
+    }
+
+    std::cout << store_ids_str << std::endl;
+    LOG(INFO) << store_ids_str;
+
+    stats_interval_->SetIndexNums(store_ids_.size());
+    stats_cumulative_->SetIndexNums(store_ids_.size());
+  }
 }
 
 std::shared_ptr<Benchmark> Benchmark::New(std::shared_ptr<dingodb::sdk::ClientStub> client_stub,
@@ -494,18 +525,13 @@ bool Benchmark::ArrangeData() {
   // monitor cpu memoory disk usage before put data
   if (FLAGS_enable_monitor_vector_performance_info) {
     std::map<std::int64_t, sdk::StoreOwnMetics> store_id_to_store_own_metrics;
-    std::vector<int64_t> store_ids;
-    store_ids.push_back(FLAGS_index_store_id_1);
-    store_ids.push_back(FLAGS_index_store_id_2);
-    store_ids.push_back(FLAGS_index_store_id_3);
-
-    sdk::Status s = client_->GetStoreOwnMetrics(store_ids, store_id_to_store_own_metrics);
+    sdk::Status s = client_->GetStoreOwnMetrics(store_ids_, store_id_to_store_own_metrics);
     if (!s.ok()) {
       std::cerr << fmt::format("Get store own metrics failed, status: {}", s.ToString()) << '\n';
       store_id_to_store_own_metrics.clear();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_1] = sdk::StoreOwnMetics();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_2] = sdk::StoreOwnMetics();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_3] = sdk::StoreOwnMetics();
+      for (const auto& index_store_id : store_ids_) {
+        store_id_to_store_own_metrics[index_store_id] = sdk::StoreOwnMetics();
+      }
     }
     int index = 0;
     std::cout << "Monitor performance before put data \n";
@@ -525,18 +551,14 @@ bool Benchmark::ArrangeData() {
   // monitor cpu memoory disk usage after put data
   if (FLAGS_enable_monitor_vector_performance_info) {
     std::map<std::int64_t, sdk::StoreOwnMetics> store_id_to_store_own_metrics;
-    std::vector<int64_t> store_ids;
-    store_ids.push_back(FLAGS_index_store_id_1);
-    store_ids.push_back(FLAGS_index_store_id_2);
-    store_ids.push_back(FLAGS_index_store_id_3);
 
-    sdk::Status s = client_->GetStoreOwnMetrics(store_ids, store_id_to_store_own_metrics);
+    sdk::Status s = client_->GetStoreOwnMetrics(store_ids_, store_id_to_store_own_metrics);
     if (!s.ok()) {
       std::cerr << fmt::format("Get store own metrics failed, status: {}", s.ToString()) << '\n';
       store_id_to_store_own_metrics.clear();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_1] = sdk::StoreOwnMetics();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_2] = sdk::StoreOwnMetics();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_3] = sdk::StoreOwnMetics();
+      for (const auto& index_store_id : store_ids_) {
+        store_id_to_store_own_metrics[index_store_id] = sdk::StoreOwnMetics();
+      }
     }
     int index = 0;
     std::cout << "Monitor performance after put data \n";
@@ -980,18 +1002,13 @@ void Benchmark::Report(bool is_cumulative, size_t milliseconds) {
   std::map<std::int64_t, sdk::StoreOwnMetics> store_id_to_store_own_metrics;
   if (FLAGS_enable_monitor_vector_performance_info) {
     // monitor cpu memory disk usage
-    std::vector<int64_t> store_ids;
-    store_ids.push_back(FLAGS_index_store_id_1);
-    store_ids.push_back(FLAGS_index_store_id_2);
-    store_ids.push_back(FLAGS_index_store_id_3);
-
-    sdk::Status s = client_->GetStoreOwnMetrics(store_ids, store_id_to_store_own_metrics);
+    sdk::Status s = client_->GetStoreOwnMetrics(store_ids_, store_id_to_store_own_metrics);
     if (!s.ok()) {
       std::cerr << fmt::format("Get store own metrics failed, status: {}", s.ToString()) << '\n';
       store_id_to_store_own_metrics.clear();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_1] = sdk::StoreOwnMetics();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_2] = sdk::StoreOwnMetics();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_3] = sdk::StoreOwnMetics();
+      for (const auto& index_store_id : store_ids_) {
+        store_id_to_store_own_metrics[index_store_id] = sdk::StoreOwnMetics();
+      }
     }
   }
 
@@ -1113,7 +1130,7 @@ void Benchmark::AutoBalanceRegion(int64_t vector_index_id) {
   }
 
   std::this_thread::sleep_for(std::chrono::seconds(10));
-  
+
   // double check get region map again to ensure the changes are applied
   status = client_->GetRegionMap(tenant_id, regionmap);
   CHECK(status.ok()) << fmt::format("Get region map failed, status: {}", status.ToString());
