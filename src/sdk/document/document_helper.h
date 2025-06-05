@@ -16,7 +16,7 @@
 #define DINGODB_SDK_DOCUMENT_HELPER_H_
 
 #include "glog/logging.h"
-#include "sdk/document/document_codec.h"
+#include "sdk/codec/document_codec.h"
 #include "sdk/document/document_index.h"
 
 namespace dingodb {
@@ -29,7 +29,7 @@ static std::string DocumentIdToRangeKey(const DocumentIndex& doc_index, int64_t 
   CHECK_GT(doc_id, 0);
 
   std::string tmp_key;
-  document_codec::EncodeDocumentKey(kDocumentPrefix, part_id, doc_id, tmp_key);
+  document_codec::EncodeDocumentKey(Constant::kClientRaw, part_id, doc_id, tmp_key);
   return std::move(tmp_key);
 }
 

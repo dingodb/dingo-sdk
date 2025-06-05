@@ -19,15 +19,12 @@
 
 #include "common/logging.h"
 #include "glog/logging.h"
+#include "sdk/codec/constant.h"
 #include "sdk/utils/codec.h"
 #include "serial/schema/long_schema.h"
 
 namespace dingodb {
 namespace sdk {
-
-static const char kDocumentPrefix = 'r';
-static const uint32_t kDocumentKeyMinLenWithPrefix = 9;
-static const uint32_t kDocumentKeyMaxLenWithPrefix = 17;
 
 namespace document_codec {
 
@@ -35,7 +32,7 @@ static void EncodeDocumentKey(char prefix, int64_t partition_id, std::string& re
   CHECK(prefix != 0) << "Encode Document key failed, prefix is 0, partition_id:[" << partition_id << "]";
 
   // Buf buf(17);
-  Buf buf(kDocumentKeyMinLenWithPrefix);
+  Buf buf(Constant::kDocumentKeyMinLenWithPrefix);
   buf.Write(prefix);
   buf.WriteLong(partition_id);
   buf.GetBytes(result);
@@ -46,7 +43,7 @@ static void EncodeDocumentKey(char prefix, int64_t partition_id, int64_t doc_id,
                      << doc_id << "]";
 
   // Buf buf(17);
-  Buf buf(kDocumentKeyMaxLenWithPrefix);
+  Buf buf(Constant::kDocumentKeyMaxLenWithPrefix);
   buf.Write(prefix);
   buf.WriteLong(partition_id);
   DingoSchema<std::optional<int64_t>>::InternalEncodeKey(&buf, doc_id);
@@ -55,9 +52,9 @@ static void EncodeDocumentKey(char prefix, int64_t partition_id, int64_t doc_id,
 
 static int64_t DecodeDocumentId(const std::string& value) {
   Buf buf(value);
-  if (value.size() >= kDocumentKeyMaxLenWithPrefix) {
+  if (value.size() >= Constant::kDocumentKeyMaxLenWithPrefix) {
     buf.Skip(9);
-  } else if (value.size() == kDocumentKeyMinLenWithPrefix) {
+  } else if (value.size() == Constant::kDocumentKeyMinLenWithPrefix) {
     return 0;
   } else {
     DINGO_LOG(FATAL) << "Decode Document id failed, value size is not 9 or >=17, value:["
@@ -72,7 +69,8 @@ static int64_t DecodePartitionId(const std::string& value) {
   Buf buf(value);
 
   // if (value.size() >= 17 || value.size() == 9) {
-  if (value.size() >= kDocumentKeyMaxLenWithPrefix || value.size() == kDocumentKeyMinLenWithPrefix) {
+  if (value.size() >= Constant::kDocumentKeyMaxLenWithPrefix ||
+      value.size() == Constant::kDocumentKeyMinLenWithPrefix) {
     buf.Skip(1);
   }
 

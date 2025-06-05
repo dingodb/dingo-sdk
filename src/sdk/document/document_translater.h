@@ -22,7 +22,7 @@
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "proto/meta.pb.h"
-#include "sdk/document/document_codec.h"
+#include "sdk/codec/document_codec.h"
 #include "sdk/document/document_doc_value_internal.h"
 #include "sdk/types_util.h"
 
@@ -46,13 +46,13 @@ class DocumentTranslater {
       part->mutable_id()->set_parent_entity_id(new_index_id);
       std::string start;
       if (i == 0) {
-        document_codec::EncodeDocumentKey(kDocumentPrefix, part_id, start);
+        document_codec::EncodeDocumentKey(Constant::kClientRaw, part_id, start);
       } else {
-        document_codec::EncodeDocumentKey(kDocumentPrefix, part_id, seperator_ids[i - 1], start);
+        document_codec::EncodeDocumentKey(Constant::kClientRaw, part_id, seperator_ids[i - 1], start);
       }
       part->mutable_range()->set_start_key(start);
       std::string end;
-      document_codec::EncodeDocumentKey(kDocumentPrefix, part_id + 1, end);
+      document_codec::EncodeDocumentKey(Constant::kClientRaw, part_id + 1, end);
       part->mutable_range()->set_end_key(end);
     }
   }  // namespace sdk
