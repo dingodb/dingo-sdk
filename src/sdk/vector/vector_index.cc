@@ -21,7 +21,7 @@
 
 #include "fmt/core.h"
 #include "glog/logging.h"
-#include "sdk/vector/vector_codec.h"
+#include "sdk/codec/vector_codec.h"
 #include "sdk/vector/vector_common.h"
 
 namespace dingodb {

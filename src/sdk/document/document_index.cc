@@ -19,7 +19,7 @@
 
 #include "fmt/core.h"
 #include "glog/logging.h"
-#include "sdk/document//document_codec.h"
+#include "sdk/codec/document_codec.h"
 #include "sdk/types_util.h"
 
 namespace dingodb {

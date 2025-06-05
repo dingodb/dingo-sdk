@@ -19,9 +19,9 @@
 #include "common/logging.h"
 #include "dingosdk/status.h"
 #include "glog/logging.h"
+#include "sdk/codec/vector_codec.h"
 #include "sdk/common/common.h"
 #include "sdk/utils/scoped_cleanup.h"
-#include "sdk/vector/vector_codec.h"
 
 namespace dingodb {
 namespace sdk {
