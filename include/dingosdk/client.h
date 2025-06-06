@@ -25,7 +25,6 @@
 #include "dingosdk/metric.h"
 #include "dingosdk/status.h"
 #include "dingosdk/vector.h"
-#include "proto/common.pb.h"
 
 namespace dingodb {
 namespace sdk {
@@ -127,15 +126,6 @@ class Client {
   // Get store own metrics , if store_ids is empty, get all stores metrics
   Status GetStoreOwnMetrics(std::vector<int64_t> store_ids,
                             std::map<std::int64_t, StoreOwnMetics>& store_id_to_store_own_metrics);
-
-  Status ScanRegions(std::string start_key, std::string end_key, uint64_t limit, std::vector<int64_t>& region_ids);
-
-  Status GetRegionMap(int64_t tenant_id, std::shared_ptr<dingodb::pb::common::RegionMap>& regionmap);
-
-  Status GetStoreMap(const std::vector<dingodb::pb::common::StoreType>& store_types,
-                     dingodb::pb::common::StoreMap& storemap);
-
-  Status TransferLeaderRegion(int64_t region_id, int64_t leader_store_id, bool is_force);
 
  private:
   friend class RawKV;

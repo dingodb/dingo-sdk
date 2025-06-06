@@ -27,8 +27,8 @@
 #include "benchmark/operation.h"
 #include "bvar/latency_recorder.h"
 #include "dingosdk/client.h"
-#include "dingosdk/metric.h"
 #include "sdk/client_stub.h"
+#include "dingosdk/metric.h"
 namespace dingodb {
 namespace benchmark {
 
@@ -43,10 +43,7 @@ class Stats {
 
   void Clear();
 
-  void Report(bool is_cumulative, size_t milliseconds,
-              const std::map<std::int64_t, sdk::StoreOwnMetics>& store_id_to_store_own_metrics = {}) const;
-
-  static void SetIndexNums(uint32_t index_nums) { Stats::index_nums = index_nums; }
+  void Report(bool is_cumulative, size_t milliseconds,const std::map<std::int64_t, sdk::StoreOwnMetics> &store_id_to_store_own_metrics={}) const;
 
  private:
   static std::string Header();
@@ -59,7 +56,6 @@ class Stats {
   size_t latency_min_{0};
   std::shared_ptr<bvar::LatencyRecorder> latency_recorder_;
   std::shared_ptr<bvar::LatencyRecorder> recall_recorder_;
-  static inline uint32_t index_nums = 0;
 };
 
 using StatsPtr = std::shared_ptr<Stats>;
@@ -152,7 +148,6 @@ class Benchmark {
 
   void IntervalReport();
   void Report(bool is_cumulative, size_t milliseconds);
-  void AutoBalanceRegion(int64_t vector_index_id);
 
   std::shared_ptr<dingodb::sdk::ClientStub> client_stub_;
   std::shared_ptr<sdk::Client> client_;
@@ -167,7 +162,6 @@ class Benchmark {
   std::mutex mutex_;
   StatsPtr stats_interval_;
   StatsPtr stats_cumulative_;
-  std::vector<int64_t> store_ids_;
 };
 using BenchmarkPtr = std::shared_ptr<Benchmark>;
 
