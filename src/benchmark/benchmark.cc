@@ -14,6 +14,7 @@
 
 #include "benchmark/benchmark.h"
 
+#include <algorithm>
 #include <atomic>
 #include <csignal>
 #include <cstddef>
@@ -24,13 +25,16 @@
 #include <ostream>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "benchmark/color.h"
 #include "dingosdk/client.h"
+#include "dingosdk/metric.h"
 #include "dingosdk/status.h"
 #include "dingosdk/vector.h"
 #include "fmt/core.h"
+#include "fmt/format.h"
 #include "gflags/gflags.h"
 #include "proto/common.pb.h"
 #include "sdk/client_stub.h"
@@ -138,6 +142,9 @@ DEFINE_int32(index_store_id_1, 21001, "index store_id 1");
 DEFINE_int32(index_store_id_2, 21002, "index store_id 2");
 DEFINE_int32(index_store_id_3, 21003, "index store_id 3");
 
+// auto balance region
+DEFINE_bool(auto_balance_region, false, "auto balance region, default false");
+
 namespace dingodb {
 namespace benchmark {
 
@@ -234,24 +241,21 @@ void Stats::Report(bool is_cumulative, size_t milliseconds,
               << '\n';
   } else {
     if (FLAGS_enable_monitor_vector_performance_info) {
-      std::cout << fmt::format(
-                       "{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>12}{:>12}{:>12}{:>12}{:>12}{:>16.2f}{:>20}{:>20}{:>20."
-                       "2f}{:>20}"
-                       "{:>20}{:>20.2f}{:>20}{:>20}{:>20.2f}",
-                       epoch_, req_num_, error_count_, (req_num_ / seconds), (write_bytes_ / seconds / 1048576),
-                       latency_recorder_->latency(), latency_recorder_->max_latency(), latency_min_,
-                       latency_recorder_->latency_percentile(0.5), latency_recorder_->latency_percentile(0.95),
-                       latency_recorder_->latency_percentile(0.99), recall_recorder_->latency() / 100.0,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_1).system_cpu_usage,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_1).process_used_memory / 1024 / 1024,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_1).system_capacity_usage,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_2).system_cpu_usage,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_2).process_used_memory / 1024 / 1024,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_2).system_capacity_usage,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_3).system_cpu_usage,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_3).process_used_memory / 1024 / 1024,
-                       store_id_to_store_own_metrics.at(FLAGS_index_store_id_3).system_capacity_usage)
-                << '\n';
+      std::string string_format =
+          fmt::format("{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>12}{:>12}{:>12}{:>12}{:>16.2f}", epoch_, req_num_,
+                      error_count_, (req_num_ / seconds), (write_bytes_ / seconds / 1048576),
+                      latency_recorder_->latency(), latency_recorder_->max_latency(),
+                      latency_recorder_->latency_percentile(0.5), latency_recorder_->latency_percentile(0.95),
+                      latency_recorder_->latency_percentile(0.99), recall_recorder_->latency() / 100.0);
+
+      for (const auto& [_, store_own_metric] : store_id_to_store_own_metrics) {
+        string_format +=
+            fmt::format("{:>20}{:>20}{:>20.2f}", store_own_metric.system_cpu_usage,
+                        store_own_metric.process_used_memory / 1024 / 1024, store_own_metric.system_capacity_usage);
+      }
+
+      std::cout << string_format << '\n';
+
     } else {
       std::cout << fmt::format("{:>8}{:>8}{:>8}{:>8.0f}{:>8.2f}{:>16}{:>12}{:>12}{:>12}{:>12}{:>16.2f}", epoch_,
                                req_num_, error_count_, (req_num_ / seconds), (write_bytes_ / seconds / 1048576),
@@ -269,12 +273,17 @@ std::string Stats::Header() {
                        "MB/s", "LATENCY AVG(us)", "MAX(us)", "P50(us)", "P95(us)", "P99(us)");
   } else {
     if (FLAGS_enable_monitor_vector_performance_info) {
-      return fmt::format(
-          "{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>12}{:>12}{:>12}{:>12}{:>12}{:>16}{:>20}{:>20}{:>20}{:>20}{:>20}{:>20}{:>"
-          "20}{:>20}{:>20}",
-          "EPOCH", "REQ_NUM", "ERRORS", "QPS", "MB/s", "LATENCY AVG(us)", "MAX(us)", "MIN(us)", "P50(us)", "P95(us)",
-          "P99(us)", "RECALL AVG(%)", "INDEX_1_CPU(%)", "INDEX_1_MEMORY(GB)", "INDEX_1_DISK(%)", "INDEX_2_CPU(%)",
-          "INDEX_2_MEMORY(GB)", "INDEX_2_DISK(%)", "INDEX_3_CPU(%)", "INDEX_3_MEMORY(GB)", "INDEX_3_DISK(%)");
+      std::string string_format =
+          fmt::format("{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>12}{:>12}{:>12}{:>12}{:>16}", "EPOCH", "REQ_NUM", "ERRORS",
+                      "QPS", "MB/s", "LATENCY AVG(us)", "MAX(us)", "P50(us)", "P95(us)", "P99(us)", "RECALL AVG(%)");
+
+      for (uint32_t i = 0; i < Stats::index_nums; i++) {
+        string_format +=
+            fmt::format("{:>20}{:>20}{:>20}", "INDEX_" + std::to_string(i) + "_CPU(%)",
+                        "INDEX_" + std::to_string(i) + "_MEMORY(GB)", "INDEX_" + std::to_string(i) + "_DISK(%)");
+      }
+
+      return string_format;
     }
     return fmt::format("{:>8}{:>8}{:>8}{:>8}{:>8}{:>16}{:>12}{:>12}{:>12}{:>12}{:>16}", "EPOCH", "REQ_NUM", "ERRORS",
                        "QPS", "MB/s", "LATENCY AVG(us)", "MAX(us)", "P50(us)", "P95(us)", "P99(us)", "RECALL AVG(%)");
@@ -285,6 +294,35 @@ Benchmark::Benchmark(std::shared_ptr<dingodb::sdk::ClientStub> client_stub, std:
     : client_stub_(client_stub), client_(client) {
   stats_interval_ = std::make_shared<Stats>();
   stats_cumulative_ = std::make_shared<Stats>();
+
+  if (FLAGS_enable_monitor_vector_performance_info) {
+    // get store map
+    dingodb::sdk::StoreType store_type = sdk::kNodeIndex;
+    std::vector<dingodb::sdk::StorePB> stores;
+    auto status = client_->GetStoreMap({store_type}, stores);
+    CHECK(status.ok()) << fmt::format("get store map failed, status: {}", status.ToString());
+
+    for (const auto& store : stores) {
+      store_ids_.push_back(store.id);
+    }
+
+    CHECK(!store_ids_.empty()) << fmt::format("No stores found for NODE_TYPE_INDEX");
+
+    // sort store ids
+    std::sort(store_ids_.begin(), store_ids_.end());
+
+    std::string store_ids_str = fmt::format("index ids ({}): ", store_ids_.size());
+
+    for (const auto store_id : store_ids_) {
+      store_ids_str += std::to_string(store_id) + " ";
+    }
+
+    std::cout << store_ids_str << std::endl;
+    LOG(INFO) << store_ids_str;
+
+    stats_interval_->SetIndexNums(store_ids_.size());
+    stats_cumulative_->SetIndexNums(store_ids_.size());
+  }
 }
 
 std::shared_ptr<Benchmark> Benchmark::New(std::shared_ptr<dingodb::sdk::ClientStub> client_stub,
@@ -488,18 +526,13 @@ bool Benchmark::ArrangeData() {
   // monitor cpu memoory disk usage before put data
   if (FLAGS_enable_monitor_vector_performance_info) {
     std::map<std::int64_t, sdk::StoreOwnMetics> store_id_to_store_own_metrics;
-    std::vector<int64_t> store_ids;
-    store_ids.push_back(FLAGS_index_store_id_1);
-    store_ids.push_back(FLAGS_index_store_id_2);
-    store_ids.push_back(FLAGS_index_store_id_3);
-
-    sdk::Status s = client_->GetStoreOwnMetrics(store_ids, store_id_to_store_own_metrics);
+    sdk::Status s = client_->GetStoreOwnMetrics(store_ids_, store_id_to_store_own_metrics);
     if (!s.ok()) {
       std::cerr << fmt::format("Get store own metrics failed, status: {}", s.ToString()) << '\n';
       store_id_to_store_own_metrics.clear();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_1] = sdk::StoreOwnMetics();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_2] = sdk::StoreOwnMetics();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_3] = sdk::StoreOwnMetics();
+      for (const auto& index_store_id : store_ids_) {
+        store_id_to_store_own_metrics[index_store_id] = sdk::StoreOwnMetics();
+      }
     }
     int index = 0;
     std::cout << "Monitor performance before put data \n";
@@ -519,18 +552,14 @@ bool Benchmark::ArrangeData() {
   // monitor cpu memoory disk usage after put data
   if (FLAGS_enable_monitor_vector_performance_info) {
     std::map<std::int64_t, sdk::StoreOwnMetics> store_id_to_store_own_metrics;
-    std::vector<int64_t> store_ids;
-    store_ids.push_back(FLAGS_index_store_id_1);
-    store_ids.push_back(FLAGS_index_store_id_2);
-    store_ids.push_back(FLAGS_index_store_id_3);
 
-    sdk::Status s = client_->GetStoreOwnMetrics(store_ids, store_id_to_store_own_metrics);
+    sdk::Status s = client_->GetStoreOwnMetrics(store_ids_, store_id_to_store_own_metrics);
     if (!s.ok()) {
       std::cerr << fmt::format("Get store own metrics failed, status: {}", s.ToString()) << '\n';
       store_id_to_store_own_metrics.clear();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_1] = sdk::StoreOwnMetics();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_2] = sdk::StoreOwnMetics();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_3] = sdk::StoreOwnMetics();
+      for (const auto& index_store_id : store_ids_) {
+        store_id_to_store_own_metrics[index_store_id] = sdk::StoreOwnMetics();
+      }
     }
     int index = 0;
     std::cout << "Monitor performance after put data \n";
@@ -811,6 +840,13 @@ int64_t Benchmark::CreateVectorIndex(const std::string& name, const std::string&
 
   std::this_thread::sleep_for(std::chrono::seconds(10));
 
+  // auto balance region
+  if (FLAGS_auto_balance_region && FLAGS_replica > 1) {
+    std::cout << fmt::format("enable auto balance region for vector index {}", vector_index_id) << std::endl;
+    LOG(INFO) << fmt::format("enable auto balance region for vector index {}", vector_index_id);
+    AutoBalanceRegion(vector_index_id);
+  }
+
   return vector_index_id;
 }
 
@@ -967,18 +1003,13 @@ void Benchmark::Report(bool is_cumulative, size_t milliseconds) {
   std::map<std::int64_t, sdk::StoreOwnMetics> store_id_to_store_own_metrics;
   if (FLAGS_enable_monitor_vector_performance_info) {
     // monitor cpu memory disk usage
-    std::vector<int64_t> store_ids;
-    store_ids.push_back(FLAGS_index_store_id_1);
-    store_ids.push_back(FLAGS_index_store_id_2);
-    store_ids.push_back(FLAGS_index_store_id_3);
-
-    sdk::Status s = client_->GetStoreOwnMetrics(store_ids, store_id_to_store_own_metrics);
+    sdk::Status s = client_->GetStoreOwnMetrics(store_ids_, store_id_to_store_own_metrics);
     if (!s.ok()) {
       std::cerr << fmt::format("Get store own metrics failed, status: {}", s.ToString()) << '\n';
       store_id_to_store_own_metrics.clear();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_1] = sdk::StoreOwnMetics();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_2] = sdk::StoreOwnMetics();
-      store_id_to_store_own_metrics[FLAGS_index_store_id_3] = sdk::StoreOwnMetics();
+      for (const auto& index_store_id : store_ids_) {
+        store_id_to_store_own_metrics[index_store_id] = sdk::StoreOwnMetics();
+      }
     }
   }
 
@@ -990,6 +1021,134 @@ void Benchmark::Report(bool is_cumulative, size_t milliseconds) {
   } else {
     stats_interval_->Report(false, milliseconds, store_id_to_store_own_metrics);
     stats_interval_->Clear();
+  }
+}
+
+void Benchmark::AutoBalanceRegion(int64_t vector_index_id) {
+  std::shared_ptr<sdk::VectorIndex> out_vector_index;
+  sdk::Status status;
+  status = client_->GetVectorIndexById(vector_index_id, out_vector_index);
+  CHECK(status.ok()) << fmt::format("Get vector index failed, status: {}", status.ToString());
+
+  // collect all partition ranges
+  std::vector<pb::common::Range> ranges;
+  for (const auto& part_id : out_vector_index->GetPartitionIds()) {
+    pb::common::Range range = out_vector_index->GetPartitionRange(part_id);
+    ranges.emplace_back(std::move(range));
+  }
+
+  // collect all region ids
+  std::vector<int64_t> region_ids;
+  for (const auto& range : ranges) {
+    std::vector<int64_t> single_region_ids;
+    status = client_->ScanRegions(range.start_key(), range.end_key(), 0, single_region_ids);
+    CHECK(status.ok()) << fmt::format("Scan regions failed, status: {}", status.ToString());
+    region_ids.insert(region_ids.end(), single_region_ids.begin(), single_region_ids.end());
+  }
+
+  if (region_ids.empty()) {
+    LOG(ERROR) << fmt::format("No regions found for vector index {}", vector_index_id);
+    return;
+  }
+
+  // get region map
+  std::vector<dingodb::sdk::RegionPB> regions;
+  int64_t tenant_id = -1;
+  status = client_->GetRegionMap(tenant_id, regions);
+  CHECK(status.ok()) << fmt::format("Get region map failed, status: {}", status.ToString());
+
+  // get store map
+  dingodb::sdk::StoreType store_type = sdk::kNodeIndex;
+  std::vector<dingodb::sdk::StorePB> stores;
+  status = client_->GetStoreMap({store_type}, stores);
+  CHECK(status.ok()) << fmt::format("get store map failed, status: {}", status.ToString());
+
+  std::vector<int64_t> store_ids;
+  for (const auto& store : stores) {
+    store_ids.push_back(store.id);
+  }
+
+  if (store_ids.empty()) {
+    LOG(ERROR) << fmt::format("No stores found for vector index {}", vector_index_id);
+    return;
+  }
+
+  // sort store ids
+  std::sort(store_ids.begin(), store_ids.end());
+
+  std::string store_ids_str = fmt::format("store ids ({}): ", store_ids.size());
+
+  for (const auto store_id : store_ids) {
+    store_ids_str += std::to_string(store_id) + " ";
+  }
+
+  std::cout << store_ids_str << std::endl;
+  LOG(INFO) << store_ids_str;
+
+  // sort region ids
+  std::sort(region_ids.begin(), region_ids.end());
+  std::string region_ids_str = fmt::format("region ids ({}): ", region_ids.size());
+  for (const auto region_id : region_ids) {
+    region_ids_str += std::to_string(region_id) + " ";
+  }
+  std::cout << region_ids_str << std::endl;
+  LOG(INFO) << region_ids_str;
+
+  // allocate region ids to store ids in a round-robin manner
+  std::map<int64_t, int64_t> region_id_to_store_id_map;
+
+  int64_t i = 0;
+  for (const auto region_id : region_ids) {
+    auto store_id = store_ids[i];
+    // map region id to store id
+    region_id_to_store_id_map[region_id] = store_id;
+    i = (++i) % store_ids.size();  // round-robin assign store ids
+  }
+
+  std::string region_id_to_store_id_map_str =
+      fmt::format("region_id_to_store_id_map_str ({}): ", region_id_to_store_id_map.size());
+  for (const auto& [region_id, store_id] : region_id_to_store_id_map) {
+    region_id_to_store_id_map_str += fmt::format("{{{}: {}}} ", region_id, store_id);
+  }
+  std::cout << region_id_to_store_id_map_str << std::endl;
+  LOG(INFO) << region_id_to_store_id_map_str;
+
+  for (const auto& [region_id, store_id] : region_id_to_store_id_map) {
+    auto iter = regions.begin();
+    for (; iter != regions.end(); ++iter) {
+      if (iter->id == region_id) {
+        break;
+      }
+    }
+
+    CHECK(iter != regions.end()) << fmt::format("Region id {} not found in region map", region_id);
+    auto leader_store_id = iter->leader_store_id;
+    if (store_id != leader_store_id) {
+      // change leader store id
+      status = client_->TransferLeaderRegion(region_id, store_id, true);
+      CHECK(status.ok()) << fmt::format("Change region {} leader failed, status: {}", region_id, status.ToString());
+    }
+  }
+
+  std::this_thread::sleep_for(std::chrono::seconds(10));
+
+  // double check get region map again to ensure the changes are applied
+  status = client_->GetRegionMap(tenant_id, regions);
+  CHECK(status.ok()) << fmt::format("Get region map failed, status: {}", status.ToString());
+
+  for (const auto& [region_id, store_id] : region_id_to_store_id_map) {
+    auto iter = regions.begin();
+    for (; iter != regions.end(); ++iter) {
+      if (iter->id == region_id) {
+        break;
+      }
+    }
+
+    CHECK(iter != regions.end()) << fmt::format("Region id {} not found in region map", region_id);
+    auto leader_store_id = iter->leader_store_id;
+
+    CHECK(store_id == leader_store_id) << fmt::format("Region {} leader store id is {}, but expected {}", region_id,
+                                                      leader_store_id, store_id);
   }
 }
 
