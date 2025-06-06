@@ -508,7 +508,7 @@ Status Transaction::TxnImpl::DoScan(const std::string& start_key, const std::str
   RegionPtr region;
   Status status = LookupRegion(start_key, end_key, region);
   if (!status.IsOK()) {
-    DINGO_LOG(ERROR) << fmt::format("[txn.[]] scan lookup region fail, [{},{}) status({}).", ID(),
+    DINGO_LOG(ERROR) << fmt::format("[sdk.txn.{}] scan lookup region fail, [{},{}) status({}).", ID(),
                                     StringToHex(start_key), StringToHex(end_key), status.ToString());
     return status;
   }
@@ -763,7 +763,7 @@ Status Transaction::TxnImpl::DoPreCommit() {
 
         } else {
           // primary key should be first
-          auto& front = iter->second.mutations.front();
+          const auto* front = iter->second.mutations.front();
           iter->second.mutations[0] = &mutation;
           iter->second.mutations.push_back(front);
         }
