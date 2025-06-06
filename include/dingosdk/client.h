@@ -127,6 +127,16 @@ class Client {
   Status GetStoreOwnMetrics(std::vector<int64_t> store_ids,
                             std::map<std::int64_t, StoreOwnMetics>& store_id_to_store_own_metrics);
 
+  Status ScanRegions(std::string start_key, std::string end_key, uint64_t limit, std::vector<int64_t>& region_ids);
+
+  Status GetRegionMap(int64_t tenant_id, std::vector<RegionPB>& regions);
+
+  Status GetStoreMap(const std::vector<StoreType>& store_types,
+                     std::vector<StorePB>& stores);
+
+  Status TransferLeaderRegion(int64_t region_id, int64_t leader_store_id, bool is_force);
+
+
  private:
   friend class RawKV;
   friend class TestBase;

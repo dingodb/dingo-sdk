@@ -25,6 +25,7 @@
 
 #include "common/logging.h"
 #include "dingosdk/document.h"
+#include "dingosdk/metric.h"
 #include "dingosdk/status.h"
 #include "dingosdk/vector.h"
 #include "dingosdk/version.h"
@@ -63,6 +64,72 @@
 
 namespace dingodb {
 namespace sdk {
+
+StoreType PBStoreTypeToStoreType(pb::common::StoreType pb_store_type) {
+  switch (pb_store_type) {
+    case pb::common::StoreType::NODE_TYPE_STORE:
+      return StoreType::kNodeStore;
+    case pb::common::StoreType::NODE_TYPE_INDEX:
+      return StoreType::kNodeIndex;
+    case pb::common::StoreType::NODE_TYPE_DOCUMENT:
+      return StoreType::kNodeDocument;
+    default:
+      return StoreType::kNodeNone;
+  }
+}
+
+RegionType PBRegionTypeToRegionType(pb::common::RegionType pb_region_type) {
+  switch (pb_region_type) {
+    case pb::common::RegionType::STORE_REGION:
+      return RegionType::kRegionStore;
+    case pb::common::RegionType::INDEX_REGION:
+      return RegionType::kRegionIndex;
+    case pb::common::RegionType::DOCUMENT_REGION:
+      return RegionType::kRegionDocument;
+    default:
+      return RegionType::kRegionNone;
+  }
+}
+
+pb::common::StoreType StoreTypeToPBStoreType(StoreType store_type) {
+  switch (store_type) {
+    case StoreType::kNodeStore:
+      return pb::common::StoreType::NODE_TYPE_STORE;
+    case StoreType::kNodeIndex:
+      return pb::common::StoreType::NODE_TYPE_INDEX;
+    case StoreType::kNodeDocument:
+      return pb::common::StoreType::NODE_TYPE_DOCUMENT;
+    default:
+      DINGO_LOG(ERROR) << fmt::format("Unknown store type: {}", static_cast<int>(store_type));
+      return pb::common::StoreType::NODE_TYPE_STORE;
+  }
+}
+
+StoreState PBStoreStateToStoreState(pb::common::StoreState pb_store_state) {
+  switch (pb_store_state) {
+    case pb::common::StoreState::STORE_NEW:
+      return StoreState::kStoreNew;
+    case pb::common::StoreState::STORE_NORMAL:
+      return StoreState::kStoreNormal;
+    case pb::common::StoreState::STORE_OFFLINE:
+      return StoreState::kStoreOffline;
+    default:
+      DINGO_LOG(ERROR) << fmt::format("Unknown store state: {}", static_cast<int>(pb_store_state));
+      return StoreState::kStoreNew;
+  }
+}
+
+StoreInState PBStoreInStateToStoreInState(pb::common::StoreInState pb_store_in_state) {
+  switch (pb_store_in_state) {
+    case pb::common::StoreInState::STORE_IN:
+      return StoreInState::kStoreIn;
+    case pb::common::StoreInState::STORE_OUT:
+      return StoreInState::kStoreOut;
+    default:
+      DINGO_LOG(ERROR) << fmt::format("Unknown store in state: {}", static_cast<int>(pb_store_in_state));
+      return StoreInState::kStoreOut;
+  }
+}
 
 Status Client::BuildAndInitLog(std::string addrs, Client** client) {
   static std::once_flag init;
@@ -335,6 +402,91 @@ Status Client::GetStoreOwnMetrics(std::vector<int64_t> store_ids,
 
     store_id_to_store_own_metrics[store_own_metrics.id()] = store_metrics;
   }
+  return status;
+}
+
+Status Client::ScanRegions(std::string start_key, std::string end_key, uint64_t limit,
+                           std::vector<int64_t>& region_ids) {
+  ScanRegionsRpc rpc;
+  rpc.MutableRequest()->set_key(start_key);
+  rpc.MutableRequest()->set_range_end(end_key);
+  rpc.MutableRequest()->set_limit(limit);
+  Status status = data_->stub->GetCoordinatorRpcController()->SyncCall(rpc);
+  if (!status.IsOK()) {
+    DINGO_LOG(ERROR) << fmt::format("scan regions fail, error: {} {}", status.Errno(), status.ToString());
+    return status;
+  }
+
+  region_ids.clear();
+
+  for (const auto& region : rpc.Response()->regions()) {
+    region_ids.push_back(region.region_id());
+  }
+
+  return status;
+}
+
+Status Client::GetRegionMap(int64_t tenant_id, std::vector<RegionPB>& regions) {
+  regions.clear();
+
+  GetRegionMapRpc rpc;
+  rpc.MutableRequest()->set_tenant_id(tenant_id);
+  Status status = data_->stub->GetCoordinatorRpcController()->SyncCall(rpc);
+  if (!status.IsOK()) {
+    DINGO_LOG(ERROR) << fmt::format("scan regions fail, error: {} {}", status.Errno(), status.ToString());
+    return status;
+  }
+  for (const auto& region : rpc.Response()->regionmap().regions()) {
+    RegionPB region_pb;
+    region_pb.id = region.id();
+    region_pb.epoch = region.epoch();
+    region_pb.region_type = PBRegionTypeToRegionType(region.region_type());
+    region_pb.leader_store_id = region.leader_store_id();
+    regions.push_back(region_pb);
+  }
+
+  return status;
+}
+
+Status Client::GetStoreMap(const std::vector<StoreType>& store_types, std::vector<StorePB>& stores) {
+  stores.clear();
+
+  GetStoreMapRpc rpc;
+  for (const auto& store_type : store_types) {
+    rpc.MutableRequest()->add_filter_store_types(StoreTypeToPBStoreType(store_type));
+  }
+
+  Status status = data_->stub->GetCoordinatorRpcController()->SyncCall(rpc);
+  if (!status.IsOK()) {
+    DINGO_LOG(ERROR) << fmt::format("scan regions fail, error: {} {}", status.Errno(), status.ToString());
+    return status;
+  }
+  for (const auto& store : rpc.Response()->storemap().stores()) {
+    StorePB store_pb;
+    store_pb.id = store.id();
+    store_pb.store_type = PBStoreTypeToStoreType(store.store_type());
+    store_pb.epoch = store.epoch();
+    store_pb.leader_num_weight = store.leader_num_weight();
+    store_pb.state = PBStoreStateToStoreState(store.state());
+    store_pb.in_state = PBStoreInStateToStoreInState(store.in_state());
+    stores.push_back(store_pb);
+  }
+
+  return status;
+}
+
+Status Client::TransferLeaderRegion(int64_t region_id, int64_t leader_store_id, bool is_force) {
+  TransferLeaderRegionRpc rpc;
+  rpc.MutableRequest()->set_region_id(region_id);
+  rpc.MutableRequest()->set_leader_store_id(leader_store_id);
+  rpc.MutableRequest()->set_is_force(is_force);
+
+  Status status = data_->stub->GetCoordinatorRpcController()->SyncCall(rpc);
+  if (!status.IsOK()) {
+    DINGO_LOG(ERROR) << fmt::format("transfer leader region fail, error: {} {}", status.Errno(), status.ToString());
+    return status;
+  }
+
   return status;
 }
 

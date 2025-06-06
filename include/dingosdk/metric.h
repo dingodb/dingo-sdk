@@ -59,6 +59,33 @@ struct StoreOwnMetics {
   }
 };
 
+enum StoreType : uint8_t { kNodeNone, kNodeStore, kNodeIndex, kNodeDocument };
+
+enum RegionType : uint8_t { kRegionNone, kRegionStore, kRegionIndex, kRegionDocument };
+
+enum StoreState : uint8_t { kStoreNew, kStoreNormal, kStoreOffline };
+enum StoreInState : uint8_t { kStoreIn, kStoreOut };
+
+// tansfer pb::common::Region To RegionPB
+struct RegionPB {
+  int64_t id{0};                        // region id
+  int64_t epoch{0};                     // region epoch
+  RegionType region_type{kRegionNone};  // region type
+  int64_t leader_store_id{0};           // leader store id
+
+  // todo : add more region info
+};
+
+// tansfer pb::common::Store To StorePB
+struct StorePB {
+  int64_t id{0};                     // store id
+  int64_t epoch{0};                  // store epoch
+  StoreType store_type{kNodeNone};   // store type
+  int32_t leader_num_weight{0};      // leader num weight
+  StoreState state{kStoreNew};       // store state
+  StoreInState in_state{kStoreOut};  // store in state
+};
+
 }  // namespace sdk
 }  // namespace dingodb
 
