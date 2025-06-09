@@ -145,6 +145,10 @@ DEFINE_int32(index_store_id_3, 21003, "index store_id 3");
 // auto balance region
 DEFINE_bool(auto_balance_region, false, "auto balance region, default false");
 
+DEFINE_int32(wait_for_vector_index_create_ready_s, 10, "wait vector index after create seconds. default 10 seconds.");
+
+DEFINE_int32(wait_for_transfer_leader_region_s, 10, "wait  seconds after TransferLeaderRegion . default 10 seconds.");
+
 namespace dingodb {
 namespace benchmark {
 
@@ -838,7 +842,8 @@ int64_t Benchmark::CreateVectorIndex(const std::string& name, const std::string&
     LOG(ERROR) << "vector_index_id is 0, invalid";
   }
 
-  std::this_thread::sleep_for(std::chrono::seconds(10));
+  std::this_thread::sleep_for(std::chrono::seconds(FLAGS_wait_for_vector_index_create_ready_s));
+  LOG(INFO) << "FLAGS_wait_for_vector_index_create_ready_s : " << FLAGS_wait_for_vector_index_create_ready_s;
 
   // auto balance region
   if (FLAGS_auto_balance_region && FLAGS_replica > 1) {
@@ -1130,7 +1135,8 @@ void Benchmark::AutoBalanceRegion(int64_t vector_index_id) {
     }
   }
 
-  std::this_thread::sleep_for(std::chrono::seconds(10));
+  std::this_thread::sleep_for(std::chrono::seconds(FLAGS_wait_for_transfer_leader_region_s));
+  LOG(INFO) << "FLAGS_wait_for_transfer_leader_region_s : " << FLAGS_wait_for_transfer_leader_region_s;
 
   // double check get region map again to ensure the changes are applied
   status = client_->GetRegionMap(tenant_id, regions);
