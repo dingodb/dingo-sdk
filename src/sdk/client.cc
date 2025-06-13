@@ -57,6 +57,7 @@
 #include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/sdk_version.h"
 #include "sdk/transaction/txn_impl.h"
+#include "sdk/transaction/txn_internal_data.h"
 #include "sdk/utils/net_util.h"
 #include "sdk/vector/diskann/vector_diskann_status_by_index_task.h"
 #include "sdk/vector/vector_index.h"
@@ -236,8 +237,8 @@ Status Client::NewRawKV(RawKV** raw_kv) {
 }
 
 Status Client::NewTransaction(const TransactionOptions& options, Transaction** txn) {
-  auto txn_impl = std::make_shared<Transaction::TxnImpl>(*data_->stub, options);
-  Transaction* tmp_txn = new Transaction(txn_impl);
+  auto txn_impl = std::make_shared<TxnImpl>(*data_->stub, options);
+  Transaction* tmp_txn = new Transaction(new Transaction::Data(*data_->stub, std::move(txn_impl)));
   Status s = tmp_txn->Begin();
   if (!s.ok()) {
     delete tmp_txn;
@@ -595,46 +596,46 @@ Status RawKV::Scan(const std::string& start_key, const std::string& end_key, uin
   return task.Run();
 }
 
-Transaction::Transaction(TxnImplSPtr impl) : impl_(impl) {}
+Transaction::Transaction(Data* data) : data_(data) {}
 
-Transaction::~Transaction() {}  // NOLINT
+Transaction::~Transaction() { delete data_; }
 
-Status Transaction::Begin() { return impl_->Begin(); }
+Status Transaction::Begin() { return data_->impl->Begin(); }
 
-int64_t Transaction::ID() const { return impl_->ID(); }
+int64_t Transaction::ID() const { return data_->impl->ID(); }
 
-Status Transaction::Get(const std::string& key, std::string& value) { return impl_->Get(key, value); }
+Status Transaction::Get(const std::string& key, std::string& value) { return data_->impl->Get(key, value); }
 
 Status Transaction::BatchGet(const std::vector<std::string>& keys, std::vector<KVPair>& kvs) {
-  return impl_->BatchGet(keys, kvs);
+  return data_->impl->BatchGet(keys, kvs);
 }
 
-Status Transaction::Put(const std::string& key, const std::string& value) { return impl_->Put(key, value); }
+Status Transaction::Put(const std::string& key, const std::string& value) { return data_->impl->Put(key, value); }
 
-Status Transaction::BatchPut(const std::vector<KVPair>& kvs) { return impl_->BatchPut(kvs); }
+Status Transaction::BatchPut(const std::vector<KVPair>& kvs) { return data_->impl->BatchPut(kvs); }
 
 Status Transaction::PutIfAbsent(const std::string& key, const std::string& value) {
-  return impl_->PutIfAbsent(key, value);
+  return data_->impl->PutIfAbsent(key, value);
 }
 
-Status Transaction::BatchPutIfAbsent(const std::vector<KVPair>& kvs) { return impl_->BatchPutIfAbsent(kvs); }
+Status Transaction::BatchPutIfAbsent(const std::vector<KVPair>& kvs) { return data_->impl->BatchPutIfAbsent(kvs); }
 
-Status Transaction::Delete(const std::string& key) { return impl_->Delete(key); }
+Status Transaction::Delete(const std::string& key) { return data_->impl->Delete(key); }
 
-Status Transaction::BatchDelete(const std::vector<std::string>& keys) { return impl_->BatchDelete(keys); }
+Status Transaction::BatchDelete(const std::vector<std::string>& keys) { return data_->impl->BatchDelete(keys); }
 
 Status Transaction::Scan(const std::string& start_key, const std::string& end_key, uint64_t limit,
                          std::vector<KVPair>& kvs) {
-  return impl_->Scan(start_key, end_key, limit, kvs);
+  return data_->impl->Scan(start_key, end_key, limit, kvs);
 }
 
-Status Transaction::PreCommit() { return impl_->PreCommit(); }
+Status Transaction::PreCommit() { return data_->impl->PreCommit(); }
 
-Status Transaction::Commit() { return impl_->Commit(); }
+Status Transaction::Commit() { return data_->impl->Commit(); }
 
-Status Transaction::Rollback() { return impl_->Rollback(); }
+Status Transaction::Rollback() { return data_->impl->Rollback(); }
 
-bool Transaction::IsOnePc() const { return impl_->IsOnePc(); }
+bool Transaction::IsOnePc() const { return data_->impl->IsOnePc(); }
 
 RegionCreator::RegionCreator(Data* data) : data_(data) {}
 

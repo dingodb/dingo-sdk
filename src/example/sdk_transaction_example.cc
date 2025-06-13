@@ -22,10 +22,10 @@
 #include <utility>
 #include <vector>
 
-#include "glog/logging.h"
-#include "dingosdk/client.h"
 #include "common/logging.h"
+#include "dingosdk/client.h"
 #include "dingosdk/status.h"
+#include "glog/logging.h"
 
 using dingodb::sdk::Status;
 
@@ -65,7 +65,7 @@ static void CreateRegion(std::string name, std::string start_key, std::string en
   CHECK(start_key < end_key) << "start_key must < end_key";
   CHECK(replicas > 0) << "replicas must > 0";
 
-  dingodb::sdk::RegionCreator *tmp_creator;
+  dingodb::sdk::RegionCreator* tmp_creator;
   Status built = g_client->NewRegionCreator(&tmp_creator);
   CHECK(built.IsOK()) << "dingo creator build fail";
   std::shared_ptr<dingodb::sdk::RegionCreator> creator(tmp_creator);
@@ -102,7 +102,7 @@ static std::shared_ptr<dingodb::sdk::Transaction> NewOptimisticTransaction(dingo
   options.kind = dingodb::sdk::kOptimistic;
   options.keep_alive_ms = keep_alive_ms;
 
-  dingodb::sdk::Transaction *tmp;
+  dingodb::sdk::Transaction* tmp;
   Status built = g_client->NewTransaction(options, &tmp);
   CHECK(built.ok()) << "dingo txn build fail";
   std::shared_ptr<dingodb::sdk::Transaction> txn(tmp);
@@ -138,7 +138,7 @@ static void OptimisticTxnPostClean(dingodb::sdk::TransactionIsolation isolation)
 void OptimisticTxnBatch() {
   auto txn = NewOptimisticTransaction(dingodb::sdk::kSnapshotIsolation);
 
-  for (const auto &key : keys) {
+  for (const auto& key : keys) {
     std::string tmp;
     Status got = txn->Get(key, tmp);
     CHECK(got.IsNotFound());
@@ -167,7 +167,7 @@ void OptimisticTxnBatch() {
       s = txn->BatchGet(keys, tmp);
       CHECK(s.ok());
       CHECK_EQ(tmp.size(), kvs.size());
-      for (const auto &kv : tmp) {
+      for (const auto& kv : tmp) {
         CHECK_EQ(kv.value, key_values[kv.key]);
       }
     }
@@ -181,7 +181,7 @@ void OptimisticTxnBatch() {
       s = txn->BatchGet(keys, tmp);
       CHECK(s.ok());
       CHECK_EQ(tmp.size(), kvs.size());
-      for (const auto &kv : tmp) {
+      for (const auto& kv : tmp) {
         CHECK_EQ(kv.value, key_values[kv.key]);
       }
     }
@@ -206,7 +206,7 @@ void OptimisticTxnBatch() {
       s = txn->BatchGet(keys, tmp);
       CHECK(s.ok());
       CHECK_EQ(tmp.size(), kvs.size());
-      for (const auto &kv : tmp) {
+      for (const auto& kv : tmp) {
         CHECK_EQ(kv.value, key_values[kv.key]);
       }
     }
@@ -215,7 +215,7 @@ void OptimisticTxnBatch() {
       // batch put override exist kvs, then batch delete
       std::vector<dingodb::sdk::KVPair> new_kvs;
       new_kvs.reserve(keys.size());
-      for (auto &key : keys) {
+      for (auto& key : keys) {
         new_kvs.push_back({key, key});
       }
 
@@ -226,7 +226,7 @@ void OptimisticTxnBatch() {
       s = txn->BatchGet(keys, tmp);
       CHECK(s.ok());
       CHECK_EQ(tmp.size(), new_kvs.size());
-      for (const auto &kv : tmp) {
+      for (const auto& kv : tmp) {
         CHECK_EQ(kv.value, kv.key);
       }
 
@@ -272,7 +272,7 @@ void OptimisticTxnSingleOp() {
     }
 
     {
-      dingodb::sdk::Transaction *tmp;
+      dingodb::sdk::Transaction* tmp;
       Status built = g_client->NewTransaction(options, &tmp);
       CHECK(built.ok()) << "dingo txn build fail";
       CHECK_NOTNULL(tmp);
@@ -284,7 +284,7 @@ void OptimisticTxnSingleOp() {
       CHECK(got.ok());
       CHECK_EQ(kvs.size(), 2);
 
-      for (const auto &kv : kvs) {
+      for (const auto& kv : kvs) {
         CHECK(kv.key == put_key || kv.key == put_if_absent_key);
         if (kv.key == put_key) {
           CHECK_EQ(kv.value, key_values[put_key]);
@@ -370,7 +370,7 @@ void OptimisticTxnLockConflict() {
     CHECK(got.ok());
     CHECK_EQ(kvs.size(), 2);
 
-    for (const auto &kv : kvs) {
+    for (const auto& kv : kvs) {
       CHECK(kv.key == put_key || kv.key == put_if_absent_key);
       if (kv.key == put_key) {
         CHECK_EQ(kv.value, key_values[put_key]);
@@ -445,7 +445,7 @@ void OptimisticTxnReadSnapshotAndReadCommiited() {
     CHECK(got.ok());
     CHECK_EQ(kvs.size(), 2);
 
-    for (const auto &kv : kvs) {
+    for (const auto& kv : kvs) {
       CHECK(kv.key == put_key || kv.key == put_if_absent_key);
       if (kv.key == put_key) {
         CHECK_EQ(kv.value, key_values[put_key]);
@@ -545,7 +545,7 @@ void OptimisticTxnScan() {
     CHECK(got.ok());
     CHECK_EQ(kvs.size(), 2);
 
-    for (const auto &kv : kvs) {
+    for (const auto& kv : kvs) {
       CHECK(kv.key == put_key || kv.key == put_if_absent_key);
       DINGO_LOG(INFO) << "batch get, key:" << kv.key << ",value:" << kv.value;
       if (kv.key == put_key) {
@@ -567,7 +567,7 @@ void OptimisticTxnScan() {
     }
     CHECK_EQ(kvs.size(), 2);
 
-    for (const auto &kv : kvs) {
+    for (const auto& kv : kvs) {
       CHECK(kv.key == put_key || kv.key == put_if_absent_key);
       if (kv.key == put_key) {
         CHECK_EQ(kv.value, key_values[put_key]);
@@ -618,77 +618,6 @@ void OptimisticTxnScanReadSelf() {
     DINGO_LOG(INFO) << "txn commit:" << commit.ToString();
   }
 
-  auto read_commit_txn = NewOptimisticTransaction(dingodb::sdk::kReadCommitted);
-  {
-    std::string self_put_key = "xb02";
-    std::string self_put_if_absent_key = "xc02";
-    std::string self_delete_key = "xd02";
-
-    to_check.emplace(self_put_key);
-    to_check.emplace(self_put_if_absent_key);
-    to_check.emplace(self_delete_key);
-    {
-      {
-        // overwrite
-        read_commit_txn->Put(put_key, put_key);
-        read_commit_txn->PutIfAbsent(put_if_absent_key, put_if_absent_key);
-        read_commit_txn->Delete(delete_key);
-        read_commit_txn->Delete(put_keyl);
-      }
-
-      read_commit_txn->Put(self_put_key, self_put_key);
-      read_commit_txn->PutIfAbsent(self_put_if_absent_key, self_put_if_absent_key);
-      read_commit_txn->Delete(self_delete_key);
-    }
-
-    {
-      // scan without limit
-      std::vector<dingodb::sdk::KVPair> kvs;
-      Status scan = read_commit_txn->Scan("xa00000000", "xz00000000", 0, kvs);
-      DINGO_LOG(INFO) << "read_commit_txn scan:" << scan.ToString();
-      CHECK(scan.ok());
-      for (const auto &kv : kvs) {
-        DINGO_LOG(INFO) << "read_commit_txn scan key:" << kv.key << ", value:" << kv.value;
-      }
-      if (kvs.size() != 5) {
-        DINGO_LOG(WARNING) << "Internal error, expected kvs size:" << 2 << ", ectual:" << kvs.size();
-      }
-      CHECK_EQ(kvs.size(), 5);
-
-      for (const auto &kv : kvs) {
-        if (kv.key != put_if_absent_key && kv.key != put_keyf) {
-          CHECK_EQ(kv.value, kv.key);
-        } else {
-          CHECK_EQ(kv.value, key_values[kv.key]);
-        }
-        to_check.erase(kv.key);
-      }
-      CHECK_EQ(to_check.size(), 3);
-      CHECK(to_check.find(delete_key) != to_check.cend());
-      CHECK(to_check.find(self_delete_key) != to_check.cend());
-      CHECK(to_check.find(put_keyl) != to_check.cend());
-    }
-
-    {
-      // scan without limit
-      int limit = 2;
-      std::vector<dingodb::sdk::KVPair> kvs;
-      Status scan = read_commit_txn->Scan("xa00000000", "xz00000000", limit, kvs);
-      DINGO_LOG(INFO) << "read_commit_txn scan:" << scan.ToString();
-      CHECK(scan.ok());
-      for (const auto &kv : kvs) {
-        DINGO_LOG(INFO) << "read_commit_txn scan key:" << kv.key << ", value:" << kv.value;
-      }
-      CHECK_EQ(kvs.size(), 2);
-      // TODO: check key prefix is xb
-    }
-
-    Status precommit = read_commit_txn->PreCommit();
-    DINGO_LOG(INFO) << "read_commit_txn precommit:" << precommit.ToString();
-    Status commit = read_commit_txn->Commit();
-    DINGO_LOG(INFO) << "read_commit_txn commit:" << commit.ToString();
-  }
-
   {
     std::vector<std::string> keys(to_check.begin(), to_check.end());
     {
@@ -715,7 +644,7 @@ void OptimisticTxnScanReadSelf() {
   OptimisticTxnPostClean(dingodb::sdk::kSnapshotIsolation);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   FLAGS_minloglevel = google::GLOG_INFO;
   FLAGS_logtostdout = true;
   FLAGS_colorlogtostdout = true;
@@ -733,7 +662,7 @@ int main(int argc, char *argv[]) {
 
   CHECK(!FLAGS_addrs.empty());
 
-  dingodb::sdk::Client *tmp;
+  dingodb::sdk::Client* tmp;
   Status built = dingodb::sdk::Client::BuildFromAddrs(FLAGS_addrs, &tmp);
   if (!built.ok()) {
     DINGO_LOG(ERROR) << "Fail to build client, please check parameter --addrs=" << FLAGS_addrs;

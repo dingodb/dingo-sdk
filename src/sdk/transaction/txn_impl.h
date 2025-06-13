@@ -37,8 +37,11 @@ using pb::store::TxnBatchRollbackResponse;
 using pb::store::TxnCommitResponse;
 using pb::store::TxnPrewriteResponse;
 
+class TxnImpl;
+using TxnImplSPtr = std::shared_ptr<TxnImpl>;
+
 // TODO: support read only txn
-class Transaction::TxnImpl : public std::enable_shared_from_this<TxnImpl> {
+class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
  public:
   TxnImpl(const TxnImpl&) = delete;
   const TxnImpl& operator=(const TxnImpl&) = delete;
@@ -112,7 +115,13 @@ class Transaction::TxnImpl : public std::enable_shared_from_this<TxnImpl> {
 
   Status Rollback();
 
+  Status ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary);
+
   bool IsOnePc() const { return is_one_pc_; }
+
+  int64_t GetStartTs() const { return start_ts_; }
+  int64_t GetCommitTs() const { return commit_ts_; }
+  TransactionOptions GetOptions() const { return options_; }
 
   bool TEST_IsInitState() { return state_ == kInit; }                    // NOLINT
   bool TEST_IsActiveState() { return state_ == kActive; }                // NOLINT
@@ -136,30 +145,6 @@ class Transaction::TxnImpl : public std::enable_shared_from_this<TxnImpl> {
     uint32_t pending_offset{0};
   };
 
-  struct TxnTask {
-    // input param
-    RegionPtr region;
-    std::vector<std::string_view> keys;
-    std::vector<const TxnMutation*> mutations;
-    // output param
-    Status status;
-    std::vector<KVPair> result_kvs;
-
-    TxnTask(const std::vector<std::string_view>& keys, RegionPtr region) : keys(keys), region(std::move(region)) {}
-    TxnTask(const std::vector<const TxnMutation*>& mutations, RegionPtr region)
-        : mutations(mutations), region(std::move(region)) {}
-  };
-
-  struct AsyncTxnTask : public TxnTask {
-    TxnImplSPtr txn;
-
-    AsyncTxnTask(TxnImplSPtr txn, const std::vector<std::string_view>& keys, RegionPtr region)
-        : TxnTask(keys, region), txn(txn) {}
-    AsyncTxnTask(TxnImplSPtr txn, const std::vector<const TxnMutation*>& mutations, RegionPtr region)
-        : TxnTask(mutations, region), txn(txn) {}
-  };
-  using AsyncTxnTaskSPtr = std::shared_ptr<AsyncTxnTask>;
-
   static bool IsNeedRetry(int& times);
   static bool IsNeedRetry(const Status& status);
   Status LookupRegion(const std::string_view& key, RegionPtr& region);
@@ -169,7 +154,6 @@ class Transaction::TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   Status DoTxnGet(const std::string& key, std::string& value);
 
   // txn batch get
-  void DoTaskForBatchGet(TxnTask& task);
   Status DoTxnBatchGet(const std::vector<std::string>& keys, std::vector<KVPair>& kvs);
 
   // txn scan
@@ -179,21 +163,14 @@ class Transaction::TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   // txn precommit
   void CheckPreCommitResponse(const TxnPrewriteResponse* response) const;
   Status TryResolveTxnPreCommitConflict(const TxnPrewriteResponse* response) const;
-  void DoTaskForPreCommit(TxnTask& task);
   Status DoPreCommit();
 
   // txn commit
-  std::unique_ptr<TxnCommitRpc> GenCommitRpc(const RegionPtr& region) const;
-  Status ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary);
   Status CommitPrimaryKey();
-  void DoTaskForCommit(AsyncTxnTaskSPtr task);
   Status CommitOrdinaryKey();
   Status DoCommit();
 
   // txn rollback
-  std::unique_ptr<TxnBatchRollbackRpc> GenBatchRollbackRpc(const RegionPtr& region) const;
-  void CheckTxnBatchRollbackResponse(const TxnBatchRollbackResponse* response) const;
-  void DoTaskForRollback(TxnTask& task);
   Status RollbackPrimaryKey();
   Status RollbackOrdinaryKey();
   Status DoRollback();
