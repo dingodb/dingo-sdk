@@ -35,7 +35,7 @@ testpaths = ["tests"]
 before-build = "rm -rf {project}/build"
 build = "*-manylinux*"
 skip = "*-musllinux*"
-manylinux-x86_64-image = "dingodatabase/dingo-eureka:manylinux_2_34"
+manylinux-x86_64-image = "dingodatabase/dingo-eureka:manylinux_2_34-v1.0"
 
 
 # Install system library
