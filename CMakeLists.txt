@@ -68,6 +68,9 @@ message(
   "OpenSSL libraries: ${OPENSSL_LIBRARIES}, include dir: ${OPENSSL_INCLUDE_DIR}"
 )
 
+# find dingoEureka
+find_package(dingoEureka 1.0 REQUIRED)
+
 # find third-party
 set(gflags_DIR ${THIRD_PARTY_INSTALL_PATH}/lib/cmake/gflags)
 find_package(gflags REQUIRED)
