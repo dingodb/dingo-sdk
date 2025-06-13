@@ -36,6 +36,21 @@ inline uint64_t TimestampMs() {
       .count();
 }
 
+inline int64_t Timestamp() {
+  return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+inline std::string FormatTime(int64_t timestamp, const std::string& format = "%Y-%m-%d %H:%M:%S") {
+  std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds> tp((std::chrono::seconds(timestamp)));
+
+  auto in_time_t = std::chrono::system_clock::to_time_t(tp);
+  std::stringstream ss;
+  ss << std::put_time(std::localtime(&in_time_t), format.c_str());
+  return ss.str();
+}
+
+inline std::string NowTime() { return FormatTime(Timestamp()); }
+
 // TODO: log in rpc when we support async
 template <class StoreClientRpc>
 static Status LogAndSendRpc(const ClientStub& stub, StoreClientRpc& rpc, std::shared_ptr<Region> region) {

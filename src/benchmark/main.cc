@@ -22,9 +22,12 @@
 #include "fmt/core.h"
 #include "gflags/gflags.h"
 #include "glog/logging.h"
+#include "sdk/common/helper.h"
+#include "sdk/sdk_version.h"
 #include "util.h"
 
 DECLARE_string(benchmark);
+DECLARE_bool(show_version);
 
 const std::string kVersion = "0.1.0";
 
@@ -76,7 +79,7 @@ static std::string GetUsageMessage() {
   message += "\n  --vector_search_enable_range_search vector search flag enable_range_search, default(false)";
   message += "\n  --vector_search_radius vector search flag radius, default(0.1)";
   message += "\n  --vector_search_nprobe vector search flag nprobe, default(80)";
-  message += "\n  --vector_search_ef vector search flag ef, default(128)";  
+  message += "\n  --vector_search_ef vector search flag ef, default(128)";
   message += "\n  --diskann_max_degree Diskann max degree, default(64)";
   message += "\n  --diskann_search_list_size Diskann search list size, default(100)";
   message += "\n  --diskann_search_beamwidth Diskann search beam width, default(2)";
@@ -85,6 +88,9 @@ static std::string GetUsageMessage() {
 }
 
 static void SignalHandler(int signo) {  // NOLINT
+  std::string now_time = dingodb::sdk::NowTime();
+  std::cout << "now time end : " << now_time << std::endl;
+  LOG(INFO) << "now time end : " << now_time;
   dingodb::benchmark::Environment::GetInstance().Stop();
 }
 
@@ -128,6 +134,19 @@ void InitLog(const std::string& log_dir) {
 int main(int argc, char* argv[]) {
   InitLog("./log");
 
+  std::string now_time = dingodb::sdk::NowTime();
+  std::cout << "now time start: " << now_time << std::endl;
+  LOG(INFO) << "now time start: " << now_time;
+
+  if (FLAGS_show_version || argc == 1) {
+    dingodb::sdk::DingoSdkLogVerion();
+    dingodb::sdk::DingoSdkShowVerion();
+    return 0;
+  }
+
+  dingodb::sdk::DingoSdkLogVerion();
+  dingodb::sdk::DingoSdkShowVerion();
+
   google::SetVersionString(kVersion);
   google::SetUsageMessage(GetUsageMessage());
   google::ParseCommandLineFlags(&argc, &argv, true);
@@ -149,6 +168,10 @@ int main(int argc, char* argv[]) {
   environment.AddBenchmark(benchmark);
 
   benchmark->Run();
+
+  now_time = dingodb::sdk::NowTime();
+  std::cout << "now time end : " << now_time << std::endl;
+  LOG(INFO) << "now time end : " << now_time;
 
   return 0;
 }
