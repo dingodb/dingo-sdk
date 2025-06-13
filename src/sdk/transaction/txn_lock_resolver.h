@@ -55,15 +55,6 @@ class TxnLockResolver {
   virtual Status ResolveLock(const pb::store::LockInfo& lock_info, int64_t start_ts);
 
  private:
-  Status CheckTxnStatus(int64_t lock_ts, const std::string& primary_key, int64_t start_ts, TxnStatus& txn_status);
-
-  static Status ProcessTxnCheckStatusResponse(const pb::store::TxnCheckTxnStatusResponse& response,
-                                              TxnStatus& txn_status);
-
-  Status ResolveLockKey(int64_t lock_ts, const std::string& key, int64_t commit_ts);
-
-  static Status ProcessTxnResolveLockResponse(const pb::store::TxnResolveLockResponse& response);
-
   const ClientStub& stub_;
 };
 

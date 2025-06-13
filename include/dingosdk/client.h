@@ -271,15 +271,14 @@ class Transaction {
   friend class TestBase;
   friend class SDKTxnImplTest;
 
+  // own
+  class Data;
+  Data* data_;
+
+  explicit Transaction(Data* data);
+
   Status Begin();
 
-  // own
-  class TxnImpl;
-  using TxnImplSPtr = std::shared_ptr<TxnImpl>;
-
-  TxnImplSPtr impl_;
-
-  explicit Transaction(TxnImplSPtr impl);
 };
 
 enum EngineType : uint8_t { kLSM, kBTree, kXDPROCKS };
