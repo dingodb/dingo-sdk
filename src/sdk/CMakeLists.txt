@@ -97,6 +97,7 @@ set(SDK_SRCS
   expression/langchain_expr_encoder.cc
   expression/langchain_expr_factory.cc
   expression/langchain_expr.cc
+  sdk_version.cc
 )
 
 if(SDK_ENABLE_GRPC)
