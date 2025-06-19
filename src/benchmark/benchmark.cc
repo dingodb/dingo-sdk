@@ -383,7 +383,7 @@ bool Benchmark::Arrange() {
       }
     }
 
-    if (FLAGS_vector_index_id > 0 || !FLAGS_vector_index_name.empty()) {
+    if (!FLAGS_vector_search_arrange_data || FLAGS_vector_index_id > 0) {
       vector_index_entries_ = ArrangeExistVectorIndex(FLAGS_vector_index_id, FLAGS_vector_index_name);
     } else {
       vector_index_entries_ = ArrangeVectorIndex(FLAGS_vector_index_num);
@@ -473,8 +473,18 @@ std::vector<VectorIndexEntryPtr> Benchmark::ArrangeVectorIndex(int num) {
   threads.reserve(num);
   std::mutex mutex;
   for (int thread_no = 0; thread_no < num; ++thread_no) {
-    threads.emplace_back([this, thread_no, &vector_index_entries, &mutex]() {
-      std::string name = fmt::format("{}_{}_{}", kNamePrefix, dingodb::benchmark::TimestampMs(), thread_no + 1);
+    threads.emplace_back([this, thread_no, &vector_index_entries, &mutex, num]() {
+      std::string name;
+      if (!FLAGS_vector_index_name.empty()) {
+        if (num == 1) {
+          name = FLAGS_vector_index_name;
+        } else {
+          name = fmt::format("{}_{}", FLAGS_vector_index_name, thread_no + 1);
+        }
+      } else {
+        name = fmt::format("{}_{}_{}", kNamePrefix, dingodb::benchmark::TimestampMs(), thread_no + 1);
+      }
+
       auto index_id = CreateVectorIndex(name, FLAGS_vector_index_type);
       if (index_id == 0) {
         LOG(ERROR) << fmt::format("create vector index failed, name: {}", name);
@@ -503,14 +513,33 @@ std::vector<VectorIndexEntryPtr> Benchmark::ArrangeVectorIndex(int num) {
 std::vector<VectorIndexEntryPtr> Benchmark::ArrangeExistVectorIndex(int64_t vector_index_id,
                                                                     const std::string& vector_index_name) {
   std::vector<VectorIndexEntryPtr> vector_index_entries;
-  auto entry = std::make_shared<VectorIndexEntry>();
+
   if (vector_index_id > 0) {
+    auto entry = std::make_shared<VectorIndexEntry>();
     entry->index_id = vector_index_id;
     vector_index_entries.push_back(entry);
   } else if (!vector_index_name.empty()) {
-    entry->index_id = GetVectorIndex(vector_index_name);
-    if (entry->index_id > 0) {
-      vector_index_entries.push_back(entry);
+    if (FLAGS_vector_index_num == 1) {
+      auto entry = std::make_shared<VectorIndexEntry>();
+      entry->index_id = GetVectorIndex(vector_index_name);
+      if (entry->index_id > 0) {
+        vector_index_entries.push_back(entry);
+      }
+    } else {
+      for (int i = 0; i < FLAGS_vector_index_num; i++) {
+        auto entry = std::make_shared<VectorIndexEntry>();
+        std::string name = fmt::format("{}_{}", vector_index_name, i + 1);
+        int64_t index_id = GetVectorIndex(name);
+        if (index_id <= 0) {
+          LOG(ERROR) << fmt::format("get vector index failed, name: {}", name);
+          continue;
+        }
+        entry->index_id = index_id;
+
+        if (entry->index_id > 0) {
+          vector_index_entries.push_back(entry);
+        }
+      }
     }
   }
 
