@@ -149,7 +149,7 @@ void StoreRpcController::SendStoreRpcCallBack() {
     if (error.has_store_region_info()) {
       auto region = ProcessStoreRegionInfo(error.store_region_info());
       stub_.GetMetaCache()->MaybeAddRegion(region);
-      msg += fmt::format(", region version({}).", region->ToString());
+      msg += fmt::format(", region version({}).", region->DescribeEpoch());
     }
     status_ = Status::Incomplete(error.errcode(), error.errmsg());
 

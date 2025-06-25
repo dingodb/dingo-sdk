@@ -560,8 +560,8 @@ Status Transaction::TxnImpl::DoScan(const std::string& start_key, const std::str
           scan_state.next_key <= region->Range().start_key() ? region->Range().start_key() : scan_state.next_key;
       std::string amend_end_key = end_key <= region->Range().end_key() ? end_key : region->Range().end_key();
 
-      DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] scan region({}) range[{}, {}).", ID(), region->RegionId(),
-                                     StringToHex(amend_start_key), StringToHex(amend_end_key));
+      DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] scan region({}) range[{}, {}).", ID(), region->RegionId(),
+                                      StringToHex(amend_start_key), StringToHex(amend_end_key));
 
       ScannerOptions scan_options(stub_, region, amend_start_key, amend_end_key, options_, start_ts_);
       CHECK(stub_.GetTxnRegionScannerFactory()->NewRegionScanner(scan_options, scanner).IsOK());
@@ -687,9 +687,8 @@ void Transaction::TxnImpl::DoTaskForPreCommit(TxnTask& task) {
   int retry = 0;
   do {
     rpc = gen_rpc_func(region);
-    if (is_one_pc_) {
-      rpc->MutableRequest()->set_try_one_pc(true);
-    }
+    if (is_one_pc_) rpc->MutableRequest()->set_try_one_pc(true);
+
     for (const auto& mutation : task.mutations) {
       TxnMutation2MutationPB(*mutation, rpc->MutableRequest()->add_mutations());
     }
@@ -775,6 +774,7 @@ Status Transaction::TxnImpl::DoPreCommit() {
 
   Status status;
   int retry = 0;
+  bool already_set_one_pc = false;
   do {
     status = gen_region_entry_func();
     if (!status.IsOK()) {
@@ -804,7 +804,10 @@ Status Transaction::TxnImpl::DoPreCommit() {
     }
 
     // set one pc flag
-    is_one_pc_ = (tasks.size() == 1);
+    if (!already_set_one_pc) {
+      is_one_pc_ = (tasks.size() == 1);
+      already_set_one_pc = true;
+    }
 
     if (is_one_pc_) {
       DoTaskForPreCommit(tasks.front());
@@ -897,18 +900,34 @@ Status Transaction::TxnImpl::ProcessTxnCommitResponse(const TxnCommitResponse* r
 
 Status Transaction::TxnImpl::CommitPrimaryKey() {
   std::string pk = buffer_->GetPrimaryKey();
-  RegionPtr region;
-  Status status = LookupRegion(pk, region);
-  if (!status.IsOK()) {
-    return status;
-  }
 
-  auto rpc = GenCommitRpc(region);
-  *rpc->MutableRequest()->add_keys() = pk;
+  Status status;
+  int retry = 0;
+  do {
+    RegionPtr region;
+    status = LookupRegion(pk, region);
+    if (!status.IsOK()) {
+      break;
+    }
 
-  DINGO_RETURN_NOT_OK(LogAndSendRpc(stub_, *rpc, region));
+    auto rpc = GenCommitRpc(region);
+    *rpc->MutableRequest()->add_keys() = pk;
 
-  return ProcessTxnCommitResponse(rpc->Response(), true);
+    status = LogAndSendRpc(stub_, *rpc, region);
+    if (!status.IsOK()) {
+      if (status.IsIncomplete() && status.Errno() == pb::error::EREGION_VERSION) {
+        continue;
+      }
+      break;
+    }
+
+    status = ProcessTxnCommitResponse(rpc->Response(), true);
+
+    break;
+
+  } while (IsNeedRetry(retry));
+
+  return status;
 }
 
 void Transaction::TxnImpl::DoTaskForCommit(AsyncTxnTaskSPtr task) {
@@ -1055,38 +1074,51 @@ void Transaction::TxnImpl::CheckTxnBatchRollbackResponse(const TxnBatchRollbackR
 Status Transaction::TxnImpl::RollbackPrimaryKey() {
   std::string pk = buffer_->GetPrimaryKey();
 
-  RegionPtr region;
-  Status status = LookupRegion(pk, region);
-  if (!status.IsOK()) {
-    return status;
-  }
+  Status status;
+  int retry = 0;
+  do {
+    RegionPtr region;
+    status = LookupRegion(pk, region);
+    if (!status.IsOK()) {
+      break;
+    }
 
-  auto rpc = GenBatchRollbackRpc(region);
-  *rpc->MutableRequest()->add_keys() = pk;
-  if (is_one_pc_) {
-    for (const auto& [key, _] : buffer_->Mutations()) {
-      if (key != pk) {
-        *rpc->MutableRequest()->add_keys() = key;
+    auto rpc = GenBatchRollbackRpc(region);
+    *rpc->MutableRequest()->add_keys() = pk;
+    if (is_one_pc_) {
+      for (const auto& [key, _] : buffer_->Mutations()) {
+        if (key != pk) {
+          *rpc->MutableRequest()->add_keys() = key;
+        }
       }
     }
-  }
 
-  status = LogAndSendRpc(stub_, *rpc, region);
-  if (!status.IsOK()) {
-    return status;
-  }
-
-  const auto* response = rpc->Response();
-  CheckTxnBatchRollbackResponse(response);
-  if (response->has_txn_result()) {
-    // TODO: which state should we transfer to ?
-    const auto& txn_result = response->txn_result();
-    if (txn_result.has_locked()) {
-      return Status::TxnLockConflict(txn_result.locked().ShortDebugString());
+    status = LogAndSendRpc(stub_, *rpc, region);
+    if (!status.IsOK()) {
+      if (status.IsIncomplete() && status.Errno() == pb::error::EREGION_VERSION) {
+        continue;
+      }
+      break;
     }
+
+    const auto* response = rpc->Response();
+    CheckTxnBatchRollbackResponse(response);
+    if (response->has_txn_result()) {
+      // TODO: which state should we transfer to ?
+      const auto& txn_result = response->txn_result();
+      if (txn_result.has_locked()) {
+        return Status::TxnLockConflict(txn_result.locked().ShortDebugString());
+      }
+    }
+
+  } while (IsNeedRetry(retry));
+
+  if (!status.IsOK()) {
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rollback primary key fail, pk({}) retry({}) status({}).", ID(),
+                                      StringToHex(pk), retry, status.ToString());
   }
 
-  return Status::OK();
+  return status;
 }
 
 void Transaction::TxnImpl::DoTaskForRollback(TxnTask& task) {
@@ -1116,11 +1148,13 @@ Status Transaction::TxnImpl::RollbackOrdinaryKey() {
 
   std::string pk = buffer_->GetPrimaryKey();
 
+  std::set<std::string_view> done_keys;
   // region id -> region entry
   std::unordered_map<int64_t, RegionEntry> region_entry_map;
   auto gen_region_entry_func = [&]() {
+    region_entry_map.clear();
     for (const auto& [key, mutaion] : buffer_->Mutations()) {
-      if (key == pk) {
+      if (key == pk || done_keys.count(key) > 0) {
         continue;
       }
 
@@ -1139,30 +1173,51 @@ Status Transaction::TxnImpl::RollbackOrdinaryKey() {
     }
   };
 
-  gen_region_entry_func();
+  Status status;
+  int retry = 0;
+  do {
+    gen_region_entry_func();
 
-  if (region_entry_map.empty()) {
-    return Status::OK();
-  }
+    if (region_entry_map.empty()) break;
 
-  std::vector<TxnTask> tasks;
-  tasks.reserve(region_entry_map.size());
-  for (const auto& [_, entry] : region_entry_map) {
-    tasks.emplace_back(entry.keys, entry.region);
-  }
+    std::vector<TxnTask> tasks;
+    tasks.reserve(region_entry_map.size());
+    for (const auto& [_, entry] : region_entry_map) {
+      tasks.emplace_back(entry.keys, entry.region);
+    }
 
-  // parallel execute sub task
-  ParallelExecutor::Execute(tasks.size(),
-                            [&tasks, this](uint32_t i) { Transaction::TxnImpl::DoTaskForRollback(tasks[i]); });
+    // parallel execute sub task
+    ParallelExecutor::Execute(tasks.size(),
+                              [&tasks, this](uint32_t i) { Transaction::TxnImpl::DoTaskForRollback(tasks[i]); });
 
-  for (auto& task : tasks) {
-    if (!task.status.IsOK()) {
+    bool need_retry = false;
+    for (auto& task : tasks) {
+      if (task.status.IsOK()) {
+        for (const auto& key : task.keys) done_keys.insert(key);
+        continue;
+      }
+
       DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] rollback ordinary key fail, region({}) status({}).", ID(),
                                      task.region->RegionId(), task.status.ToString());
-    }
-  }
 
-  return Status::OK();
+      if (status.ok()) status = task.status;
+
+      if (task.status.IsIncomplete() && task.status.Errno() == pb::error::EREGION_VERSION) {
+        need_retry = true;
+      } else {
+        need_retry = false;
+        status = task.status;
+        break;
+      }
+    }
+
+    if (need_retry) continue;
+
+    break;
+
+  } while (IsNeedRetry(retry));
+
+  return status;
 }
 
 Status Transaction::TxnImpl::DoRollback() {

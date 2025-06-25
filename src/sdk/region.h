@@ -72,14 +72,7 @@ class Region {
 
   std::string DescribeEpoch() const { return fmt::format("{},{}", epoch_.version(), epoch_.conf_version()); }
 
-  std::string ToString() {
-    ReadLockGuard guard(rw_lock_);
-
-    // region_id, start_key-end_key, version, config_version, type, replicas
-    return fmt::format("({}, [{}-{}], [{},{}], {}, {})", region_id_, range_.start_key(), range_.end_key(),
-                       epoch_.version(), epoch_.conf_version(), RegionType_Name(region_type_),
-                       ReplicasAsStringUnlocked());
-  }
+  std::string ToString();
 
   void TEST_MarkStale() {  // NOLINT
     MarkStale();

@@ -15,6 +15,7 @@
 #include "sdk/region.h"
 
 #include "common/logging.h"
+#include "sdk/common/helper.h"
 
 namespace dingodb {
 namespace sdk {
@@ -115,6 +116,15 @@ std::string Region::ReplicasAsStringUnlocked() const {
     replicas_str.append(msg);
   }
   return replicas_str;
+}
+
+std::string Region::ToString() {
+  ReadLockGuard guard(rw_lock_);
+
+  // region_id, start_key-end_key, version, config_version, type, replicas
+  return fmt::format("({}, [{}-{}], [{},{}], {}, {})", region_id_, StringToHex(range_.start_key()),
+                     StringToHex(range_.end_key()), epoch_.version(), epoch_.conf_version(),
+                     RegionType_Name(region_type_), ReplicasAsStringUnlocked());
 }
 
 }  // namespace sdk

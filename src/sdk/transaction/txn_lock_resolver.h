@@ -31,8 +31,7 @@ struct TxnStatus {
   int64_t commit_ts;
 
   explicit TxnStatus() : lock_ttl(-1), commit_ts(-1) {}
-
-  explicit TxnStatus(int64_t p_lock_ttl, int64_t p_commit_ts) : lock_ttl(p_lock_ttl), commit_ts(p_commit_ts) {}
+  explicit TxnStatus(int64_t lock_ttl, int64_t commit_ts) : lock_ttl(lock_ttl), commit_ts(commit_ts) {}
 
   bool IsCommitted() const { return commit_ts > 0; }
 
@@ -49,16 +48,15 @@ class TxnLockResolver {
 
   virtual ~TxnLockResolver() = default;
 
-  virtual Status ResolveLock(const pb::store::LockInfo& lock_info, int64_t caller_start_ts);
+  virtual Status ResolveLock(const pb::store::LockInfo& lock_info, int64_t start_ts);
 
  private:
-  Status CheckTxnStatus(int64_t txn_start_ts, const std::string& txn_primary_key, int64_t caller_start_ts,
-                        TxnStatus& txn_status);
+  Status CheckTxnStatus(int64_t lock_ts, const std::string& primary_key, int64_t start_ts, TxnStatus& txn_status);
 
   static Status ProcessTxnCheckStatusResponse(const pb::store::TxnCheckTxnStatusResponse& response,
                                               TxnStatus& txn_status);
 
-  Status ResolveLockKey(int64_t txn_start_ts, const std::string& key, int64_t commit_ts);
+  Status ResolveLockKey(int64_t lock_ts, const std::string& key, int64_t commit_ts);
 
   static Status ProcessTxnResolveLockResponse(const pb::store::TxnResolveLockResponse& response);
 
