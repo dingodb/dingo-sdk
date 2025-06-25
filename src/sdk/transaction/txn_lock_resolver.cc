@@ -33,11 +33,12 @@ namespace sdk {
 TxnLockResolver::TxnLockResolver(const ClientStub& stub) : stub_(stub) {}
 
 // TODO: maybe support retry
-Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& lock_info, int64_t caller_start_ts) {
-  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] resolve lock, lock_info({}).", caller_start_ts,
-                                  lock_info.ShortDebugString());
+Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& lock_info, int64_t start_ts) {
+  DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] resolve lock, lock_info({}).", start_ts, lock_info.ShortDebugString());
+
+  // check primary key lock status
   TxnStatus txn_status;
-  Status status = CheckTxnStatus(lock_info.lock_ts(), lock_info.primary_lock(), caller_start_ts, txn_status);
+  Status status = CheckTxnStatus(lock_info.lock_ts(), lock_info.primary_lock(), start_ts, txn_status);
   if (!status.ok()) {
     if (status.IsNotFound()) {
       DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] not exist txn when check status, status({}) lock({}).",
@@ -49,27 +50,18 @@ Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& lock_info, int64_
     }
   }
 
+  // primary key exist lock then outer txn rollback
   if (txn_status.IsLocked()) {
     return Status::TxnLockConflict(status.ToString());
   }
 
   CHECK(txn_status.IsCommitted() || txn_status.IsRollbacked()) << "unexpected txn_status:" << txn_status.ToString();
 
-  // resolve primary key
-  status = ResolveLockKey(lock_info.lock_ts(), lock_info.primary_lock(), txn_status.commit_ts);
-  if (!status.IsOK()) {
-    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] resolve lock fail, lock_ts({}) pk({}) txn_status({}) status({}).",
-                                      caller_start_ts, lock_info.lock_ts(), lock_info.primary_lock(),
-                                      txn_status.ToString(), status.ToString());
-
-    return status;
-  }
-
-  // resolve conflict key
+  // resolve conflict ordinary key
   status = ResolveLockKey(lock_info.lock_ts(), lock_info.key(), txn_status.commit_ts);
   if (!status.IsOK()) {
     DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] resolve lock fail, lock_ts({}) key({}) txn_status({}) status({}).",
-                                      caller_start_ts, lock_info.lock_ts(), lock_info.key(), txn_status.ToString(),
+                                      start_ts, lock_info.lock_ts(), lock_info.key(), txn_status.ToString(),
                                       status.ToString());
     return status;
   }
@@ -78,10 +70,10 @@ Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& lock_info, int64_
 }
 
 // TODO: use txn status cache
-Status TxnLockResolver::CheckTxnStatus(int64_t txn_start_ts, const std::string& txn_primary_key,
-                                       int64_t caller_start_ts, TxnStatus& txn_status) {
+Status TxnLockResolver::CheckTxnStatus(int64_t lock_ts, const std::string& primary_key, int64_t start_ts,
+                                       TxnStatus& txn_status) {
   std::shared_ptr<Region> region;
-  DINGO_RETURN_NOT_OK(stub_.GetMetaCache()->LookupRegionByKey(txn_primary_key, region));
+  DINGO_RETURN_NOT_OK(stub_.GetMetaCache()->LookupRegionByKey(primary_key, region));
 
   int64_t current_ts;
   DINGO_RETURN_NOT_OK(stub_.GetAdminTool()->GetCurrentTimeStamp(current_ts));
@@ -91,15 +83,17 @@ Status TxnLockResolver::CheckTxnStatus(int64_t txn_start_ts, const std::string& 
   // NOTE: use randome isolation is ok?
   FillRpcContext(*rpc.MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
                  pb::store::IsolationLevel::SnapshotIsolation);
-  rpc.MutableRequest()->set_primary_key(txn_primary_key);
-  rpc.MutableRequest()->set_lock_ts(txn_start_ts);
-  rpc.MutableRequest()->set_caller_start_ts(caller_start_ts);
+  rpc.MutableRequest()->set_primary_key(primary_key);
+  rpc.MutableRequest()->set_lock_ts(lock_ts);
+  rpc.MutableRequest()->set_caller_start_ts(start_ts);
   rpc.MutableRequest()->set_current_ts(current_ts);
 
   StoreRpcController controller(stub_, rpc, region);
   DINGO_RETURN_NOT_OK(controller.Call());
 
   const auto& response = *rpc.Response();
+  DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] check txn status response: {}.", start_ts, response.ShortDebugString());
+
   return ProcessTxnCheckStatusResponse(response, txn_status);
 }
 
@@ -121,32 +115,27 @@ Status TxnLockResolver::ProcessTxnCheckStatusResponse(const pb::store::TxnCheckT
   return Status::OK();
 }
 
-Status TxnLockResolver::ResolveLockKey(int64_t txn_start_ts, const std::string& key, int64_t commit_ts) {
+Status TxnLockResolver::ResolveLockKey(int64_t lock_ts, const std::string& key, int64_t commit_ts) {
   std::shared_ptr<Region> region;
-  Status ret = stub_.GetMetaCache()->LookupRegionByKey(key, region);
-  if (!ret.IsOK()) {
-    return ret;
-  }
+  DINGO_RETURN_NOT_OK(stub_.GetMetaCache()->LookupRegionByKey(key, region));
 
   TxnResolveLockRpc rpc;
   // NOTE: use randome isolation is ok?
   FillRpcContext(*rpc.MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
                  pb::store::IsolationLevel::SnapshotIsolation);
-  rpc.MutableRequest()->set_start_ts(txn_start_ts);
+  rpc.MutableRequest()->set_start_ts(lock_ts);
   rpc.MutableRequest()->set_commit_ts(commit_ts);
-  auto* fill = rpc.MutableRequest()->add_keys();
-  *fill = key;
+  *rpc.MutableRequest()->add_keys() = key;
 
   StoreRpcController controller(stub_, rpc, region);
   DINGO_RETURN_NOT_OK(controller.Call());
 
-  const auto& response = *rpc.Response();
-  return ProcessTxnResolveLockResponse(response);
+  return ProcessTxnResolveLockResponse(*rpc.Response());
 }
 
 Status TxnLockResolver::ProcessTxnResolveLockResponse(const pb::store::TxnResolveLockResponse& response) {
   // TODO: need to process lockinfo when support permissive txn
-  DINGO_LOG(INFO) << fmt::format("txn_resolve_lock_response: {}.", response.ShortDebugString());
+  DINGO_LOG(INFO) << fmt::format("[sdk.txn] txn_resolve_lock_response: {}.", response.ShortDebugString());
   return Status::OK();
 }
 
