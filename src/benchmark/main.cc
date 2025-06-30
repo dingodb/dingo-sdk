@@ -131,8 +131,34 @@ void InitLog(const std::string& log_dir) {
   google::SetStderrLogging(google::GLOG_FATAL);
 }
 
+// Collecting command line arguments
+static std::string CollectingCommandLineArguments(int argc, char* argv[]) {
+  std::string args;
+  for (int i = 0; i < argc; ++i) {
+    args += argv[i];
+    if (i < argc - 1) {
+      args += " ";
+    }
+  }
+
+  char path[PATH_MAX * 4];
+  ssize_t len = readlink("/proc/self/fd/1", path, sizeof(path) - 1);
+  if (len != -1) {
+    path[len] = '\0';
+    args += std::string(" ") + ">" + " " + path + " " + "2>&1";
+  } else {
+    std::cerr << "Unable to get stdout redirection information" << std::endl;
+  }
+
+  return args;
+}
+
 int main(int argc, char* argv[]) {
+  std::string args = CollectingCommandLineArguments(argc, argv);
+  std::cout << args << std::endl;
   InitLog("./log");
+
+  LOG(INFO) << "\n" << args;
 
   std::string now_time = dingodb::sdk::NowTime();
   std::cout << "now time start: " << now_time << std::endl;
