@@ -531,8 +531,8 @@ std::vector<VectorIndexEntryPtr> Benchmark::ArrangeExistVectorIndex(int64_t vect
         std::string name = fmt::format("{}_{}", vector_index_name, i + 1);
         int64_t index_id = GetVectorIndex(name);
         if (index_id <= 0) {
-          LOG(ERROR) << fmt::format("get vector index failed, name: {}", name);
-          continue;
+          LOG(FATAL) << fmt::format("get vector index failed, name: {} index_id: {}", name, index_id);
+          break;
         }
         entry->index_id = index_id;
 
