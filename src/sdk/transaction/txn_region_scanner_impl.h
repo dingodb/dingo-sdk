@@ -32,9 +32,8 @@ class TestBase;
 
 class TxnRegionScannerImpl : public RegionScanner {
  public:
-  explicit TxnRegionScannerImpl(const ClientStub& stub, std::shared_ptr<Region> region,
-                                const TransactionOptions& txn_options, int64_t txn_start_ts, std::string start_key,
-                                std::string end_key);
+  explicit TxnRegionScannerImpl(const ClientStub& stub, RegionPtr region, const TransactionOptions& txn_options,
+                                int64_t txn_start_ts, std::string start_key, std::string end_key);
 
   ~TxnRegionScannerImpl() override;
 

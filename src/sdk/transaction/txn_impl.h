@@ -183,7 +183,7 @@ class Transaction::TxnImpl : public std::enable_shared_from_this<TxnImpl> {
 
   // txn commit
   std::unique_ptr<TxnCommitRpc> GenCommitRpc(const RegionPtr& region) const;
-  Status ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary) const;
+  Status ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary);
   Status CommitPrimaryKey();
   void DoTaskForCommit(AsyncTxnTaskSPtr task);
   Status CommitOrdinaryKey();
