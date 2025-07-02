@@ -284,7 +284,7 @@ Status Transaction::TxnImpl::DoTxnGet(const std::string& key, std::string& value
   if (status.ok()) {
     const auto* response = rpc->Response();
     if (response->value().empty()) {
-      status = Status::NotFound(fmt::format("key:{} not found", key));
+      status = Status::NotFound(fmt::format("not found key({})", key));
     } else {
       value = response->value();
     }
@@ -570,12 +570,19 @@ Status Transaction::TxnImpl::DoScan(const std::string& start_key, const std::str
       scan_state.scanner = scanner;
     }
 
+    bool is_retry = false;
     while (scanner->HasMore()) {
       std::vector<KVPair> scan_kvs;
       status = scanner->NextBatch(scan_kvs);
       if (!status.IsOK()) {
         DINGO_LOG(ERROR) << fmt::format("[sdk.txn.{}] sacn next batch fail, region({}) status({}).", ID(),
                                         region->RegionId(), status.ToString());
+        if (status.IsIncomplete() && status.Errno() == pb::error::EREGION_VERSION) {
+          is_retry = true;
+          scanner->Close();
+          scan_state.scanner = nullptr;
+          break;
+        }
         return status;
       }
       if (scan_kvs.empty()) {
@@ -596,6 +603,8 @@ Status Transaction::TxnImpl::DoScan(const std::string& start_key, const std::str
         return Status::OK();
       }
     }
+
+    if (is_retry) continue;
 
     auto region = scanner->GetRegion();
     CHECK(region != nullptr) << "region should not nullptr.";
@@ -866,32 +875,40 @@ std::unique_ptr<TxnCommitRpc> Transaction::TxnImpl::GenCommitRpc(const RegionPtr
   return std::move(rpc);
 }
 
-Status Transaction::TxnImpl::ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary) const {
+Status Transaction::TxnImpl::ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary) {
   DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] commit response, pk({}) response({}).", ID(),
                                   response->ShortDebugString());
 
   std::string pk = buffer_->GetPrimaryKey();
 
-  if (response->has_txn_result()) {
-    const auto& txn_result = response->txn_result();
-    if (txn_result.has_locked()) {
-      const auto& lock_info = txn_result.locked();
-      DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit lock confilict, pk({}) response({}).", ID(), StringToHex(pk),
-                                      response->ShortDebugString());
-    }
+  if (!response->has_txn_result()) {
+    return Status::OK();
+  }
 
-    if (txn_result.has_txn_not_found()) {
-      DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit not found, pk({}) response({}).", ID(), StringToHex(pk),
-                                      response->ShortDebugString());
-    }
+  const auto& txn_result = response->txn_result();
+  if (txn_result.has_locked()) {
+    const auto& lock_info = txn_result.locked();
+    DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit lock conflict, is_primary({}) pk({}) response({}).", ID(),
+                                    is_primary, StringToHex(pk), response->ShortDebugString());
 
-    if (txn_result.has_write_conflict()) {
-      const auto& write_conflict = txn_result.write_conflict();
-      if (!is_primary) {
-        DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit write conlict, pk({}) response({}).", ID(),
-                                        StringToHex(pk), response->ShortDebugString());
-      }
-      return Status::TxnRolledBack("");
+  } else if (txn_result.has_txn_not_found()) {
+    DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit not found, is_primary({}) pk({}) response({}).", ID(),
+                                    is_primary, StringToHex(pk), response->ShortDebugString());
+
+  } else if (txn_result.has_write_conflict()) {
+    if (!is_primary) {
+      DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit write conlict, pk({}) response({}).", ID(), StringToHex(pk),
+                                      txn_result.write_conflict().ShortDebugString());
+    }
+    return Status::TxnRolledBack("txn write conflict");
+
+  } else if (txn_result.has_commit_ts_expired()) {
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit ts expired, is_primary({}) pk({}) response({}).", ID(),
+                                      is_primary, StringToHex(pk), txn_result.commit_ts_expired().ShortDebugString());
+    if (is_primary) {
+      auto status = stub_.GetAdminTool()->GetCurrentTimeStamp(commit_ts_);
+      if (!status.IsOK()) return status;
+      return Status::TxnCommitTsExpired("txn commit ts expired");
     }
   }
 
@@ -922,6 +939,9 @@ Status Transaction::TxnImpl::CommitPrimaryKey() {
     }
 
     status = ProcessTxnCommitResponse(rpc->Response(), true);
+    if (status.IsTxnCommitTsExpired()) {
+      continue;  // retry with new commit_ts
+    }
 
     break;
 
@@ -939,7 +959,7 @@ void Transaction::TxnImpl::DoTaskForCommit(AsyncTxnTaskSPtr task) {
 
   auto status = LogAndSendRpc(stub_, *rpc, region);
   if (status.ok()) {
-    status = ProcessTxnCommitResponse(rpc->Response(), true);
+    status = ProcessTxnCommitResponse(rpc->Response(), false);
   }
 
   if (!status.IsOK()) {

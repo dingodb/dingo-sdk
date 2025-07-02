@@ -23,6 +23,7 @@
 #include "glog/logging.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/common.h"
+#include "sdk/common/helper.h"
 #include "sdk/region.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
@@ -103,8 +104,8 @@ Status TxnLockResolver::ProcessTxnCheckStatusResponse(const pb::store::TxnCheckT
     const auto& txn_result = response.txn_result();
     if (txn_result.has_txn_not_found()) {
       const auto& not_found = txn_result.txn_not_found();
-      return Status::NotFound(
-          fmt::format("start_ts({}) pk({}) key({})", not_found.start_ts(), not_found.primary_key(), not_found.key()));
+      return Status::NotFound(fmt::format("start_ts({}) pk({}) key({})", not_found.start_ts(),
+                                          StringToHex(not_found.primary_key()), StringToHex(not_found.key())));
 
     } else if (txn_result.has_primary_mismatch()) {
       return Status::IllegalState("not match primary key");

@@ -76,6 +76,7 @@ class Status {
   DECLARE_ERROR_STATUS(TxnNotFound, kTxnNotFound);
   DECLARE_ERROR_STATUS(TxnPrimaryMismatch, kTxnPrimaryMismatch);
   DECLARE_ERROR_STATUS(TxnRolledBack, kTxnRolledBack);
+  DECLARE_ERROR_STATUS(TxnCommitTsExpired, kTxnCommitTsExpired);
   DECLARE_ERROR_STATUS(NoLeader, kNoLeader);
   DECLARE_ERROR_STATUS(BuildFailed, kBuildFailed);
   DECLARE_ERROR_STATUS(LoadFailed, kLoadFailed);
@@ -113,10 +114,11 @@ class Status {
     kTxnNotFound = 21,
     kTxnPrimaryMismatch = 22,
     kTxnRolledBack = 23,
-    kNoLeader = 24,
-    kBuildFailed = 25,
-    kLoadFailed = 26,
-    kResetFailed = 27,
+    kTxnCommitTsExpired = 24,
+    kNoLeader = 25,
+    kBuildFailed = 26,
+    kLoadFailed = 27,
+    kResetFailed = 28,
   };
   static const int32_t kNone = 0;
 
