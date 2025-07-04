@@ -35,7 +35,7 @@ mkdir build
 
 cd build
 
-cmake -DTHIRD_PARTY_INSTALL_PATH=dingo-eureka-install-path ..
+cmake -DTHIRD_PARTY_INSTALL_PATH=dingo-eureka-install-path -DINSTALL_PATH=you-path ..
 
 make -j 32
 ```
