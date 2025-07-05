@@ -136,10 +136,14 @@ if(SDK_ENABLE_GRPC)
 endif()
 
 set(PROTO_OUTPUT_DIR ${CMAKE_BINARY_DIR}/proto)
-add_custom_target(
-  create_proto_output_dir ALL COMMAND ${CMAKE_COMMAND} -E make_directory
-                                      ${PROTO_OUTPUT_DIR})
-message("PROTO_OUTPUT_DIR:${PROTO_OUTPUT_DIR}")
+if(EXISTS ${PROTO_OUTPUT_DIR} AND IS_DIRECTORY ${PROTO_OUTPUT_DIR})
+  message(
+    "PROTO_OUTPUT_DIR already exists, using it: ${PROTO_OUTPUT_DIR}")
+else()
+  message(
+    "PROTO_OUTPUT_DIR does not exist, creating it: ${PROTO_OUTPUT_DIR}")
+  file(MAKE_DIRECTORY ${PROTO_OUTPUT_DIR})
+endif()
 
 set(PROTO_OBJS_SRC "")
 
