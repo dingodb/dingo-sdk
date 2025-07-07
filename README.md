@@ -35,7 +35,25 @@ mkdir build
 
 cd build
 
-cmake -DTHIRD_PARTY_INSTALL_PATH=dingo-eureka-install-path -DINSTALL_PATH=you-path ..
+cmake -DTHIRD_PARTY_INSTALL_PATH=dingo-eureka-install-path ..
 
 make -j 32
 ```
+
+#### Install
+In the source dir
+
+```shell
+mkdir build 
+
+cd build
+
+cmake -DTHIRD_PARTY_INSTALL_PATH=dingo-eureka-install-path ..
+
+make -j 32
+
+make install
+```
+
+The default install path is `$HOME/.local/dingo-sdk`, you can change by set `CMAKE_PREFIX_PATH` when cmake config
+

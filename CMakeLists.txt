@@ -40,6 +40,11 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 message("CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
+if(NOT CMAKE_INSTALL_PREFIX )
+    set(CMAKE_INSTALL_PREFIX "$ENV{HOME}/.local/dingo-sdk")
+endif()
+message("CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}")
+
 message("SYSTEM: ${CMAKE_HOST_SYSTEM_NAME} ${CMAKE_HOST_SYSTEM_PROCESSOR}")
 
 set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
