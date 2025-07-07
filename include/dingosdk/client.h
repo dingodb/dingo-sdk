@@ -45,6 +45,10 @@ class DocumentIndex;
 class VectorIndex;
 class Version;
 
+// Show the SDK version information
+void ShowSdkVersion();
+std::vector<std::pair<std::string, std::string>> GetSdkVersion();
+
 /// @brief Callers must keep client valid in it's lifetime in order to interact with the cluster,
 class Client {
  public:
@@ -131,11 +135,9 @@ class Client {
 
   Status GetRegionMap(int64_t tenant_id, std::vector<RegionPB>& regions);
 
-  Status GetStoreMap(const std::vector<StoreType>& store_types,
-                     std::vector<StorePB>& stores);
+  Status GetStoreMap(const std::vector<StoreType>& store_types, std::vector<StorePB>& stores);
 
   Status TransferLeaderRegion(int64_t region_id, int64_t leader_store_id, bool is_force);
-
 
  private:
   friend class RawKV;

@@ -14,49 +14,61 @@
 
 #include "sdk/sdk_version.h"
 
-#include <butil/string_printf.h>
+#include <iostream>
 
 #include "common/logging.h"
+#include "fmt/format.h"
 
 namespace dingodb {
 namespace sdk {
 
-DEFINE_string(git_commit_hash, GIT_VERSION, "current git commit version");
-DEFINE_string(git_tag_name, GIT_TAG_NAME, "current dingo sdk  git tag version");
-DEFINE_string(git_commit_user, GIT_COMMIT_USER, "current dingo sdk  git commit user");
-DEFINE_string(git_commit_mail, GIT_COMMIT_MAIL, "current dingo sdk  git commit mail");
-DEFINE_string(git_commit_time, GIT_COMMIT_TIME, "current dingo sdk  git commit time");
-DEFINE_string(major_version, MAJOR_VERSION, "current dingo sdk  major version");
-DEFINE_string(minor_version, MINOR_VERSION, "current dingo sdk  minor version");
-DEFINE_string(dingo_build_type, DINGO_SDK_BUILD_TYPE, "current dingo sdk  build type");
+static const std::string kGitCommitHash = GIT_VERSION;
+static const std::string kGitTagName = GIT_TAG_NAME;
+static const std::string kGitCommitUser = GIT_COMMIT_USER;
+static const std::string kGitCommitMail = GIT_COMMIT_MAIL;
+static const std::string kGitCommitTime = GIT_COMMIT_TIME;
+static const std::string kMajorVersion = MAJOR_VERSION;
+static const std::string kMinorVersion = MINOR_VERSION;
+static const std::string kDingoSdkBuildType = DINGO_SDK_BUILD_TYPE;
 
-std::string GetBuildFlag() {
+static std::string GetBuildFlag() {
   // TODO
   return "";
 }
 
-void DingoSdkShowVerion() {
-  printf("DINGO_SDK VERSION:[%s-%s]\n", FLAGS_major_version.c_str(), FLAGS_minor_version.c_str());
-  printf("DINGO_SDK GIT_TAG_VERSION:[%s]\n", FLAGS_git_tag_name.c_str());
-  printf("DINGO_SDK GIT_COMMIT_HASH:[%s]\n", FLAGS_git_commit_hash.c_str());
-  printf("DINGO_SDK GIT_COMMIT_USER:[%s]\n", FLAGS_git_commit_user.c_str());
-  printf("DINGO_SDK GIT_COMMIT_MAIL:[%s]\n", FLAGS_git_commit_mail.c_str());
-  printf("DINGO_SDK GIT_COMMIT_TIME:[%s]\n", FLAGS_git_commit_time.c_str());
-  printf("DINGO_SDK BUILD_TYPE:[%s]\n", FLAGS_dingo_build_type.c_str());
-  printf("%s", GetBuildFlag().c_str());
-  printf("PID: %d\n\n", getpid());
+void DingoSdkShowVersion() {
+  std::cout << fmt::format("DINGO_SDK VERSION:[{}-{}]\n", kMajorVersion.c_str(), kMinorVersion.c_str());
+  std::cout << fmt::format("DINGO_SDK GIT_TAG_VERSION:[{}]\n", kGitTagName.c_str());
+  std::cout << fmt::format("DINGO_SDK GIT_COMMIT_HASH:[{}]\n", kGitCommitHash.c_str());
+  std::cout << fmt::format("DINGO_SDK GIT_COMMIT_USER:[{}]\n", kGitCommitUser.c_str());
+  std::cout << fmt::format("DINGO_SDK GIT_COMMIT_MAIL:[{}]\n", kGitCommitMail.c_str());
+  std::cout << fmt::format("DINGO_SDK GIT_COMMIT_TIME:[{}]\n", kGitCommitTime.c_str());
+  std::cout << fmt::format("DINGO_SDK BUILD_TYPE:[{}]\n", kDingoSdkBuildType.c_str());
+  std::cout << GetBuildFlag() << "\n";
 }
 
-void DingoSdkLogVerion() {
-  DINGO_LOG(INFO) << "DINGO_SDK VERSION:[" << FLAGS_major_version << "-" << FLAGS_minor_version << "]";
-  DINGO_LOG(INFO) << "DINGO_SDK GIT_TAG_VERSION:[" << FLAGS_git_tag_name << "]";
-  DINGO_LOG(INFO) << "DINGO_SDK GIT_COMMIT_HASH:[" << FLAGS_git_commit_hash << "]";
-  DINGO_LOG(INFO) << "DINGO_SDK GIT_COMMIT_USER:[" << FLAGS_git_commit_user << "]";
-  DINGO_LOG(INFO) << "DINGO_SDK GIT_COMMIT_MAIL:[" << FLAGS_git_commit_mail << "]";
-  DINGO_LOG(INFO) << "DINGO_SDK GIT_COMMIT_TIME:[" << FLAGS_git_commit_time << "]";
-  DINGO_LOG(INFO) << "DINGO_SDK BUILD_TYPE:[" << FLAGS_dingo_build_type << "]";
+void DingoSdkLogVersion() {
+  DINGO_LOG(INFO) << fmt::format("DINGO_SDK VERSION:[{}-{}]", kMajorVersion, kMinorVersion);
+  DINGO_LOG(INFO) << fmt::format("DINGO_SDK GIT_TAG_VERSION:[{}]", kGitTagName);
+  DINGO_LOG(INFO) << fmt::format("DINGO_SDK GIT_COMMIT_HASH:[{}]", kGitCommitHash);
+  DINGO_LOG(INFO) << fmt::format("DINGO_SDK GIT_COMMIT_USER:[{}]", kGitCommitUser);
+  DINGO_LOG(INFO) << fmt::format("DINGO_SDK GIT_COMMIT_MAIL:[{}]", kGitCommitMail);
+  DINGO_LOG(INFO) << fmt::format("DINGO_SDK GIT_COMMIT_TIME:[{}]", kGitCommitTime);
+  DINGO_LOG(INFO) << fmt::format("DINGO_SDK BUILD_TYPE:[{}]", kDingoSdkBuildType);
   DINGO_LOG(INFO) << GetBuildFlag();
-  DINGO_LOG(INFO) << "PID: " << getpid() << "\n";
+}
+
+std::vector<std::pair<std::string, std::string>> DingoSdkVersion() {
+  std::vector<std::pair<std::string, std::string>> result;
+  result.emplace_back("VERSION", fmt::format("{}-{}", kMajorVersion, kMinorVersion));
+  result.emplace_back("TAG_VERSION", kGitTagName);
+  result.emplace_back("COMMIT_HASH", kGitCommitHash);
+  result.emplace_back("COMMIT_USER", kGitCommitUser);
+  result.emplace_back("COMMIT_MAIL", kGitCommitMail);
+  result.emplace_back("COMMIT_TIME", kGitCommitTime);
+  result.emplace_back("BUILD_TYPE", kDingoSdkBuildType);
+
+  return result;
 }
 
 }  // namespace sdk

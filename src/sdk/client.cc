@@ -55,6 +55,7 @@
 #include "sdk/rawkv/raw_kv_scan_task.h"
 #include "sdk/region_creator_internal_data.h"
 #include "sdk/rpc/coordinator_rpc.h"
+#include "sdk/sdk_version.h"
 #include "sdk/transaction/txn_impl.h"
 #include "sdk/utils/net_util.h"
 #include "sdk/vector/diskann/vector_diskann_status_by_index_task.h"
@@ -64,6 +65,9 @@
 
 namespace dingodb {
 namespace sdk {
+
+void ShowSdkVersion() { DingoSdkLogVersion(); }
+std::vector<std::pair<std::string, std::string>> GetSdkVersion() { return DingoSdkVersion(); }
 
 StoreType PBStoreTypeToStoreType(pb::common::StoreType pb_store_type) {
   switch (pb_store_type) {

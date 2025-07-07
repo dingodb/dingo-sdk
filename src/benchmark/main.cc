@@ -165,13 +165,13 @@ int main(int argc, char* argv[]) {
   LOG(INFO) << "now time start: " << now_time;
 
   if (FLAGS_show_version || argc == 1) {
-    dingodb::sdk::DingoSdkLogVerion();
-    dingodb::sdk::DingoSdkShowVerion();
+    dingodb::sdk::DingoSdkLogVersion();
+    dingodb::sdk::DingoSdkShowVersion();
     return 0;
   }
 
-  dingodb::sdk::DingoSdkLogVerion();
-  dingodb::sdk::DingoSdkShowVerion();
+  dingodb::sdk::DingoSdkLogVersion();
+  dingodb::sdk::DingoSdkShowVersion();
 
   google::SetVersionString(kVersion);
   google::SetUsageMessage(GetUsageMessage());
