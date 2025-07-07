@@ -51,6 +51,10 @@ Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& lock_info, int64_
     }
   }
 
+  if (txn_status.IsMinCommitTSPushed()) {
+    return Status::PushMinCommitTs("push min_commit_ts");
+  }
+
   // primary key exist lock then outer txn rollback
   if (txn_status.IsLocked()) {
     return Status::TxnLockConflict(status.ToString());
@@ -112,7 +116,7 @@ Status TxnLockResolver::ProcessTxnCheckStatusResponse(const pb::store::TxnCheckT
     }
   }
 
-  txn_status = TxnStatus(response.lock_ttl(), response.commit_ts());
+  txn_status = TxnStatus(response.lock_ttl(), response.commit_ts(), response.action());
   return Status::OK();
 }
 
@@ -136,7 +140,9 @@ Status TxnLockResolver::ResolveLockKey(int64_t lock_ts, const std::string& key, 
 
 Status TxnLockResolver::ProcessTxnResolveLockResponse(const pb::store::TxnResolveLockResponse& response) {
   // TODO: need to process lockinfo when support permissive txn
-  DINGO_LOG(INFO) << fmt::format("[sdk.txn] txn_resolve_lock_response: {}.", response.ShortDebugString());
+  if (response.has_error() || response.has_txn_result()) {
+    DINGO_LOG(INFO) << fmt::format("[sdk.txn] txn_resolve_lock_response: {}.", response.ShortDebugString());
+  }
   return Status::OK();
 }
 

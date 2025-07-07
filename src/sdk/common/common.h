@@ -15,6 +15,9 @@
 #ifndef DINGODB_SDK_COMMON_H_
 #define DINGODB_SDK_COMMON_H_
 
+#include <cstdint>
+#include <vector>
+
 #include "glog/logging.h"
 #include "google/protobuf/message.h"
 #include "proto/meta.pb.h"
@@ -62,18 +65,25 @@ static int EpochCompare(const pb::common::RegionEpoch& a, const pb::common::Regi
 
 static void FillRpcContext(pb::store::Context& context, const int64_t region_id, const pb::common::RegionEpoch& epoch) {
   context.set_region_id(region_id);
-  auto* to_fill = context.mutable_region_epoch();
-  *to_fill = epoch;
+  *context.mutable_region_epoch() = epoch;
 }
 
 static void FillRpcContext(pb::store::Context& context, const int64_t region_id, const pb::common::RegionEpoch& epoch,
                            const pb::store::IsolationLevel isolation) {
-  context.set_region_id(region_id);
-
-  auto* to_fill = context.mutable_region_epoch();
-  *to_fill = epoch;
+  FillRpcContext(context, region_id, epoch);
 
   context.set_isolation_level(isolation);
+}
+
+static void FillRpcContext(pb::store::Context& context, const int64_t region_id, const pb::common::RegionEpoch& epoch,
+                           const std::vector<uint64_t>& resolved_locks, const pb::store::IsolationLevel isolation) {
+  FillRpcContext(context, region_id, epoch, isolation);
+
+  for (auto resolved_lock : resolved_locks) {
+    if (resolved_lock != 0) {
+      context.add_resolved_locks(resolved_lock);
+    }
+  }
 }
 
 static EndPoint LocationToEndPoint(const pb::common::Location& location) {
