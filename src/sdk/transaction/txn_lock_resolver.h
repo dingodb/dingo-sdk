@@ -29,15 +29,19 @@ class ClientStub;
 struct TxnStatus {
   int64_t lock_ttl;
   int64_t commit_ts;
+  pb::store::Action action;
 
-  explicit TxnStatus() : lock_ttl(-1), commit_ts(-1) {}
-  explicit TxnStatus(int64_t lock_ttl, int64_t commit_ts) : lock_ttl(lock_ttl), commit_ts(commit_ts) {}
+  explicit TxnStatus() : lock_ttl(-1), commit_ts(-1), action(pb::store::NoAction) {}
+  explicit TxnStatus(int64_t lock_ttl, int64_t commit_ts, const pb::store::Action& action)
+      : lock_ttl(lock_ttl), commit_ts(commit_ts), action(action) {}
 
   bool IsCommitted() const { return commit_ts > 0; }
 
   bool IsRollbacked() const { return lock_ttl == 0 && commit_ts == 0; }
 
   bool IsLocked() const { return lock_ttl > 0; }
+
+  bool IsMinCommitTSPushed() const { return action == pb::store::MinCommitTSPushed; }
 
   std::string ToString() const { return fmt::format("lock_ttl({}) commit_ts({})", lock_ttl, commit_ts); }
 };

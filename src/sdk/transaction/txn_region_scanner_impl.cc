@@ -59,11 +59,12 @@ void TxnRegionScannerImpl::Close() {
 
 bool TxnRegionScannerImpl::HasMore() const { return has_more_; }
 
-std::unique_ptr<TxnScanRpc> TxnRegionScannerImpl::GenTxnScanRpc() {
+std::unique_ptr<TxnScanRpc> TxnRegionScannerImpl::GenTxnScanRpc(uint64_t resolved_lock) {
   auto rpc = std::make_unique<TxnScanRpc>();
+
   rpc->MutableRequest()->set_start_ts(txn_start_ts_);
-  FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
-                 TransactionIsolation2IsolationLevel(txn_options_.isolation));
+  FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(), {resolved_lock},
+                 ToIsolationLevel(txn_options_.isolation));
 
   auto* range_with_option = rpc->MutableRequest()->mutable_range();
   auto* range = range_with_option->mutable_range();
@@ -82,26 +83,30 @@ std::unique_ptr<TxnScanRpc> TxnRegionScannerImpl::GenTxnScanRpc() {
 Status TxnRegionScannerImpl::NextBatch(std::vector<KVPair>& kvs) {
   CHECK(opened_) << "scanner is not opened.";
 
-  auto rpc = GenTxnScanRpc();
-
+  std::unique_ptr<TxnScanRpc> rpc;
+  uint64_t resolved_lock = 0;
   Status status;
   int retry = 0;
   do {
+    rpc = GenTxnScanRpc(resolved_lock);
     DINGO_RETURN_NOT_OK(LogAndSendRpc(stub, *rpc, region));
 
     const auto* response = rpc->Response();
     if (response->has_txn_result()) {
-      status = CheckTxnResultInfo(response->txn_result());
+      const auto& txn_result = response->txn_result();
+      status = CheckTxnResultInfo(txn_result);
+      if (status.IsTxnLockConflict()) {
+        status = stub.GetTxnLockResolver()->ResolveLock(txn_result.locked(), txn_start_ts_);
+        if (status.ok()) {
+          continue;
+        } else if (status.IsPushMinCommitTs()) {
+          resolved_lock = txn_result.locked().lock_ts();
+          continue;
+        }
+      }
     }
 
-    if (status.IsTxnLockConflict()) {
-      status = stub.GetTxnLockResolver()->ResolveLock(response->txn_result().locked(), txn_start_ts_);
-      if (!status.ok()) {
-        break;
-      }
-    } else {
-      break;
-    }
+    break;
 
   } while (IsNeedRetry(retry));
 

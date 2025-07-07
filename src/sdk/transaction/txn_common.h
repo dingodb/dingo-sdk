@@ -22,7 +22,7 @@
 namespace dingodb {
 namespace sdk {
 
-static pb::store::IsolationLevel TransactionIsolation2IsolationLevel(TransactionIsolation isolation) {
+static pb::store::IsolationLevel ToIsolationLevel(TransactionIsolation isolation) {
   switch (isolation) {
     case kSnapshotIsolation:
       return pb::store::IsolationLevel::SnapshotIsolation;

@@ -64,7 +64,7 @@ class TxnRegionScannerImpl : public RegionScanner {
   }
 
  private:
-  std::unique_ptr<TxnScanRpc> GenTxnScanRpc();
+  std::unique_ptr<TxnScanRpc> GenTxnScanRpc(uint64_t resolved_lock);
 
   static bool IsNeedRetry(int& times);
 

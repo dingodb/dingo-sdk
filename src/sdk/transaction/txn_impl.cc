@@ -233,16 +233,17 @@ Status Transaction::TxnImpl::LookupRegion(std::string_view start_key, std::strin
 }
 
 Status Transaction::TxnImpl::DoTxnGet(const std::string& key, std::string& value) {
-  auto gen_rpc_func = [&](const RegionPtr& region) -> std::unique_ptr<TxnGetRpc> {
+  auto gen_rpc_func = [&](const RegionPtr& region, uint64_t resolved_lock) -> std::unique_ptr<TxnGetRpc> {
     auto rpc = std::make_unique<TxnGetRpc>();
 
     rpc->MutableRequest()->set_start_ts(start_ts_);
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
-                   TransactionIsolation2IsolationLevel(options_.isolation));
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(), {resolved_lock},
+                   ToIsolationLevel(options_.isolation));
 
     return std::move(rpc);
   };
 
+  uint64_t resolved_lock = 0;
   std::unique_ptr<TxnGetRpc> rpc;
   RegionPtr region;
   Status status;
@@ -253,7 +254,7 @@ Status Transaction::TxnImpl::DoTxnGet(const std::string& key, std::string& value
       break;
     }
 
-    rpc = gen_rpc_func(region);
+    rpc = gen_rpc_func(region, resolved_lock);
     rpc->MutableRequest()->set_key(key);
 
     status = LogAndSendRpc(stub_, *rpc, region);
@@ -267,11 +268,15 @@ Status Transaction::TxnImpl::DoTxnGet(const std::string& key, std::string& value
 
     const auto* response = rpc->Response();
     if (response->has_txn_result()) {
-      status = CheckTxnResultInfo(response->txn_result());
+      const auto& txn_result = response->txn_result();
+      status = CheckTxnResultInfo(txn_result);
       if (status.IsTxnLockConflict()) {
-        status = stub_.GetTxnLockResolver()->ResolveLock(response->txn_result().locked(), start_ts_);
+        status = stub_.GetTxnLockResolver()->ResolveLock(txn_result.locked(), start_ts_);
         // retry
         if (status.ok()) {
+          continue;
+        } else if (status.IsPushMinCommitTs()) {
+          resolved_lock = txn_result.locked().lock_ts();
           continue;
         }
       }
@@ -300,22 +305,23 @@ Status Transaction::TxnImpl::DoTxnGet(const std::string& key, std::string& value
 void Transaction::TxnImpl::DoTaskForBatchGet(TxnTask& task) {
   CHECK(!task.keys.empty()) << "task keys is empty.";
 
-  auto gen_rpc_func = [&](const RegionPtr& region) -> std::unique_ptr<TxnBatchGetRpc> {
+  auto gen_rpc_func = [&](const RegionPtr& region, uint64_t resolved_lock) -> std::unique_ptr<TxnBatchGetRpc> {
     auto rpc = std::make_unique<TxnBatchGetRpc>();
 
     rpc->MutableRequest()->set_start_ts(start_ts_);
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
-                   TransactionIsolation2IsolationLevel(options_.isolation));
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(), {resolved_lock},
+                   ToIsolationLevel(options_.isolation));
 
     return std::move(rpc);
   };
 
+  uint64_t resolved_lock = 0;
   std::unique_ptr<TxnBatchGetRpc> rpc;
   auto region = task.region;
   Status status;
   int retry = 0;
   do {
-    rpc = gen_rpc_func(region);
+    rpc = gen_rpc_func(region, resolved_lock);
     for (const auto& key : task.keys) {
       *rpc->MutableRequest()->add_keys() = key;
     }
@@ -327,11 +333,15 @@ void Transaction::TxnImpl::DoTaskForBatchGet(TxnTask& task) {
 
     const auto* response = rpc->Response();
     if (response->has_txn_result()) {
-      status = CheckTxnResultInfo(response->txn_result());
+      const auto& txn_result = response->txn_result();
+      status = CheckTxnResultInfo(txn_result);
       if (status.IsTxnLockConflict()) {
-        status = stub_.GetTxnLockResolver()->ResolveLock(response->txn_result().locked(), start_ts_);
+        status = stub_.GetTxnLockResolver()->ResolveLock(txn_result.locked(), start_ts_);
         // retry
         if (status.ok()) {
+          continue;
+        } else if (status.IsPushMinCommitTs()) {
+          resolved_lock = txn_result.locked().lock_ts();
           continue;
         }
       }
@@ -673,7 +683,7 @@ void Transaction::TxnImpl::DoTaskForPreCommit(TxnTask& task) {
 
     rpc->MutableRequest()->set_start_ts(start_ts_);
     FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
-                   TransactionIsolation2IsolationLevel(options_.isolation));
+                   ToIsolationLevel(options_.isolation));
 
     std::string pk = buffer_->GetPrimaryKey();
     rpc->MutableRequest()->set_primary_lock(pk);
@@ -867,7 +877,7 @@ Status Transaction::TxnImpl::DoPreCommit() {
 std::unique_ptr<TxnCommitRpc> Transaction::TxnImpl::GenCommitRpc(const RegionPtr& region) const {
   auto rpc = std::make_unique<TxnCommitRpc>();
   FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
-                 TransactionIsolation2IsolationLevel(options_.isolation));
+                 ToIsolationLevel(options_.isolation));
 
   rpc->MutableRequest()->set_start_ts(start_ts_);
   rpc->MutableRequest()->set_commit_ts(commit_ts_);
@@ -1077,7 +1087,7 @@ Status Transaction::TxnImpl::DoCommit() {
 std::unique_ptr<TxnBatchRollbackRpc> Transaction::TxnImpl::GenBatchRollbackRpc(const RegionPtr& region) const {
   auto rpc = std::make_unique<TxnBatchRollbackRpc>();
   FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
-                 TransactionIsolation2IsolationLevel(options_.isolation));
+                 ToIsolationLevel(options_.isolation));
   rpc->MutableRequest()->set_start_ts(start_ts_);
   return std::move(rpc);
 }
