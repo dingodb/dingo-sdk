@@ -101,6 +101,9 @@ std::string Status::ToString() const {
       case kTxnLockConflict:
         type = "TxnLockConflict";
         break;
+      case kTxnCommitTsExpired:
+        type = "TxnCommitTsExpired";
+        break;
       case kTxnWriteConflict:
         type = "TxnWriteConflict";
         break;
@@ -112,6 +115,9 @@ std::string Status::ToString() const {
         break;
       case kTxnRolledBack:
         type = "TxnRolledBack";
+        break;
+      case kPushMinCommitTs:
+        type = "PushMinCommitTs";
         break;
       case kNoLeader:
         type = "NoLeader";

@@ -15,7 +15,8 @@
 #ifndef DINGODB_SDK_SDK_VERSION_H_
 #define DINGODB_SDK_SDK_VERSION_H_
 
-#include "gflags/gflags.h"
+#include <string>
+#include <vector>
 
 namespace dingodb {
 namespace sdk {
@@ -48,13 +49,13 @@ namespace sdk {
 #define GIT_COMMIT_TIME "unknown"
 #endif
 
-#ifndef DINGO_BUILD_TYPE
-#define DINGO_BUILD_TYPE "unknown"
+#ifndef DINGO_SDK_BUILD_TYPE
+#define DINGO_SDK_BUILD_TYPE "unknown"
 #endif
 
-
-void DingoSdkShowVerion();
-void DingoSdkLogVerion();
+void DingoSdkShowVersion();
+void DingoSdkLogVersion();
+std::vector<std::pair<std::string, std::string>> DingoSdkVersion();
 
 }  // namespace sdk
 }  // namespace dingodb
