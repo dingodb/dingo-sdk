@@ -14,10 +14,10 @@
 
 #include "sdk/transaction/txn_buffer.h"
 
-#include "fmt/core.h"
-#include "glog/logging.h"
 #include "dingosdk/client.h"
 #include "dingosdk/status.h"
+#include "fmt/core.h"
+#include "glog/logging.h"
 
 namespace dingodb {
 namespace sdk {
@@ -113,6 +113,11 @@ Status TxnBuffer::Range(const std::string& start_key, const std::string& end_key
 }
 
 std::string TxnBuffer::GetPrimaryKey() {
+  CHECK(!primary_key_.empty()) << "call IsEmpty before this method";
+  return primary_key_;
+}
+
+const std::string& TxnBuffer::GetPrimaryKey() const {
   CHECK(!primary_key_.empty()) << "call IsEmpty before this method";
   return primary_key_;
 }

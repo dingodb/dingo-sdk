@@ -101,6 +101,7 @@ class TxnBuffer {
 
   // NOTE: check IsEmpty before call this
   std::string GetPrimaryKey();
+  const std::string& GetPrimaryKey() const;
 
   const std::map<std::string, TxnMutation>& Mutations() { return mutation_map_; }
 

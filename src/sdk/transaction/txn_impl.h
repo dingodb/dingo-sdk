@@ -161,6 +161,7 @@ class Transaction::TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   using AsyncTxnTaskSPtr = std::shared_ptr<AsyncTxnTask>;
 
   static bool IsNeedRetry(int& times);
+  static bool IsNeedRetry(const Status& status);
   Status LookupRegion(const std::string_view& key, RegionPtr& region);
   Status LookupRegion(std::string_view start_key, std::string_view end_key, std::shared_ptr<Region>& region);
 
