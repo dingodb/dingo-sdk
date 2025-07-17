@@ -129,7 +129,7 @@ if(SDK_ENABLE_GRPC)
         grpc++ 
         grpc_protobuf
         fmt::fmt
-        gflags
+        gflags::gflags
         glog::glog
         ZLIB::ZLIB
         dl 
@@ -141,6 +141,11 @@ else()
 
     find_package(Snappy)
     message("Using Snappy ${Snappy_VERSION}")
+
+    find_package(leveldb REQUIRED)
+    message("Using leveldb ${leveldb_VERSION}")
+
+    find_package(brpc REQUIRED)
 
     list(APPEND SDK_SRCS
         rpc/brpc/brpc_rpc_client.cc
@@ -165,11 +170,8 @@ else()
 
    target_link_libraries(sdk
       PRIVATE
-        brpc
-        gflags
-        leveldb
-        Snappy::snappy
-        ZLIB::ZLIB
+        brpc::brpc
+        gflags::gflags
         fmt::fmt
         glog::glog
         protobuf::libprotobuf

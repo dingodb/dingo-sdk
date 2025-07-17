@@ -30,13 +30,13 @@ option(BUILD_INTEGRATION_TESTS "Build integration test" ON)
 option(BUILD_UNIT_TESTS "Build unit test" ON)
 option(BUILD_SDK_EXAMPLE "Build sdk example" ON)
 option(BUILD_PYTHON_SDK "Build python sdk" OFF)
-option(DINGOSDK_INSTALL "Intall dingosdk header and libary" ON)
+option(DINGOSDK_INSTALL "Install dingosdk header and libary" ON)
 
 set(CMAKE_CXX_STANDARD 17)
 message("CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
 
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Debug")
+  set(CMAKE_BUILD_TYPE "RelWithDebInfo")
 endif()
 message("CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
@@ -48,6 +48,9 @@ message("CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}")
 message("SYSTEM: ${CMAKE_HOST_SYSTEM_NAME} ${CMAKE_HOST_SYSTEM_PROCESSOR}")
 
 set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
+
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+message("CMAKE_MODULE_PATH: ${CMAKE_MODULE_PATH}")
 
 # bin output dir
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
@@ -77,6 +80,7 @@ message(
 find_package(dingoEureka 1.0 REQUIRED)
 
 # find third-party
+set(GFLAGS_USE_TARGET_NAMESPACE "Use gflags import target with namespace." ON)
 set(gflags_DIR ${THIRD_PARTY_INSTALL_PATH}/lib/cmake/gflags)
 find_package(gflags REQUIRED)
 message("Using gflags ${gflags_VERSION}, include_dir:${gflags_INCLUDE_DIR}")
