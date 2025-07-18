@@ -25,29 +25,29 @@
 #include "dingosdk/client.h"
 #include "dingosdk/status.h"
 #include "fmt/core.h"
-#include "gflags/gflags.h"
 #include "glog/logging.h"
-#include "sdk/common/common.h"
+#include "proto/store.pb.h"
 #include "sdk/common/helper.h"
 #include "sdk/common/param_config.h"
 #include "sdk/region.h"
-#include "sdk/rpc/store_rpc.h"
 #include "sdk/transaction/txn_buffer.h"
 #include "sdk/transaction/txn_common.h"
-#include "sdk/utils/async_util.h"
+#include "sdk/transaction/txn_task/txn_batch_get_task.h"
+#include "sdk/transaction/txn_task/txn_batch_rollback_task.h"
+#include "sdk/transaction/txn_task/txn_commit_task.h"
+#include "sdk/transaction/txn_task/txn_get_task.h"
+#include "sdk/transaction/txn_task/txn_prewrite_task.h"
 
 namespace dingodb {
 namespace sdk {
 
-Transaction::TxnImpl::TxnImpl(const ClientStub& stub, const TransactionOptions& options)
+TxnImpl::TxnImpl(const ClientStub& stub, const TransactionOptions& options)
     : stub_(stub), options_(options), state_(kInit), buffer_(new TxnBuffer()) {}
 
-Transaction::TxnImplSPtr Transaction::TxnImpl::GetSelfPtr() {
-  return std::dynamic_pointer_cast<Transaction::TxnImpl>(shared_from_this());
-}
+TxnImplSPtr TxnImpl::GetSelfPtr() { return std::dynamic_pointer_cast<TxnImpl>(shared_from_this()); }
 
-Status Transaction::TxnImpl::Begin() {
-  Status status = stub_.GetAdminTool()->GetCurrentTimeStamp(start_ts_, 2);
+Status TxnImpl::Begin() {
+  Status status = stub_.GetAdminTool()->GetCurrentTimeStamp(start_ts_, 1);
   if (status.ok()) {
     state_ = kActive;
   }
@@ -55,7 +55,7 @@ Status Transaction::TxnImpl::Begin() {
   return status;
 }
 
-Status Transaction::TxnImpl::Get(const std::string& key, std::string& value) {
+Status TxnImpl::Get(const std::string& key, std::string& value) {
   if (key.empty()) {
     return Status::InvalidArgument("param key is empty");
   }
@@ -81,7 +81,7 @@ Status Transaction::TxnImpl::Get(const std::string& key, std::string& value) {
   return DoTxnGet(key, value);
 }
 
-Status Transaction::TxnImpl::BatchGet(const std::vector<std::string>& keys, std::vector<KVPair>& kvs) {
+Status TxnImpl::BatchGet(const std::vector<std::string>& keys, std::vector<KVPair>& kvs) {
   for (const auto& key : keys) {
     if (key.empty()) {
       return Status::InvalidArgument("param key is empty");
@@ -127,7 +127,7 @@ Status Transaction::TxnImpl::BatchGet(const std::vector<std::string>& keys, std:
   return status;
 }
 
-Status Transaction::TxnImpl::Put(const std::string& key, const std::string& value) {
+Status TxnImpl::Put(const std::string& key, const std::string& value) {
   CHECK(state_ == kActive) << "state is not active, state:" << StateName(state_);
 
   if (key.empty()) {
@@ -137,7 +137,7 @@ Status Transaction::TxnImpl::Put(const std::string& key, const std::string& valu
   return buffer_->Put(key, value);
 }
 
-Status Transaction::TxnImpl::BatchPut(const std::vector<KVPair>& kvs) {
+Status TxnImpl::BatchPut(const std::vector<KVPair>& kvs) {
   CHECK(state_ == kActive) << "state is not active, state:" << StateName(state_);
 
   for (const auto& kv : kvs) {
@@ -149,7 +149,7 @@ Status Transaction::TxnImpl::BatchPut(const std::vector<KVPair>& kvs) {
   return buffer_->BatchPut(kvs);
 }
 
-Status Transaction::TxnImpl::PutIfAbsent(const std::string& key, const std::string& value) {
+Status TxnImpl::PutIfAbsent(const std::string& key, const std::string& value) {
   CHECK(state_ == kActive) << "state is not active, state:" << StateName(state_);
 
   if (key.empty()) {
@@ -159,7 +159,7 @@ Status Transaction::TxnImpl::PutIfAbsent(const std::string& key, const std::stri
   return buffer_->PutIfAbsent(key, value);
 }
 
-Status Transaction::TxnImpl::BatchPutIfAbsent(const std::vector<KVPair>& kvs) {
+Status TxnImpl::BatchPutIfAbsent(const std::vector<KVPair>& kvs) {
   CHECK(state_ == kActive) << "state is not active, state:" << StateName(state_);
 
   for (const auto& kv : kvs) {
@@ -171,7 +171,7 @@ Status Transaction::TxnImpl::BatchPutIfAbsent(const std::vector<KVPair>& kvs) {
   return buffer_->BatchPutIfAbsent(kvs);
 }
 
-Status Transaction::TxnImpl::Delete(const std::string& key) {
+Status TxnImpl::Delete(const std::string& key) {
   CHECK(state_ == kActive) << "state is not active, state:" << StateName(state_);
 
   if (key.empty()) {
@@ -181,7 +181,7 @@ Status Transaction::TxnImpl::Delete(const std::string& key) {
   return buffer_->Delete(key);
 }
 
-Status Transaction::TxnImpl::BatchDelete(const std::vector<std::string>& keys) {
+Status TxnImpl::BatchDelete(const std::vector<std::string>& keys) {
   CHECK(state_ == kActive) << "state is not active, state:" << StateName(state_);
 
   for (const auto& key : keys) {
@@ -193,8 +193,8 @@ Status Transaction::TxnImpl::BatchDelete(const std::vector<std::string>& keys) {
   return buffer_->BatchDelete(keys);
 }
 
-Status Transaction::TxnImpl::Scan(const std::string& start_key, const std::string& end_key, uint64_t limit,
-                                  std::vector<KVPair>& out_kvs) {
+Status TxnImpl::Scan(const std::string& start_key, const std::string& end_key, uint64_t limit,
+                     std::vector<KVPair>& out_kvs) {
   CHECK(state_ == kActive) << "state is not active, state:" << StateName(state_);
 
   if (start_key.empty() || end_key.empty()) {
@@ -208,13 +208,13 @@ Status Transaction::TxnImpl::Scan(const std::string& start_key, const std::strin
   return DoScan(start_key, end_key, limit, out_kvs);
 }
 
-Status Transaction::TxnImpl::PreCommit() { return DoPreCommit(); }
+Status TxnImpl::PreCommit() { return DoPreCommit(); }
 
-Status Transaction::TxnImpl::Commit() { return DoCommit(); }
+Status TxnImpl::Commit() { return DoCommit(); }
 
-Status Transaction::TxnImpl::Rollback() { return DoRollback(); }
+Status TxnImpl::Rollback() { return DoRollback(); }
 
-bool Transaction::TxnImpl::IsNeedRetry(int& times) {
+bool TxnImpl::IsNeedRetry(int& times) {
   bool retry = times++ < FLAGS_txn_op_max_retry;
   if (retry) {
     (void)usleep(FLAGS_txn_op_delay_ms * 1000);
@@ -223,246 +223,31 @@ bool Transaction::TxnImpl::IsNeedRetry(int& times) {
   return retry;
 }
 
-bool Transaction::TxnImpl::IsNeedRetry(const Status& status) {
+bool TxnImpl::IsNeedRetry(const Status& status) {
   return status.IsIncomplete() &&
          (status.Errno() == pb::error::EREGION_VERSION || status.Errno() == pb::error::EKEY_OUT_OF_RANGE);
 }
 
-Status Transaction::TxnImpl::LookupRegion(const std::string_view& key, RegionPtr& region) {
+Status TxnImpl::LookupRegion(const std::string_view& key, RegionPtr& region) {
   return stub_.GetMetaCache()->LookupRegionByKey(key, region);
 }
 
-Status Transaction::TxnImpl::LookupRegion(std::string_view start_key, std::string_view end_key,
-                                          std::shared_ptr<Region>& region) {
+Status TxnImpl::LookupRegion(std::string_view start_key, std::string_view end_key, std::shared_ptr<Region>& region) {
   return stub_.GetMetaCache()->LookupRegionBetweenRange(start_key, end_key, region);
 }
 
-Status Transaction::TxnImpl::DoTxnGet(const std::string& key, std::string& value) {
-  auto gen_rpc_func = [&](const RegionPtr& region, uint64_t resolved_lock) -> std::unique_ptr<TxnGetRpc> {
-    auto rpc = std::make_unique<TxnGetRpc>();
-
-    rpc->MutableRequest()->set_start_ts(start_ts_);
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(), {resolved_lock},
-                   ToIsolationLevel(options_.isolation));
-
-    return std::move(rpc);
-  };
-
-  uint64_t resolved_lock = 0;
-  std::unique_ptr<TxnGetRpc> rpc;
-  RegionPtr region;
-  Status status;
-  int retry = 0;
-  do {
-    status = LookupRegion(key, region);
-    if (!status.IsOK()) {
-      break;
-    }
-
-    rpc = gen_rpc_func(region, resolved_lock);
-    rpc->MutableRequest()->set_key(key);
-
-    status = LogAndSendRpc(stub_, *rpc, region);
-    if (!status.IsOK()) {
-      // retry
-      if (IsNeedRetry(status)) {
-        continue;
-      }
-      break;
-    }
-
-    const auto* response = rpc->Response();
-    if (response->has_txn_result()) {
-      const auto& txn_result = response->txn_result();
-      status = CheckTxnResultInfo(txn_result);
-      if (status.IsTxnLockConflict()) {
-        status = stub_.GetTxnLockResolver()->ResolveLock(txn_result.locked(), start_ts_);
-        // retry
-        if (status.ok()) {
-          continue;
-        } else if (status.IsPushMinCommitTs()) {
-          resolved_lock = txn_result.locked().lock_ts();
-          continue;
-        }
-      }
-    }
-
-    break;
-
-  } while (IsNeedRetry(retry));
-
-  if (status.ok()) {
-    const auto* response = rpc->Response();
-    if (response->value().empty()) {
-      status = Status::NotFound(fmt::format("not found key({})", key));
-    } else {
-      value = response->value();
-    }
-
-  } else {
-    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] get fail, key({}) retry({}) status({}).", ID(), StringToHex(key),
-                                      retry, status.ToString());
-  }
-
-  return status;
-}
-
-void Transaction::TxnImpl::DoTaskForBatchGet(TxnTask& task) {
-  CHECK(!task.keys.empty()) << "task keys is empty.";
-
-  auto gen_rpc_func = [&](const RegionPtr& region, uint64_t resolved_lock) -> std::unique_ptr<TxnBatchGetRpc> {
-    auto rpc = std::make_unique<TxnBatchGetRpc>();
-
-    rpc->MutableRequest()->set_start_ts(start_ts_);
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(), {resolved_lock},
-                   ToIsolationLevel(options_.isolation));
-
-    return std::move(rpc);
-  };
-
-  uint64_t resolved_lock = 0;
-  std::unique_ptr<TxnBatchGetRpc> rpc;
-  auto region = task.region;
-  Status status;
-  int retry = 0;
-  do {
-    rpc = gen_rpc_func(region, resolved_lock);
-    for (const auto& key : task.keys) {
-      *rpc->MutableRequest()->add_keys() = key;
-    }
-
-    status = LogAndSendRpc(stub_, *rpc, region);
-    if (!status.IsOK()) {
-      break;
-    }
-
-    const auto* response = rpc->Response();
-    if (response->has_txn_result()) {
-      const auto& txn_result = response->txn_result();
-      status = CheckTxnResultInfo(txn_result);
-      if (status.IsTxnLockConflict()) {
-        status = stub_.GetTxnLockResolver()->ResolveLock(txn_result.locked(), start_ts_);
-        // retry
-        if (status.ok()) {
-          continue;
-        } else if (status.IsPushMinCommitTs()) {
-          resolved_lock = txn_result.locked().lock_ts();
-          continue;
-        }
-      }
-    }
-
-    break;
-
-  } while (IsNeedRetry(retry));
-
-  if (status.ok()) {
-    for (const auto& kv : rpc->Response()->kvs()) {
-      if (!kv.value().empty()) {
-        task.result_kvs.push_back({kv.key(), kv.value()});
-      }
-    }
-
-  } else {
-    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] batchget fail, key({}) retry({}) status({}).", ID(),
-                                      StringToHex(task.keys[0]), retry, status.ToString());
-  }
-
-  task.status = status;
+Status TxnImpl::DoTxnGet(const std::string& key, std::string& value) {
+  TxnGetTask task(stub_, key, value, shared_from_this());
+  return task.Run();
 }
 
 // TODO: return not found keys
-Status Transaction::TxnImpl::DoTxnBatchGet(const std::vector<std::string>& keys, std::vector<KVPair>& kvs) {
-  struct RegionEntry {
-    RegionPtr region;
-    std::vector<std::string_view> keys;
-  };
-
-  std::set<std::string_view> done_keys;
-  // region_id -> region item
-  std::unordered_map<int64_t, RegionEntry> region_entry_map;
-  auto gen_region_entry_func = [&]() -> Status {
-    region_entry_map.clear();
-    for (const auto& key : keys) {
-      if (done_keys.count(key) > 0) {
-        continue;
-      }
-
-      RegionPtr region;
-      auto status = LookupRegion(key, region);
-      if (!status.IsOK()) {
-        return status;
-      }
-
-      auto it = region_entry_map.find(region->RegionId());
-      if (it == region_entry_map.end()) {
-        region_entry_map.emplace(std::make_pair(region->RegionId(), RegionEntry{region, {key}}));
-      } else {
-        it->second.keys.push_back(key);
-      }
-    }
-
-    return Status::OK();
-  };
-
-  std::vector<KVPair> result_kvs;
-  result_kvs.reserve(keys.size());
-  Status status;
-  int retry = 0;
-  do {
-    status = gen_region_entry_func();
-    if (!status.IsOK()) {
-      break;
-    }
-
-    std::vector<TxnTask> tasks;
-    tasks.reserve(region_entry_map.size());
-    for (const auto& [_, entry] : region_entry_map) {
-      tasks.emplace_back(entry.keys, entry.region);
-    }
-
-    // parallel execute sub task
-    ParallelExecutor::Execute(tasks.size(),
-                              [&tasks, this](uint32_t i) { Transaction::TxnImpl::DoTaskForBatchGet(tasks[i]); });
-
-    bool need_retry = false;
-    for (auto& task : tasks) {
-      if (task.status.IsOK()) {
-        for (const auto& key : task.keys) done_keys.insert(key);
-        result_kvs.insert(result_kvs.end(), std::make_move_iterator(task.result_kvs.begin()),
-                          std::make_move_iterator(task.result_kvs.end()));
-        continue;
-      }
-
-      if (status.ok()) status = task.status;
-
-      if (IsNeedRetry(task.status)) {
-        need_retry = true;
-      } else {
-        need_retry = false;
-        status = task.status;
-        break;
-      }
-    }
-
-    if (need_retry) continue;
-
-    break;
-
-  } while (IsNeedRetry(retry));
-
-  if (status.IsOK()) {
-    kvs = std::move(result_kvs);
-
-  } else {
-    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] batchget fail, key({}) retry({}) status({}).", ID(),
-                                      StringToHex(keys[0]), retry, status.ToString());
-  }
-
-  return status;
+Status TxnImpl::DoTxnBatchGet(const std::vector<std::string>& keys, std::vector<KVPair>& kvs) {
+  TxnBatchGetTask task(stub_, keys, kvs, shared_from_this());
+  return task.Run();
 }
 
-Status Transaction::TxnImpl::ProcessScanState(ScanState& scan_state, uint64_t limit, std::vector<KVPair>& out_kvs) {
+Status TxnImpl::ProcessScanState(ScanState& scan_state, uint64_t limit, std::vector<KVPair>& out_kvs) {
   int mutations_offset = 0;
   auto& local_mutations = scan_state.local_mutations;
   while (scan_state.pending_offset < scan_state.pending_kvs.size()) {
@@ -517,8 +302,8 @@ Status Transaction::TxnImpl::ProcessScanState(ScanState& scan_state, uint64_t li
   return Status::OK();
 }
 
-Status Transaction::TxnImpl::DoScan(const std::string& start_key, const std::string& end_key, uint64_t limit,
-                                    std::vector<KVPair>& out_kvs) {
+Status TxnImpl::DoScan(const std::string& start_key, const std::string& end_key, uint64_t limit,
+                       std::vector<KVPair>& out_kvs) {
   // check whether region exist
   RegionPtr region;
   Status status = LookupRegion(start_key, end_key, region);
@@ -633,8 +418,8 @@ Status Transaction::TxnImpl::DoScan(const std::string& start_key, const std::str
   return Status::OK();
 }
 
-void Transaction::TxnImpl::CheckPreCommitResponse(const TxnPrewriteResponse* response) const {
-  const std::string& pk = buffer_->GetPrimaryKey();
+void TxnImpl::CheckPreCommitResponse(const TxnPrewriteResponse* response) const {
+  std::string pk = buffer_->GetPrimaryKey();
   auto txn_result_size = response->txn_result_size();
   if (0 == txn_result_size) {
     DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] precommit pk({}) success.", ID(), StringToHex(pk));
@@ -650,7 +435,7 @@ void Transaction::TxnImpl::CheckPreCommitResponse(const TxnPrewriteResponse* res
   }
 }
 
-Status Transaction::TxnImpl::TryResolveTxnPreCommitConflict(const TxnPrewriteResponse* response) const {
+Status TxnImpl::TryResolveTxnPreCommitConflict(const TxnPrewriteResponse* response) const {
   Status status;
   const std::string& pk = buffer_->GetPrimaryKey();
   for (const auto& txn_result : response->txn_result()) {
@@ -682,75 +467,8 @@ Status Transaction::TxnImpl::TryResolveTxnPreCommitConflict(const TxnPrewriteRes
   return status;
 }
 
-void Transaction::TxnImpl::DoTaskForPreCommit(TxnTask& task) {
-  auto gen_rpc_func = [&](const RegionPtr& region) -> std::unique_ptr<TxnPrewriteRpc> {
-    auto rpc = std::make_unique<TxnPrewriteRpc>();
-
-    rpc->MutableRequest()->set_start_ts(start_ts_);
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
-                   ToIsolationLevel(options_.isolation));
-
-    const std::string& pk = buffer_->GetPrimaryKey();
-    rpc->MutableRequest()->set_primary_lock(pk);
-    rpc->MutableRequest()->set_txn_size(buffer_->MutationsSize());
-
-    // FIXME: set ttl
-    rpc->MutableRequest()->set_lock_ttl(INT64_MAX);
-
-    return std::move(rpc);
-  };
-
-  auto region = task.region;
-
-  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] precommit key, region({}) mutations({}).", ID(), region->RegionId(),
-                                  task.mutations.size());
-
-  std::unique_ptr<TxnPrewriteRpc> rpc;
-
-  Status status;
-  int retry = 0;
-  do {
-    rpc = gen_rpc_func(region);
-    if (is_one_pc_) rpc->MutableRequest()->set_try_one_pc(true);
-
-    for (const auto& mutation : task.mutations) {
-      TxnMutation2MutationPB(*mutation, rpc->MutableRequest()->add_mutations());
-    }
-
-    status = LogAndSendRpc(stub_, *rpc, region);
-    if (!status.IsOK()) {
-      break;
-    }
-
-    const auto* response = rpc->Response();
-    CheckPreCommitResponse(response);
-
-    status = TryResolveTxnPreCommitConflict(response);
-    if (status.ok()) {
-      break;
-    } else if (status.IsTxnWriteConflict()) {
-      // no need retry
-      // TODO: should we change txn state?
-      break;
-    }
-
-  } while (IsNeedRetry(retry));
-
-  if (!status.IsOK()) {
-    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] precommit key fail, region({}) retry({}) status({}).", ID(),
-                                      region->RegionId(), retry, status.ToString());
-  }
-
-  task.status = status;
-}
-
 // TODO: process AlreadyExist if mutaion is PutIfAbsent
-Status Transaction::TxnImpl::DoPreCommit() {
-  struct RegionEntry {
-    RegionPtr region;
-    std::vector<const TxnMutation*> mutations;
-  };
-
+Status TxnImpl::DoPreCommit() {
   state_ = kPreCommitting;
 
   if (buffer_->IsEmpty()) {
@@ -758,119 +476,21 @@ Status Transaction::TxnImpl::DoPreCommit() {
     return Status::OK();
   }
 
-  const std::string& pk = buffer_->GetPrimaryKey();
+  std::map<std::string, const TxnMutation*> mutations_map;
 
-  // pre commit primary and ordinary key
-  // group mutations by region
-  std::set<const TxnMutation*> done_mutations;
-  std::unordered_map<int64_t, RegionEntry> region_entry_map;
-  auto gen_region_entry_func = [&]() -> Status {
-    region_entry_map.clear();
-    for (const auto& [key, mutation] : buffer_->Mutations()) {
-      if (done_mutations.count(&mutation) > 0) {
-        continue;
-      }
-
-      RegionPtr region;
-      Status status = LookupRegion(key, region);
-      if (!status.IsOK()) {
-        return status;
-      }
-
-      auto iter = region_entry_map.find(region->RegionId());
-      if (iter == region_entry_map.end()) {
-        region_entry_map.emplace(std::make_pair(region->RegionId(), RegionEntry{region, {&mutation}}));
-      } else {
-        if (pk != key) {
-          iter->second.mutations.push_back(&mutation);
-
-        } else {
-          // primary key should be first
-          const auto* front = iter->second.mutations.front();
-          iter->second.mutations[0] = &mutation;
-          iter->second.mutations.push_back(front);
-        }
-      }
+  for (const auto& [key, mutation] : buffer_->Mutations()) {
+    if (mutations_map.count(key) > 0) {
+      DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] precommit key({}) already exist.", ID(), StringToHex(key));
     }
+    mutations_map.emplace(std::make_pair(key, &mutation));
+  }
 
-    return Status::OK();
-  };
+  TxnPrewriteTask task(stub_, buffer_->GetPrimaryKey(), mutations_map, shared_from_this(), is_one_pc_);
 
-  Status status;
-  int retry = 0;
-  bool already_set_one_pc = false;
-  do {
-    status = gen_region_entry_func();
-    if (!status.IsOK()) {
-      break;
-    }
-
-    CHECK(!region_entry_map.empty()) << "region_entry_map is empty.";
-
-    std::vector<TxnTask> tasks;
-    tasks.reserve(region_entry_map.size());
-    for (const auto& [_, entry] : region_entry_map) {
-      auto region = entry.region;
-
-      std::vector<const TxnMutation*> mutations;
-      for (const auto* mutation : entry.mutations) {
-        mutations.push_back(mutation);
-
-        if (mutations.size() == FLAGS_txn_max_batch_count) {
-          tasks.emplace_back(mutations, region);
-          mutations.clear();
-        }
-      }
-
-      if (!mutations.empty()) {
-        tasks.emplace_back(mutations, region);
-      }
-    }
-
-    // set one pc flag
-    if (!already_set_one_pc) {
-      is_one_pc_ = (tasks.size() == 1);
-      already_set_one_pc = true;
-    }
-
-    if (is_one_pc_) {
-      DoTaskForPreCommit(tasks.front());
-
-    } else {
-      // parallel execute sub task
-      ParallelExecutor::Execute(tasks.size(),
-                                [&tasks, this](uint32_t i) { Transaction::TxnImpl::DoTaskForPreCommit(tasks[i]); });
-    }
-
-    bool need_retry = false;
-    for (auto& task : tasks) {
-      if (task.status.IsOK()) {
-        for (const auto& mutation : task.mutations) {
-          done_mutations.insert(mutation);
-        }
-        continue;
-      }
-
-      if (status.ok()) status = task.status;
-
-      if (IsNeedRetry(task.status)) {
-        need_retry = true;
-      } else {
-        need_retry = false;
-        status = task.status;
-        break;
-      }
-    }
-
-    if (need_retry) continue;
-
-    break;
-
-  } while (IsNeedRetry(retry));
+  Status status = task.Run();
 
   if (!status.ok()) {
-    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] precommit key fail, retry({}) status({}).", ID(), retry,
-                                      status.ToString());
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] precommit key fail, status({}).", ID(), status.ToString());
     return status;
   }
 
@@ -879,22 +499,10 @@ Status Transaction::TxnImpl::DoPreCommit() {
   return Status::OK();
 }
 
-std::unique_ptr<TxnCommitRpc> Transaction::TxnImpl::GenCommitRpc(const RegionPtr& region) const {
-  auto rpc = std::make_unique<TxnCommitRpc>();
-  FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
-                 ToIsolationLevel(options_.isolation));
-
-  rpc->MutableRequest()->set_start_ts(start_ts_);
-  rpc->MutableRequest()->set_commit_ts(commit_ts_);
-
-  return std::move(rpc);
-}
-
-Status Transaction::TxnImpl::ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary) {
-  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] commit response, pk({}) response({}).", ID(),
+Status TxnImpl::ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary) {
+  std::string pk = buffer_->GetPrimaryKey();
+  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] commit response, pk({}) response({}).", ID(), pk,
                                   response->ShortDebugString());
-
-  const std::string& pk = buffer_->GetPrimaryKey();
 
   if (!response->has_txn_result()) {
     return Status::OK();
@@ -930,126 +538,27 @@ Status Transaction::TxnImpl::ProcessTxnCommitResponse(const TxnCommitResponse* r
   return Status::OK();
 }
 
-Status Transaction::TxnImpl::CommitPrimaryKey() {
-  const std::string& pk = buffer_->GetPrimaryKey();
+Status TxnImpl::CommitPrimaryKey() {
+  std::vector<std::string> keys = {buffer_->GetPrimaryKey()};
 
-  Status status;
-  int retry = 0;
-  do {
-    RegionPtr region;
-    status = LookupRegion(pk, region);
-    if (!status.IsOK()) {
-      break;
-    }
-
-    auto rpc = GenCommitRpc(region);
-    *rpc->MutableRequest()->add_keys() = pk;
-
-    status = LogAndSendRpc(stub_, *rpc, region);
-    if (!status.IsOK()) {
-      if (IsNeedRetry(status)) {
-        continue;
-      }
-      break;
-    }
-
-    status = ProcessTxnCommitResponse(rpc->Response(), true);
-    if (status.IsTxnCommitTsExpired()) {
-      continue;  // retry with new commit_ts
-    }
-
-    break;
-
-  } while (IsNeedRetry(retry));
-
-  return status;
+  TxnCommitTask task(stub_, keys, shared_from_this(), true);
+  return task.Run();
 }
 
-void Transaction::TxnImpl::DoTaskForCommit(AsyncTxnTaskSPtr task) {
-  auto region = task->region;
-  auto rpc = GenCommitRpc(region);
-  for (const auto& key : task->keys) {
-    rpc->MutableRequest()->add_keys(key);
-  }
+Status TxnImpl::CommitOrdinaryKey() {
+  std::string pk = buffer_->GetPrimaryKey();
 
-  auto status = LogAndSendRpc(stub_, *rpc, region);
-  if (status.ok()) {
-    status = ProcessTxnCommitResponse(rpc->Response(), false);
-  }
-
-  if (!status.IsOK()) {
-    DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] commit oridnary key fail, region({}) status({}).", ID(),
-                                   region->RegionId(), status.ToString());
-  }
-}
-
-Status Transaction::TxnImpl::CommitOrdinaryKey() {
-  struct RegionEntry {
-    RegionPtr region;
-    std::vector<std::string_view> keys;
-  };
-
-  const std::string& pk = buffer_->GetPrimaryKey();
-
-  // group mutations by region
-  std::unordered_map<int64_t, RegionEntry> region_entry_map;
-  auto gen_region_entry_func = [&]() -> Status {
-    for (const auto& [key, mutation] : buffer_->Mutations()) {
-      if (key == pk) {
-        continue;
-      }
-
-      RegionPtr region;
-      Status status = LookupRegion(key, region);
-      if (!status.IsOK()) {
-        return status;
-      }
-
-      auto iter = region_entry_map.find(region->RegionId());
-      if (iter == region_entry_map.end()) {
-        region_entry_map.emplace(std::make_pair(region->RegionId(), RegionEntry{region, {mutation.key}}));
-      } else {
-        iter->second.keys.push_back(mutation.key);
-      }
-    }
-
-    return Status::OK();
-  };
-
-  auto status = gen_region_entry_func();
-  if (!status.IsOK()) {
-    return status;
-  }
-
-  // generate rpcs task
-  std::vector<AsyncTxnTaskSPtr> tasks;
-  tasks.reserve(region_entry_map.size());
-  for (const auto& [_, entry] : region_entry_map) {
-    auto region = entry.region;
-
-    std::vector<std::string_view> keys;
-    for (const auto& key : entry.keys) {
+  std::vector<std::string> keys;
+  for (const auto& [key, _] : buffer_->Mutations()) {
+    if (key != pk) {
       keys.push_back(key);
-
-      if (keys.size() == FLAGS_txn_max_batch_count) {
-        tasks.push_back(std::make_shared<AsyncTxnTask>(GetSelfPtr(), keys, region));
-        keys.clear();
-      }
-    }
-
-    if (!keys.empty()) {
-      tasks.push_back(std::make_shared<AsyncTxnTask>(GetSelfPtr(), keys, region));
     }
   }
-
-  // parallel execute sub task
-  ParallelExecutor::AsyncExecute<AsyncTxnTaskSPtr>(tasks,
-                                                   [](AsyncTxnTaskSPtr task) { task->txn->DoTaskForCommit(task); });
-
-  return Status::OK();
+  TxnCommitTask task(stub_, keys, shared_from_this(), false);
+  return task.Run();
 }
 
-Status Transaction::TxnImpl::DoCommit() {
+Status TxnImpl::DoCommit() {
   if (state_ == kCommitted) {
     return Status::OK();
   } else if (state_ != kPreCommitted) {
@@ -1089,173 +598,36 @@ Status Transaction::TxnImpl::DoCommit() {
   return Status::OK();
 }
 
-std::unique_ptr<TxnBatchRollbackRpc> Transaction::TxnImpl::GenBatchRollbackRpc(const RegionPtr& region) const {
-  auto rpc = std::make_unique<TxnBatchRollbackRpc>();
-  FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
-                 ToIsolationLevel(options_.isolation));
-  rpc->MutableRequest()->set_start_ts(start_ts_);
-  return std::move(rpc);
+Status TxnImpl::RollbackPrimaryKey() {
+  std::vector<std::string> keys;
+  std::string pk = buffer_->GetPrimaryKey();
+  keys.push_back(pk);
+  if (is_one_pc_) {
+    for (const auto& [key, _] : buffer_->Mutations()) {
+      if (key != pk) {
+        keys.push_back(key);
+      }
+    }
+  }
+  TxnBatchRollbackTask task(stub_, keys, shared_from_this());
+  return task.Run();
 }
 
-void Transaction::TxnImpl::CheckTxnBatchRollbackResponse(const TxnBatchRollbackResponse* response) const {
-  if (response->has_txn_result() && response->txn_result().has_locked()) {
-    const std::string& pk = buffer_->GetPrimaryKey();
-    const auto& txn_result = response->txn_result();
-    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rollback fail, pk({}) txn_result({}).", ID(), StringToHex(pk),
-                                      txn_result.ShortDebugString());
+Status TxnImpl::RollbackOrdinaryKey() {
+  std::string pk = buffer_->GetPrimaryKey();
+
+  std::vector<std::string> keys;
+  for (const auto& [key, mutaion] : buffer_->Mutations()) {
+    if (key == pk) {
+      continue;
+    }
+    keys.push_back(key);
   }
+  TxnBatchRollbackTask task(stub_, keys, shared_from_this());
+  return task.Run();
 }
 
-Status Transaction::TxnImpl::RollbackPrimaryKey() {
-  const std::string& pk = buffer_->GetPrimaryKey();
-
-  Status status;
-  int retry = 0;
-  do {
-    RegionPtr region;
-    status = LookupRegion(pk, region);
-    if (!status.IsOK()) {
-      break;
-    }
-
-    auto rpc = GenBatchRollbackRpc(region);
-    *rpc->MutableRequest()->add_keys() = pk;
-    if (is_one_pc_) {
-      for (const auto& [key, _] : buffer_->Mutations()) {
-        if (key != pk) *rpc->MutableRequest()->add_keys() = key;
-      }
-    }
-
-    status = LogAndSendRpc(stub_, *rpc, region);
-    if (!status.IsOK()) {
-      if (IsNeedRetry(status)) {
-        continue;
-      }
-      break;
-    }
-
-    const auto* response = rpc->Response();
-    CheckTxnBatchRollbackResponse(response);
-    if (response->has_txn_result()) {
-      // TODO: which state should we transfer to ?
-      const auto& txn_result = response->txn_result();
-      if (txn_result.has_locked()) {
-        return Status::TxnLockConflict(txn_result.locked().ShortDebugString());
-      }
-    }
-
-    break;
-
-  } while (IsNeedRetry(retry));
-
-  if (!status.IsOK()) {
-    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rollback primary key fail, pk({}) retry({}) status({}).", ID(),
-                                      StringToHex(pk), retry, status.ToString());
-  }
-
-  return status;
-}
-
-void Transaction::TxnImpl::DoTaskForRollback(TxnTask& task) {
-  auto rpc = GenBatchRollbackRpc(task.region);
-  for (const auto& key : task.keys) {
-    *rpc->MutableRequest()->add_keys() = key;
-  }
-
-  auto status = LogAndSendRpc(stub_, *rpc, task.region);
-  if (!status.ok()) {
-    task.status = status;
-    return;
-  }
-
-  const auto* response = rpc->Response();
-  CheckTxnBatchRollbackResponse(response);
-  if (response->has_txn_result() && response->txn_result().has_locked()) {
-    task.status = Status::TxnLockConflict("");
-  }
-}
-
-Status Transaction::TxnImpl::RollbackOrdinaryKey() {
-  struct RegionEntry {
-    RegionPtr region;
-    std::vector<std::string_view> keys;
-  };
-
-  const std::string& pk = buffer_->GetPrimaryKey();
-
-  std::set<std::string_view> done_keys;
-  // region id -> region entry
-  std::unordered_map<int64_t, RegionEntry> region_entry_map;
-  auto gen_region_entry_func = [&]() {
-    region_entry_map.clear();
-    for (const auto& [key, mutaion] : buffer_->Mutations()) {
-      if (key == pk || done_keys.count(key) > 0) {
-        continue;
-      }
-
-      RegionPtr region;
-      Status status = LookupRegion(key, region);
-      if (!status.IsOK()) {
-        continue;
-      }
-
-      auto iter = region_entry_map.find(region->RegionId());
-      if (iter == region_entry_map.end()) {
-        region_entry_map.emplace(std::make_pair(region->RegionId(), RegionEntry{region, {key}}));
-      } else {
-        iter->second.keys.push_back(key);
-      }
-    }
-  };
-
-  Status status;
-  int retry = 0;
-  do {
-    gen_region_entry_func();
-
-    if (region_entry_map.empty()) break;
-
-    std::vector<TxnTask> tasks;
-    tasks.reserve(region_entry_map.size());
-    for (const auto& [_, entry] : region_entry_map) {
-      tasks.emplace_back(entry.keys, entry.region);
-    }
-
-    // parallel execute sub task
-    ParallelExecutor::Execute(tasks.size(),
-                              [&tasks, this](uint32_t i) { Transaction::TxnImpl::DoTaskForRollback(tasks[i]); });
-
-    bool need_retry = false;
-    for (auto& task : tasks) {
-      if (task.status.IsOK()) {
-        for (const auto& key : task.keys) done_keys.insert(key);
-        continue;
-      }
-
-      DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] rollback ordinary key fail, region({}) status({}).", ID(),
-                                     task.region->RegionId(), task.status.ToString());
-
-      if (status.ok()) status = task.status;
-
-      if (IsNeedRetry(task.status)) {
-        need_retry = true;
-      } else {
-        need_retry = false;
-        status = task.status;
-        break;
-      }
-    }
-
-    if (need_retry) continue;
-
-    break;
-
-  } while (IsNeedRetry(retry));
-
-  return status;
-}
-
-Status Transaction::TxnImpl::DoRollback() {
+Status TxnImpl::DoRollback() {
   // TODO: client txn status maybe inconsistence with server
   // so we should check txn status first and then take action
   // TODO: maybe support rollback when txn is active
