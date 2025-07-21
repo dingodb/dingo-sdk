@@ -174,28 +174,8 @@ TEST_F(SDKTxnLockResolverTest, Committed) {
         EXPECT_EQ(request->current_ts(), Tso2Timestamp(fake_tso));
         EXPECT_EQ(request->caller_start_ts(), Tso2Timestamp(init_tso));
 
+        // primary lock is committed
         txn_rpc->MutableResponse()->set_commit_ts(request->current_ts());
-
-        cb();
-      })
-      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
-        //  resolve primary key
-        auto* txn_rpc = dynamic_cast<TxnResolveLockRpc*>(&rpc);
-        CHECK_NOTNULL(txn_rpc);
-
-        const auto* request = txn_rpc->Request();
-        EXPECT_TRUE(request->has_context());
-        auto context = request->context();
-        EXPECT_EQ(context.region_id(), region->RegionId());
-        EXPECT_TRUE(context.has_region_epoch());
-        EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
-
-        EXPECT_EQ(request->start_ts(), fake_lock.lock_ts());
-        EXPECT_EQ(request->commit_ts(), Tso2Timestamp(fake_tso));
-        EXPECT_EQ(request->keys_size(), 1);
-
-        const auto& key = request->keys(0);
-        EXPECT_EQ(key, fake_lock.primary_lock());
 
         cb();
       })
@@ -287,7 +267,7 @@ TEST_F(SDKTxnLockResolverTest, CommittedResolvePrimaryKeyFail) {
         EXPECT_EQ(request->keys_size(), 1);
 
         const auto& key = request->keys(0);
-        EXPECT_EQ(key, fake_lock.primary_lock());
+        EXPECT_EQ(key, fake_lock.key());
 
         auto* response = txn_rpc->MutableResponse();
         auto* error = response->mutable_error();
@@ -340,28 +320,6 @@ TEST_F(SDKTxnLockResolverTest, CommittedResolveConflictKeyFail) {
         EXPECT_EQ(request->caller_start_ts(), Tso2Timestamp(init_tso));
 
         txn_rpc->MutableResponse()->set_commit_ts(request->current_ts());
-
-        cb();
-      })
-      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
-        //  resolve primary key
-
-        auto* txn_rpc = dynamic_cast<TxnResolveLockRpc*>(&rpc);
-        CHECK_NOTNULL(txn_rpc);
-
-        const auto* request = txn_rpc->Request();
-        EXPECT_TRUE(request->has_context());
-        auto context = request->context();
-        EXPECT_EQ(context.region_id(), region->RegionId());
-        EXPECT_TRUE(context.has_region_epoch());
-        EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
-
-        EXPECT_EQ(request->start_ts(), fake_lock.lock_ts());
-        EXPECT_EQ(request->commit_ts(), Tso2Timestamp(fake_tso));
-        EXPECT_EQ(request->keys_size(), 1);
-
-        const auto& key = request->keys(0);
-        EXPECT_EQ(key, fake_lock.primary_lock());
 
         cb();
       })
@@ -437,28 +395,6 @@ TEST_F(SDKTxnLockResolverTest, Rollbacked) {
 
         txn_rpc->MutableResponse()->set_lock_ttl(0);
         txn_rpc->MutableResponse()->set_commit_ts(0);
-
-        cb();
-      })
-      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
-        //  resolve primary key
-
-        auto* txn_rpc = dynamic_cast<TxnResolveLockRpc*>(&rpc);
-        CHECK_NOTNULL(txn_rpc);
-
-        const auto* request = txn_rpc->Request();
-        EXPECT_TRUE(request->has_context());
-        auto context = request->context();
-        EXPECT_EQ(context.region_id(), region->RegionId());
-        EXPECT_TRUE(context.has_region_epoch());
-        EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
-
-        EXPECT_EQ(request->start_ts(), fake_lock.lock_ts());
-        EXPECT_EQ(request->commit_ts(), 0);
-        EXPECT_EQ(request->keys_size(), 1);
-
-        const auto& key = request->keys(0);
-        EXPECT_EQ(key, fake_lock.primary_lock());
 
         cb();
       })

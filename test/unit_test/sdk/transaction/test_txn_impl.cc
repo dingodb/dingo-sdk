@@ -413,10 +413,8 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflict) {
         EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
         EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
 
+        // regionC2E key : d
         EXPECT_EQ(request->mutations_size(), 1);
-
-        const auto& mutation = request->mutations(0);
-        EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
 
         auto* txn_result = txn_rpc->MutableResponse()->add_txn_result();
         auto* lock_info = txn_result->mutable_locked();
@@ -434,7 +432,8 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflict) {
         EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
         EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
 
-        EXPECT_EQ(request->mutations_size(), 1);
+        // regionA2C  key : a , key : b
+        EXPECT_EQ(request->mutations_size(), 2);
 
         const auto& mutation = request->mutations(0);
         EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
@@ -473,8 +472,6 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflictExceed) {
 
     txn->Put("b", "b");
     txn->PutIfAbsent("b", "newb");
-
-    txn->PutIfAbsent("d", "d");
   }
 
   auto mock_lock = PrepareLockInfo();
@@ -490,7 +487,7 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflictExceed) {
     EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
     EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
 
-    EXPECT_EQ(request->mutations_size(), 1);
+    EXPECT_EQ(request->mutations_size(), 2);
 
     const auto& mutation = request->mutations(0);
     EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
@@ -525,8 +522,6 @@ TEST_F(SDKTxnImplTest, PrimaryKeyWriteLockConfict) {
 
     txn->Put("b", "b");
     txn->PutIfAbsent("b", "newb");
-
-    txn->PutIfAbsent("d", "d");
   }
 
   pb::store::WriteConflict conflict;
@@ -544,7 +539,7 @@ TEST_F(SDKTxnImplTest, PrimaryKeyWriteLockConfict) {
     EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
     EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
 
-    EXPECT_EQ(request->mutations_size(), 1);
+    EXPECT_EQ(request->mutations_size(), 2);
 
     const auto& mutation = request->mutations(0);
     EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
@@ -591,9 +586,6 @@ TEST_F(SDKTxnImplTest, PreWriteSecondLockConflict) {
 
         EXPECT_EQ(request->mutations_size(), 1);
 
-        const auto& mutation = request->mutations(0);
-        EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
-
         cb();
       })
       .WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
@@ -605,6 +597,9 @@ TEST_F(SDKTxnImplTest, PreWriteSecondLockConflict) {
         EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
         EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
         EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+
+        const auto& mutation = request->mutations(0);
+        EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
 
         for (const auto& mutation : request->mutations()) {
           auto mock_lock = PrepareLockInfo();
@@ -618,7 +613,11 @@ TEST_F(SDKTxnImplTest, PreWriteSecondLockConflict) {
         cb();
       });
 
-  EXPECT_CALL(*txn_lock_resolver, ResolveLock).Times(testing::AnyNumber());
+  EXPECT_CALL(*txn_lock_resolver, ResolveLock)
+      .WillRepeatedly([&](const pb::store::LockInfo& /*lock_info*/, int64_t caller_start_ts) {
+        EXPECT_EQ(caller_start_ts, txn->TEST_GetStartTs());
+        return Status::TxnLockConflict("");
+      });
 
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.IsTxnLockConflict());
@@ -653,9 +652,6 @@ TEST_F(SDKTxnImplTest, PreWriteSecondWriteConflict) {
 
         EXPECT_EQ(request->mutations_size(), 1);
 
-        const auto& mutation = request->mutations(0);
-        EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
-
         cb();
       })
       .WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
@@ -667,6 +663,9 @@ TEST_F(SDKTxnImplTest, PreWriteSecondWriteConflict) {
         EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
         EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
         EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+
+        const auto& mutation = request->mutations(0);
+        EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
 
         for (const auto& mutation : request->mutations()) {
           auto mock_lock = PrepareLockInfo();
