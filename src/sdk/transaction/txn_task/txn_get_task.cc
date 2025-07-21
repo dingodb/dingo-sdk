@@ -67,7 +67,7 @@ void TxnGetTask::TxnGetRpcCallback(const Status& status) {
         }
       }
       DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] get fail, key({}) status({}).", txn_impl_->ID(),
-                                        StringToHex(rpc_.Request()->key()), status.ToString());
+                                        StringToHex(rpc_.Request()->key()), status1.ToString());
       status_ = status1;
     }
   }

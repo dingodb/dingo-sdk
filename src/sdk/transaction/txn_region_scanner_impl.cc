@@ -88,6 +88,7 @@ Status TxnRegionScannerImpl::NextBatch(std::vector<KVPair>& kvs) {
   Status status;
   int retry = 0;
   do {
+    status = Status::OK();
     rpc = GenTxnScanRpc(resolved_lock);
     DINGO_RETURN_NOT_OK(LogAndSendRpc(stub, *rpc, region));
 

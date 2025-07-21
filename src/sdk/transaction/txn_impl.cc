@@ -373,7 +373,7 @@ Status TxnImpl::DoScan(const std::string& start_key, const std::string& end_key,
       std::vector<KVPair> scan_kvs;
       status = scanner->NextBatch(scan_kvs);
       if (!status.IsOK()) {
-        DINGO_LOG(ERROR) << fmt::format("[sdk.txn.{}] sacn next batch fail, region({}) status({}).", ID(),
+        DINGO_LOG(ERROR) << fmt::format("[sdk.txn.{}] scan next batch fail, region({}) status({}).", ID(),
                                         region->RegionId(), status.ToString());
         if (IsNeedRetry(status)) {
           is_retry = true;
