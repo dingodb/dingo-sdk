@@ -170,7 +170,7 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
         s1 = stub.GetTxnLockResolver()->ResolveLock(txn_result.locked(), txn_impl_->GetStartTs());
         if (!s1.ok()) {
           DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] precommit resolve lock fail, pk() status({}) txn_result({}).",
-                                            txn_impl_->ID(), StringToHex(primary_key_), s.ToString(),
+                                            txn_impl_->ID(), StringToHex(primary_key_), s1.ToString(),
                                             txn_result.ShortDebugString());
 
           s = s1;
@@ -178,7 +178,7 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
 
       } else if (s1.IsTxnWriteConflict()) {
         DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] precommit write conflict, pk({}) status({}) txn_result({}).",
-                                          txn_impl_->ID(), StringToHex(primary_key_), s.ToString(),
+                                          txn_impl_->ID(), StringToHex(primary_key_), s1.ToString(),
                                           txn_result.ShortDebugString());
         s = s1;
 
@@ -186,7 +186,7 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
 
       } else {
         DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] precommit unexpect response, pk({}) , status({}) response({}).",
-                                          txn_impl_->ID(), StringToHex(primary_key_), s.ToString(),
+                                          txn_impl_->ID(), StringToHex(primary_key_), s1.ToString(),
                                           response->ShortDebugString());
 
         s = s1;
