@@ -118,6 +118,13 @@ static const pb::error::Error& GetRpcResponseError(Rpc& rpc) {
   return *error;
 }
 
+static bool IsRetryErrorCode(int32_t error_code) {
+  return error_code == pb::error::EREGION_VERSION || error_code == pb::error::EREGION_NOT_FOUND ||
+         error_code == pb::error::EKEY_OUT_OF_RANGE || error_code == pb::error::EVECTOR_INDEX_NOT_READY ||
+         error_code == pb::error::ERAFT_NOT_FOUND || error_code == pb::error::EREGION_STANDBY ||
+         error_code == pb::error::EREGION_NEW;
+}
+
 }  // namespace sdk
 }  // namespace dingodb
 

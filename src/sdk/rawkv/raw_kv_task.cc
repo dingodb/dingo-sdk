@@ -14,6 +14,7 @@
 
 #include "sdk/rawkv/raw_kv_task.h"
 
+#include "sdk/common/common.h"
 #include "sdk/common/param_config.h"
 #include "sdk/utils/async_util.h"
 
@@ -67,8 +68,7 @@ void RawKvTask::FailOrRetry() {
 bool RawKvTask::NeedRetry() {
   if (status_.IsIncomplete()) {
     auto error_code = status_.Errno();
-    if (error_code == pb::error::EREGION_VERSION || error_code == pb::error::EREGION_NOT_FOUND ||
-        error_code == pb::error::EKEY_OUT_OF_RANGE) {
+    if (IsRetryErrorCode(error_code)) {
       retry_count_++;
       if (retry_count_ < FLAGS_raw_kv_max_retry) {
         return true;
