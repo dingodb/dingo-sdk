@@ -38,8 +38,8 @@ DEFINE_int64(store_rpc_max_retry, 120, "store rpc max retry times, use case: wro
 
 DEFINE_int64(scan_batch_size, 1000, "scan batch size, use for region scanner");
 
-DEFINE_int64(txn_op_delay_ms, 200, "txn op delay ms");
-DEFINE_int64(txn_op_max_retry, 5, "txn op max retry times");
+DEFINE_int64(txn_op_delay_ms, 300, "txn op delay ms");
+DEFINE_int64(txn_op_max_retry, 20, "txn op max retry times");
 
 DEFINE_int64(raw_kv_delay_ms, 500, "raw kv backoff delay ms");
 DEFINE_int64(raw_kv_max_retry, 10, "raw kv max retry times");

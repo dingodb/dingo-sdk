@@ -27,6 +27,7 @@
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "proto/store.pb.h"
+#include "sdk/common/common.h"
 #include "sdk/common/helper.h"
 #include "sdk/common/param_config.h"
 #include "sdk/region.h"
@@ -223,10 +224,7 @@ bool TxnImpl::IsNeedRetry(int& times) {
   return retry;
 }
 
-bool TxnImpl::IsNeedRetry(const Status& status) {
-  return status.IsIncomplete() &&
-         (status.Errno() == pb::error::EREGION_VERSION || status.Errno() == pb::error::EKEY_OUT_OF_RANGE);
-}
+bool TxnImpl::IsNeedRetry(const Status& status) { return status.IsIncomplete() && (IsRetryErrorCode(status.Errno())); }
 
 Status TxnImpl::LookupRegion(const std::string_view& key, RegionPtr& region) {
   return stub_.GetMetaCache()->LookupRegionByKey(key, region);

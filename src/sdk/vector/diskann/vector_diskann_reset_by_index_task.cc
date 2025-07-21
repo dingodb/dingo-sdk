@@ -164,9 +164,7 @@ bool VectorResetPartTask::NeedRetry() {
     auto status = result.status;
     if (status.IsIncomplete()) {
       auto error_code = status_.Errno();
-      if (error_code == pb::error::EREGION_VERSION || error_code == pb::error::EREGION_NOT_FOUND ||
-          error_code == pb::error::EKEY_OUT_OF_RANGE || error_code == pb::error::EVECTOR_INDEX_NOT_READY ||
-          error_code == pb::error::ERAFT_NOT_FOUND) {
+      if (IsRetryErrorCode(error_code)) {
         retry_count_++;
         if (retry_count_ < FLAGS_vector_op_max_retry) {
           std::string msg = fmt::format("Task:{} will retry, reason:{}, retry_count_:{}, max_retry:{}", Name(),
