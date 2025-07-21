@@ -17,6 +17,7 @@
 #include "common/logging.h"
 #include "sdk/common/param_config.h"
 #include "sdk/utils/async_util.h"
+#include "sdk/common/common.h"
 
 namespace dingodb {
 namespace sdk {
