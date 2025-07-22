@@ -92,6 +92,12 @@ void TxnPrewriteTask::DoAsync() {
     }
   }
 
+  // only first run need to check if it is one pc , maybe some error casue only one region retry at the second run
+  if (first_run_) {
+    is_one_pc_ = ((region_id_to_mutations.size() == 1) && (mutations_.size() <= FLAGS_txn_max_batch_count));
+    first_run_ = false;
+  }
+
   for (const auto& entry : region_id_to_mutations) {
     auto region_id = entry.first;
     auto iter = region_id_to_region.find(region_id);
@@ -134,12 +140,6 @@ void TxnPrewriteTask::DoAsync() {
     StoreRpcController controller(stub, *rpc, region);
     controllers_.push_back(std::move(controller));
     rpcs_.push_back(std::move(rpc));
-  }
-
-  // only first run need to check if it is one pc , maybe some error casue only one region retry at the second run
-  if (first_run_) {
-    is_one_pc_ = (rpcs_.size() == 1);
-    first_run_ = false;
   }
 
   CHECK(rpcs_.size() == controllers_.size());
