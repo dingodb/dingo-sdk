@@ -12,41 +12,46 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "sdk/transaction/txn_task/txn_resolve_lock_task.h"
+#include "sdk/transaction/txn_task/txn_heartbeat_task.h"
+
+#include <cstdint>
 
 #include "common/logging.h"
 #include "dingosdk/status.h"
 #include "sdk/common/common.h"
-#include "sdk/common/helper.h"
+#include "sdk/common/param_config.h"
 #include "sdk/region.h"
 #include "sdk/rpc/store_rpc_controller.h"
 #include "sdk/transaction/txn_common.h"
-#include "sdk/transaction/txn_lock_resolver.h"
 #include "sdk/utils/callback.h"
+#include "sdk/common/helper.h"
+
 
 namespace dingodb {
 namespace sdk {
-void TxnResolveLockTask::DoAsync() {
+void TxnHeartbeatTask::DoAsync() {
   auto meta_cache = stub.GetMetaCache();
   RegionPtr region;
 
-  Status s = meta_cache->LookupRegionByKey(key_, region);
+  Status s = meta_cache->LookupRegionByKey(primary_key_, region);
   if (!s.ok()) {
     DoAsyncDone(s);
     return;
   }
 
+  Status status = stub.GetAdminTool()->GetPhysicalTimeStamp(ts_physical_, 1);
+
   FillRpcContext(*rpc_.MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
                  pb::store::IsolationLevel::SnapshotIsolation);
   rpc_.MutableRequest()->set_start_ts(lock_ts_);
-  rpc_.MutableRequest()->set_commit_ts(commit_ts_);
-  *rpc_.MutableRequest()->add_keys() = key_;
+  rpc_.MutableRequest()->set_primary_lock(primary_key_);
+  rpc_.MutableRequest()->set_advise_lock_ttl(ts_physical_ + FLAGS_txn_heartbeat_lock_delay_ms);
 
   store_rpc_controller_.ResetRegion(region);
-  store_rpc_controller_.AsyncCall([this](auto&& s) { TxnResolveLockRpcCallback(std::forward<decltype(s)>(s)); });
+  store_rpc_controller_.AsyncCall([this](auto&& s) { TxnHeartbeatRpcCallback(std::forward<decltype(s)>(s)); });
 }
 
-void TxnResolveLockTask::TxnResolveLockRpcCallback(const Status& status) {
+void TxnHeartbeatTask::TxnHeartbeatRpcCallback(const Status& status) {
   DINGO_LOG(DEBUG) << "rpc : " << rpc_.Method() << " request : " << rpc_.Request()->ShortDebugString()
                    << " response : " << rpc_.Response()->ShortDebugString();
   const auto* response = rpc_.Response();
@@ -55,14 +60,17 @@ void TxnResolveLockTask::TxnResolveLockRpcCallback(const Status& status) {
                        << " fail: " << status.ToString();
     status_ = status;
   } else {
-    if (rpc_.Response()->has_txn_result()) {
-      status_ = CheckTxnResultInfo(rpc_.Response()->txn_result());
+    if (response->has_txn_result()) {
+      status_ = CheckTxnResultInfo(response->txn_result());
       if (!status_.ok()) {
         DINGO_LOG(WARNING) << fmt::format(
-            "[sdk.txn] txn_resolve_lock fail, lock_ts: {},  primary_key: {}, response: {}, status: {}.", lock_ts_,
-            StringToHex(key_), response->ShortDebugString(), status_.ToString());
+            "[sdk.txn] txn_heartbeat fail, lock_ts: {},  primary_key: {}, response: {}, status: {}.", lock_ts_,
+            StringToHex(primary_key_), response->ShortDebugString(), status_.ToString());
       }
     }
+    DINGO_LOG(INFO) << fmt::format(
+        "[sdk.txn] txn_heartbeat, lock_ts: {}, primary_key: {}, advice_lock_ttl: {}, actually_lock_ttl: {}  ",
+        StringToHex(primary_key_), lock_ts_, ts_physical_ + FLAGS_txn_heartbeat_lock_delay_ms, response->lock_ttl());
   }
 
   DoAsyncDone(status_);

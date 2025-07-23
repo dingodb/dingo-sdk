@@ -51,6 +51,7 @@ void TxnPrewriteTask::DoAsync() {
   {
     WriteLockGuard guard(rw_lock_);
     next_batch = next_mutations_;
+    need_retry_ = false;
     status_ = Status::OK();
   }
 
@@ -92,11 +93,7 @@ void TxnPrewriteTask::DoAsync() {
     }
   }
 
-  // only first run need to check if it is one pc , maybe some error casue only one region retry at the second run
-  if (first_run_) {
-    is_one_pc_ = ((region_id_to_mutations.size() == 1) && (mutations_.size() <= FLAGS_txn_max_batch_count));
-    first_run_ = false;
-  }
+  Status status = stub.GetAdminTool()->GetPhysicalTimeStamp(ts_physical_, 1);
 
   for (const auto& entry : region_id_to_mutations) {
     auto region_id = entry.first;
@@ -110,7 +107,7 @@ void TxnPrewriteTask::DoAsync() {
     FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
                    ToIsolationLevel(txn_impl_->GetOptions().isolation));
     rpc->MutableRequest()->set_primary_lock(primary_key_);
-    rpc->MutableRequest()->set_lock_ttl(INT64_MAX);
+    rpc->MutableRequest()->set_lock_ttl(ts_physical_ + FLAGS_txn_heartbeat_lock_delay_ms);
     rpc->MutableRequest()->set_txn_size(mutations_.size());
     rpc->MutableRequest()->set_try_one_pc(is_one_pc_);
 
@@ -129,7 +126,7 @@ void TxnPrewriteTask::DoAsync() {
         FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
                        ToIsolationLevel(txn_impl_->GetOptions().isolation));
         rpc->MutableRequest()->set_primary_lock(primary_key_);
-        rpc->MutableRequest()->set_lock_ttl(INT64_MAX);
+        rpc->MutableRequest()->set_lock_ttl(ts_physical_ + FLAGS_txn_heartbeat_lock_delay_ms);
         rpc->MutableRequest()->set_txn_size(mutations_.size());
         rpc->MutableRequest()->set_try_one_pc(is_one_pc_);
       }
@@ -153,6 +150,9 @@ void TxnPrewriteTask::DoAsync() {
 }
 
 void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRpc* rpc) {
+  DINGO_LOG(DEBUG) << "rpc : " << rpc->Method() << " request : " << rpc->Request()->ShortDebugString()
+                   << " response : " << rpc->Response()->ShortDebugString();
+  bool need_retry = false;
   Status s;
   const auto* response = rpc->Response();
   if (!status.ok()) {
@@ -174,6 +174,9 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
                                             txn_result.ShortDebugString());
 
           s = s1;
+        } else {
+          // need to retry
+          need_retry = true;
         }
 
       } else if (s1.IsTxnWriteConflict()) {
@@ -199,8 +202,12 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
   {
     WriteLockGuard guard(rw_lock_);
     if (s.ok()) {
-      for (const auto& mutation : rpc->Request()->mutations()) {
-        next_mutations_.erase(mutation.key());
+      if (!need_retry) {
+        for (const auto& mutation : rpc->Request()->mutations()) {
+          next_mutations_.erase(mutation.key());
+        }
+      } else {
+        need_retry_ = true;
       }
     } else {
       // only return first fail status
@@ -212,9 +219,15 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
 
   if (sub_tasks_count_.fetch_sub(1) == 1) {
     Status tmp;
+    bool tmp_need_retry = false;
     {
       ReadLockGuard guard(rw_lock_);
       tmp = status_;
+      tmp_need_retry = need_retry_;
+    }
+    if (tmp.ok() && tmp_need_retry) {
+      DoAsyncRetry();
+      return;
     }
     DoAsyncDone(tmp);
   }

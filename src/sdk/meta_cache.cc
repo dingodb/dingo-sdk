@@ -266,7 +266,8 @@ Status MetaCache::FastLookUpRegionByKeyUnlocked(std::string_view key, std::share
   CHECK(!found_region->IsStale());
 
   auto range = found_region->Range();
-  CHECK(key >= range.start_key());
+  CHECK(key >= range.start_key()) << fmt::format("key:{} is less than range start_key:{}, region:{}", key,
+                                                 range.start_key(), found_region->ToString());
 
   if (key >= range.end_key()) {
     std::string msg =

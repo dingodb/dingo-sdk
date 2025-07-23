@@ -15,6 +15,7 @@
 #include "sdk/transaction/txn_impl.h"
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -37,6 +38,7 @@
 #include "sdk/transaction/txn_task/txn_batch_rollback_task.h"
 #include "sdk/transaction/txn_task/txn_commit_task.h"
 #include "sdk/transaction/txn_task/txn_get_task.h"
+#include "sdk/transaction/txn_task/txn_heartbeat_task.h"
 #include "sdk/transaction/txn_task/txn_prewrite_task.h"
 
 namespace dingodb {
@@ -465,6 +467,26 @@ Status TxnImpl::TryResolveTxnPreCommitConflict(const TxnPrewriteResponse* respon
   return status;
 }
 
+void TxnImpl::ScheduleHeartBeat() {
+  stub_.GetActuator()->Schedule([shared_this = shared_from_this()] { shared_this->DoHeartBeat(); },
+                                FLAGS_txn_heartbeat_interval_ms);
+}
+
+void TxnImpl::DoHeartBeat() {
+  if (state_ != kPreCommitted && state_ != kPreCommitting) {
+    return;
+  }
+  std::shared_ptr<TxnHeartbeatTask> heartbeat_task =
+      std::make_shared<TxnHeartbeatTask>(stub_, start_ts_, buffer_->GetPrimaryKey());
+  auto status = heartbeat_task->Run();
+  if (status.ok()) {
+    ScheduleHeartBeat();
+  } else {
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] heartbeat stoped , because last run status({}).", ID(),
+                                      status.ToString());
+  }
+}
+
 // TODO: process AlreadyExist if mutaion is PutIfAbsent
 Status TxnImpl::DoPreCommit() {
   state_ = kPreCommitting;
@@ -474,22 +496,80 @@ Status TxnImpl::DoPreCommit() {
     return Status::OK();
   }
 
-  std::map<std::string, const TxnMutation*> mutations_map;
+  CHECK(buffer_->Mutations().find(buffer_->GetPrimaryKey()) != buffer_->Mutations().end())
+      << "primary key must in mutations, primary key:" << buffer_->GetPrimaryKey();
 
+  // check whether 1pc
+  std::set<int64_t> region_ids;
+  auto meta_cache = stub_.GetMetaCache();
   for (const auto& [key, mutation] : buffer_->Mutations()) {
-    if (mutations_map.count(key) > 0) {
-      DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] precommit key({}) already exist.", ID(), StringToHex(key));
+    std::shared_ptr<Region> tmp;
+    Status s = meta_cache->LookupRegionByKey(mutation.key, tmp);
+    if (!s.ok()) {
+      DINGO_LOG(ERROR) << fmt::format("[sdk.txn.{}] precommit lookup region fail, key({}) status({}).", ID(),
+                                      StringToHex(mutation.key), s.ToString());
+      return s;
     }
-    mutations_map.emplace(std::make_pair(key, &mutation));
+    region_ids.insert(tmp->RegionId());
   }
 
-  TxnPrewriteTask task(stub_, buffer_->GetPrimaryKey(), mutations_map, shared_from_this(), is_one_pc_);
+  is_one_pc_ = (region_ids.size() == 1) && (buffer_->Mutations().size() <= FLAGS_txn_max_batch_count);
 
-  Status status = task.Run();
+  if (is_one_pc_) {
+    // 1pc
+    std::map<std::string, const TxnMutation*> mutations_map;
 
-  if (!status.ok()) {
-    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] precommit key fail, status({}).", ID(), status.ToString());
-    return status;
+    for (const auto& [key, mutation] : buffer_->Mutations()) {
+      mutations_map.emplace(std::make_pair(key, &mutation));
+    }
+
+    TxnPrewriteTask task(stub_, buffer_->GetPrimaryKey(), mutations_map, shared_from_this(), is_one_pc_);
+
+    Status status = task.Run();
+
+    if (!status.ok()) {
+      DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] 1pc precommit key fail, status({}).", ID(), status.ToString());
+      return status;
+    }
+  } else {
+    // 2pc
+    // precommit primary key
+    DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] precommit primary key, pk({}).", ID(),
+                                    StringToHex(buffer_->GetPrimaryKey()));
+    std::map<std::string, const TxnMutation*> mutations_map_primary_key;
+    mutations_map_primary_key.emplace(
+        std::make_pair(buffer_->GetPrimaryKey(), &buffer_->Mutations().at(buffer_->GetPrimaryKey())));
+    TxnPrewriteTask task_primary(stub_, buffer_->GetPrimaryKey(), mutations_map_primary_key, shared_from_this(),
+                                 is_one_pc_);
+
+    Status status = task_primary.Run();
+
+    if (!status.ok()) {
+      DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] 2pc precommit primary key fail, status({}).", ID(),
+                                        status.ToString());
+      return status;
+    }
+
+    // 2pc need schedule heartbeat to update lock ttl
+    ScheduleHeartBeat();
+
+    // precommit ordinary keys
+    DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] precommit ordinary keys.", ID());
+    std::map<std::string, const TxnMutation*> mutations_map_ordinary_keys;
+    for (const auto& [key, mutation] : buffer_->Mutations()) {
+      if (key == buffer_->GetPrimaryKey()) {
+        continue;
+      }
+      mutations_map_ordinary_keys.emplace(std::make_pair(key, &mutation));
+    }
+    TxnPrewriteTask task_ordinary(stub_, buffer_->GetPrimaryKey(), mutations_map_ordinary_keys, shared_from_this(),
+                                  is_one_pc_);
+    status = task_ordinary.Run();
+    if (!status.ok()) {
+      DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] 2pc precommit ordinary keys fail, status({}).", ID(),
+                                        status.ToString());
+      return status;
+    }
   }
 
   state_ = is_one_pc_ ? kCommitted : kPreCommitted;

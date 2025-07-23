@@ -50,3 +50,6 @@ DEFINE_int64(vector_op_max_retry, 30, "vector task max retry times");
 DEFINE_int64(txn_max_batch_count, 1000, "txn max batch count");
 
 DEFINE_bool(log_rpc_time, false, "log rpc time");
+
+DEFINE_int64(txn_heartbeat_interval_ms, 10000, "txn heartbeat interval time");
+DEFINE_int64(txn_heartbeat_lock_delay_ms, 80000, "txn heartbeat lock delay time");

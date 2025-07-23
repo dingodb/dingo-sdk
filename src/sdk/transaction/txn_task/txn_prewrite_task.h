@@ -15,6 +15,7 @@
 #ifndef DINGODB_SDK_TXN_PREWRITE_TASK_H_
 #define DINGODB_SDK_TXN_PREWRITE_TASK_H_
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -55,6 +56,9 @@ class TxnPrewriteTask : public TxnTask {
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<TxnPrewriteRpc>> rpcs_;
   std::shared_ptr<TxnImpl> txn_impl_;
+  int64_t ts_physical_{0};
+
+  bool need_retry_{false};
 
   std::map<std::string, const TxnMutation*> next_mutations_;
 
