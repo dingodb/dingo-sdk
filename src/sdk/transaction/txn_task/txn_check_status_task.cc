@@ -22,6 +22,7 @@
 #include "sdk/common/helper.h"
 #include "sdk/region.h"
 #include "sdk/rpc/store_rpc_controller.h"
+#include "sdk/transaction/txn_common.h"
 #include "sdk/transaction/txn_lock_resolver.h"
 #include "sdk/utils/callback.h"
 
@@ -56,6 +57,8 @@ void TxnCheckStatusTask::DoAsync() {
 }
 
 void TxnCheckStatusTask::TxnCheckStatusRpcCallback(const Status& status) {
+  DINGO_LOG(DEBUG) << "rpc : " << rpc_.Method() << " request : " << rpc_.Request()->ShortDebugString()
+                   << " response : " << rpc_.Response()->ShortDebugString();
   const auto* response = rpc_.Response();
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "rpc: " << rpc_.Method() << " send to region: " << rpc_.Request()->context().region_id()
@@ -63,16 +66,14 @@ void TxnCheckStatusTask::TxnCheckStatusRpcCallback(const Status& status) {
     status_ = status;
   } else {
     if (response->has_txn_result()) {
+      status_ = CheckTxnResultInfo(response->txn_result());
       const auto txn_result = response->txn_result();
-      if (txn_result.has_txn_not_found()) {
-        const auto& not_found = txn_result.txn_not_found();
-        status_ = Status::NotFound(fmt::format("start_ts({}) pk({}) key({})", not_found.start_ts(),
-                                               StringToHex(not_found.primary_key()), StringToHex(not_found.key())));
-      } else if (txn_result.has_primary_mismatch()) {
-        status_ = Status::IllegalState("not match primary key");
-      } else {
-        DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] check txn status response: {}.", start_ts_,
-                                          response->ShortDebugString());
+      if (!status_.ok()) {
+        DINGO_LOG(WARNING) << fmt::format(
+            "[sdk.txn] check status fail, primary_key({}), lock_ts({}), start_ts({}),  status({}), "
+            "txn_result({}).",
+            StringToHex(primary_key_), rpc_.Request()->lock_ts(), rpc_.Request()->caller_start_ts(), status_.ToString(),
+            txn_result.ShortDebugString());
       }
     }
   }

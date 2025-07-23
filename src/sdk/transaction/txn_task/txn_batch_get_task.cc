@@ -50,6 +50,7 @@ void TxnBatchGetTask::DoAsync() {
   {
     WriteLockGuard guard(rw_lock_);
     next_batch = next_keys_;
+    need_retry_ = false;
     status_ = Status::OK();
   }
 
@@ -114,6 +115,8 @@ void TxnBatchGetTask::DoAsync() {
 }
 
 void TxnBatchGetTask::TxnBatchGetRpcCallback(const Status& status, TxnBatchGetRpc* rpc) {
+  DINGO_LOG(DEBUG) << "rpc : " << rpc->Method() << " request : " << rpc->Request()->ShortDebugString()
+                   << " response : " << rpc->Response()->ShortDebugString();
   Status s;
   bool need_retry = false;
   const auto* response = rpc->Response();
@@ -134,6 +137,9 @@ void TxnBatchGetTask::TxnBatchGetRpcCallback(const Status& status, TxnBatchGetRp
           need_retry = true;
           s = Status::OK();
         }
+      } else if (!s.ok()) {
+        DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] batch get fail, status({}) , txn_result({}).", txn_impl_->ID(),
+                                          s.ToString(), response->txn_result().ShortDebugString());
       }
     }
   }

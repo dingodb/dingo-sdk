@@ -116,6 +116,8 @@ void TxnBatchRollbackTask::DoAsync() {
 }
 
 void TxnBatchRollbackTask::TxnBatchRollbackRpcCallback(const Status& status, TxnBatchRollbackRpc* rpc) {
+  DINGO_LOG(DEBUG) << "rpc : " << rpc->Method() << " request : " << rpc->Request()->ShortDebugString()
+                   << " response : " << rpc->Response()->ShortDebugString();
   Status s;
   const auto* response = rpc->Response();
   if (!status.ok()) {
@@ -125,10 +127,10 @@ void TxnBatchRollbackTask::TxnBatchRollbackRpcCallback(const Status& status, Txn
     s = status;
   } else {
     if (response->has_txn_result()) {
-      DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rollback fail, txn_result({}).", txn_impl_->ID(),
-                                        response->txn_result().ShortDebugString());
-      if (response->txn_result().has_locked()) {
-        s = Status::TxnLockConflict(response->txn_result().locked().ShortDebugString());
+      s = CheckTxnResultInfo(response->txn_result());
+      if (!s.ok()) {
+        DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rollback fail, status ({}), txn_result({}).", txn_impl_->ID(),
+                                          s.ToString(), response->txn_result().ShortDebugString());
       }
     }
   }

@@ -175,7 +175,8 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   Status RollbackOrdinaryKey();
   Status DoRollback();
 
-  Status HeartBeat();
+  void DoHeartBeat();
+  void ScheduleHeartBeat();
 
   const ClientStub& stub_;
   const TransactionOptions options_;

@@ -45,6 +45,8 @@ void TxnGetTask::DoAsync() {
 }
 
 void TxnGetTask::TxnGetRpcCallback(const Status& status) {
+  DINGO_LOG(DEBUG) << "rpc : " << rpc_.Method() << " request : " << rpc_.Request()->ShortDebugString()
+                   << " response : " << rpc_.Response()->ShortDebugString();
   const auto* response = rpc_.Response();
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "rpc: " << rpc_.Method() << " send to region: " << rpc_.Request()->context().region_id()
@@ -65,9 +67,12 @@ void TxnGetTask::TxnGetRpcCallback(const Status& status) {
           DoAsyncRetry();
           return;
         }
+      } else if (!status1.ok()) {
+        DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] get fail, key({}) status({}), txn_result({}).", txn_impl_->ID(),
+                                          StringToHex(rpc_.Request()->key()), status1.ToString(),
+                                          response->txn_result().ShortDebugString());
       }
-      DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] get fail, key({}) status({}).", txn_impl_->ID(),
-                                        StringToHex(rpc_.Request()->key()), status1.ToString());
+
       status_ = status1;
     }
   }

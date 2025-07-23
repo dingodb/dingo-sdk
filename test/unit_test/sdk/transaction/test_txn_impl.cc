@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <unistd.h>
+
 #include <cstdint>
 #include <memory>
 
@@ -333,47 +335,75 @@ TEST_F(SDKTxnImplTest, CommitWithData) {
     txn->PutIfAbsent("d", "d");
   }
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
-    TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
-    if (nullptr == txn_rpc) {
-      // commit
-      TxnCommitRpc* txn_rpc = dynamic_cast<TxnCommitRpc*>(&rpc);
-      CHECK_NOTNULL(txn_rpc);
-      const auto* request = txn_rpc->Request();
-      EXPECT_TRUE(request->has_context());
-      EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
-      EXPECT_EQ(request->commit_ts(), txn->TEST_GetCommitTs());
+  EXPECT_CALL(*store_rpc_client, SendRpc)
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        // precommit primary key
+        TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->txn_size(), 1);
+        EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
 
-      for (const auto& key : request->keys()) {
-        EXPECT_TRUE(key == "a" || key == "b" || key == "d");
-      }
-
-      cb();
-    } else {
-      // precommit
-      CHECK_NOTNULL(txn_rpc);
-      const auto* request = txn_rpc->Request();
-      EXPECT_TRUE(request->has_context());
-      EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
-      EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
-      EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
-
-      for (const auto& mutation : request->mutations()) {
-        if (mutation.key() == "a") {
-          EXPECT_EQ(mutation.op(), pb::store::Op::Delete);
-        } else if (mutation.key() == "b") {
-          EXPECT_EQ(mutation.op(), pb::store::Op::Put);
-          EXPECT_EQ(mutation.value(), "b");
-        } else if (mutation.key() == "d") {
-          EXPECT_EQ(mutation.op(), pb::store::Op::PutIfAbsent);
-          EXPECT_EQ(mutation.value(), "d");
-        } else {
-          CHECK(false) << "unknow test mutation:" << mutation.DebugString();
+        for (const auto& mutation : request->mutations()) {
+          if (mutation.key() == "a") {
+            EXPECT_EQ(mutation.op(), pb::store::Op::Delete);
+          } else if (mutation.key() == "b") {
+            EXPECT_EQ(mutation.op(), pb::store::Op::Put);
+            EXPECT_EQ(mutation.value(), "b");
+          } else if (mutation.key() == "d") {
+            EXPECT_EQ(mutation.op(), pb::store::Op::PutIfAbsent);
+            EXPECT_EQ(mutation.value(), "d");
+          } else {
+            CHECK(false) << "unknow test mutation:" << mutation.DebugString();
+          }
         }
-      }
-      cb();
-    }
-  });
+
+        cb();
+      })
+      .WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+        // precommit ordinary key
+        TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
+        if (nullptr == txn_rpc) {
+          // commit
+          TxnCommitRpc* txn_rpc = dynamic_cast<TxnCommitRpc*>(&rpc);
+          CHECK_NOTNULL(txn_rpc);
+          const auto* request = txn_rpc->Request();
+          EXPECT_TRUE(request->has_context());
+          EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+          EXPECT_EQ(request->commit_ts(), txn->TEST_GetCommitTs());
+
+          for (const auto& key : request->keys()) {
+            EXPECT_TRUE(key == "a" || key == "b" || key == "d");
+          }
+
+          cb();
+        } else {
+          // precommit
+          CHECK_NOTNULL(txn_rpc);
+          const auto* request = txn_rpc->Request();
+          EXPECT_TRUE(request->has_context());
+          EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+          EXPECT_EQ(request->txn_size(), 2);
+          EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+
+          for (const auto& mutation : request->mutations()) {
+            if (mutation.key() == "a") {
+              EXPECT_EQ(mutation.op(), pb::store::Op::Delete);
+            } else if (mutation.key() == "b") {
+              EXPECT_EQ(mutation.op(), pb::store::Op::Put);
+              EXPECT_EQ(mutation.value(), "b");
+            } else if (mutation.key() == "d") {
+              EXPECT_EQ(mutation.op(), pb::store::Op::PutIfAbsent);
+              EXPECT_EQ(mutation.value(), "d");
+            } else {
+              CHECK(false) << "unknow test mutation:" << mutation.DebugString();
+            }
+          }
+          cb();
+        }
+      });
 
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.ok());
@@ -405,16 +435,16 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflict) {
   EXPECT_CALL(*store_rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
-        // precommit
+        // precommit primary key lock confil
         CHECK_NOTNULL(txn_rpc);
         const auto* request = txn_rpc->Request();
         EXPECT_TRUE(request->has_context());
         EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
-        EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
+        EXPECT_EQ(request->txn_size(), 1);
         EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
 
-        // regionC2E key : d
-        EXPECT_EQ(request->mutations_size(), 1);
+        const auto& mutation = request->mutations(0);
+        EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
 
         auto* txn_result = txn_rpc->MutableResponse()->add_txn_result();
         auto* lock_info = txn_result->mutable_locked();
@@ -424,19 +454,47 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflict) {
       })
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
-        // precommit
+        // precommit primary key after resolve lock conflict
         CHECK_NOTNULL(txn_rpc);
         const auto* request = txn_rpc->Request();
         EXPECT_TRUE(request->has_context());
         EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
-        EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
+        EXPECT_EQ(request->txn_size(), 1);
         EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
 
-        // regionA2C  key : a , key : b
-        EXPECT_EQ(request->mutations_size(), 2);
+        EXPECT_EQ(request->mutations_size(), 1);
 
         const auto& mutation = request->mutations(0);
         EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
+
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
+        // precommit ordinary key
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->txn_size(), 2);
+        EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+
+        EXPECT_EQ(request->mutations_size(), 1);
+
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
+        // precommit ordinary key
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->txn_size(), 2);
+        EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+
+        EXPECT_EQ(request->mutations_size(), 1);
+
         cb();
       })
       .WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
@@ -472,22 +530,23 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflictExceed) {
 
     txn->Put("b", "b");
     txn->PutIfAbsent("b", "newb");
+    txn->PutIfAbsent("d", "d");
   }
 
   auto mock_lock = PrepareLockInfo();
   mock_lock.set_key(txn->TEST_GetPrimaryKey());
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*store_rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
     TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
-    // precommit
+    // precommit primary key lock conflict
     CHECK_NOTNULL(txn_rpc);
     const auto* request = txn_rpc->Request();
     EXPECT_TRUE(request->has_context());
     EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
-    EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
+    EXPECT_EQ(request->txn_size(), 1);
     EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
 
-    EXPECT_EQ(request->mutations_size(), 2);
+    EXPECT_EQ(request->mutations_size(), 1);
 
     const auto& mutation = request->mutations(0);
     EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
@@ -576,15 +635,18 @@ TEST_F(SDKTxnImplTest, PreWriteSecondLockConflict) {
   EXPECT_CALL(*store_rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
-        // precommit
+        // precommit primary key
         CHECK_NOTNULL(txn_rpc);
         const auto* request = txn_rpc->Request();
         EXPECT_TRUE(request->has_context());
         EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
-        EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
+        EXPECT_EQ(request->txn_size(), 1);
         EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
 
         EXPECT_EQ(request->mutations_size(), 1);
+
+        const auto& mutation = request->mutations(0);
+        EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
 
         cb();
       })
@@ -595,11 +657,8 @@ TEST_F(SDKTxnImplTest, PreWriteSecondLockConflict) {
         const auto* request = txn_rpc->Request();
         EXPECT_TRUE(request->has_context());
         EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
-        EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
+        EXPECT_EQ(request->txn_size(), 2);
         EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
-
-        const auto& mutation = request->mutations(0);
-        EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
 
         for (const auto& mutation : request->mutations()) {
           auto mock_lock = PrepareLockInfo();
@@ -647,10 +706,12 @@ TEST_F(SDKTxnImplTest, PreWriteSecondWriteConflict) {
         const auto* request = txn_rpc->Request();
         EXPECT_TRUE(request->has_context());
         EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
-        EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
+        EXPECT_EQ(request->txn_size(), 1);
         EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
 
         EXPECT_EQ(request->mutations_size(), 1);
+        const auto& mutation = request->mutations(0);
+        EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
 
         cb();
       })
@@ -661,11 +722,8 @@ TEST_F(SDKTxnImplTest, PreWriteSecondWriteConflict) {
         const auto* request = txn_rpc->Request();
         EXPECT_TRUE(request->has_context());
         EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
-        EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
+        EXPECT_EQ(request->txn_size(), 2);
         EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
-
-        const auto& mutation = request->mutations(0);
-        EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
 
         for (const auto& mutation : request->mutations()) {
           auto mock_lock = PrepareLockInfo();
@@ -824,7 +882,7 @@ TEST_F(SDKTxnImplTest, PreCommitFailThenRollback) {
       const auto* request = txn_rpc->Request();
       EXPECT_TRUE(request->has_context());
       EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
-      EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
+      EXPECT_EQ(request->txn_size(), 1);
       EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
 
       for (const auto& mutation : request->mutations()) {
@@ -885,11 +943,11 @@ TEST_F(SDKTxnImplTest, RollbackPrimaryKeyFail) {
   EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
     if (nullptr != txn_rpc) {
-      // precommit
+      // precommit primary key
       const auto* request = txn_rpc->Request();
       EXPECT_TRUE(request->has_context());
       EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
-      EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
+      EXPECT_EQ(request->txn_size(), 1);
       EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
 
       for (const auto& mutation : request->mutations()) {
@@ -957,11 +1015,11 @@ TEST_F(SDKTxnImplTest, RollbackSecondKeysFail) {
   EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
     if (nullptr != txn_rpc) {
-      // precommit
+      // precommit primary key
       const auto* request = txn_rpc->Request();
       EXPECT_TRUE(request->has_context());
       EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
-      EXPECT_EQ(request->txn_size(), txn->TEST_MutationsSize());
+      EXPECT_EQ(request->txn_size(), 1);
       EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
 
       for (const auto& mutation : request->mutations()) {
@@ -1012,6 +1070,163 @@ TEST_F(SDKTxnImplTest, RollbackSecondKeysFail) {
   s = txn->Rollback();
   EXPECT_TRUE(s.ok());
   EXPECT_EQ(txn->TEST_IsRollbacktedState(), true);
+}
+
+TEST_F(SDKTxnImplTest, LockHeartbeat) {
+  auto txn = NewTransactionImpl(options);
+
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
+
+  {
+    txn->Put("a", "a");
+    txn->Delete("a");
+
+    txn->Put("b", "b");
+    txn->PutIfAbsent("b", "newb");
+
+    txn->PutIfAbsent("d", "d");
+  }
+
+  EXPECT_CALL(*store_rpc_client, SendRpc)
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
+        // precommit primary key
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->txn_size(), 1);
+        EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+
+        const auto& mutation = request->mutations(0);
+        EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
+
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
+        // precommit
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->txn_size(), 2);
+        EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+
+        EXPECT_EQ(request->mutations_size(), 1);
+
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
+        // precommit
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->txn_size(), 2);
+        EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+
+        EXPECT_EQ(request->mutations_size(), 1);
+
+        cb();
+      })
+      .WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+        TxnHeartBeatRpc* txn_rpc = dynamic_cast<TxnHeartBeatRpc*>(&rpc);
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+
+        auto* response = txn_rpc->MutableResponse();
+        response->set_lock_ttl(request->advise_lock_ttl());
+
+        cb();
+      });
+
+  Status s = txn->PreCommit();
+  EXPECT_TRUE(s.ok());
+
+  sleep(25);
+}
+
+TEST_F(SDKTxnImplTest, LockHeartbeatFail) {
+  auto txn = NewTransactionImpl(options);
+
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
+
+  {
+    txn->Put("a", "a");
+    txn->Delete("a");
+
+    txn->Put("b", "b");
+    txn->PutIfAbsent("b", "newb");
+
+    txn->PutIfAbsent("d", "d");
+  }
+
+  EXPECT_CALL(*store_rpc_client, SendRpc)
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
+        // precommit
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->txn_size(), 1);
+        EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+
+        EXPECT_EQ(request->mutations_size(), 1);
+        const auto& mutation = request->mutations(0);
+        EXPECT_EQ(mutation.key(), txn->TEST_GetPrimaryKey());
+
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
+        // precommit
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->txn_size(), 2);
+        EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
+        // precommit
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->txn_size(), 2);
+        EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        TxnHeartBeatRpc* txn_rpc = dynamic_cast<TxnHeartBeatRpc*>(&rpc);
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+
+        auto* response = txn_rpc->MutableResponse();
+        auto* txn_not_found = txn_rpc->MutableResponse()->mutable_txn_result()->mutable_txn_not_found();
+        auto* key = txn_not_found->mutable_key();
+        *key = txn->TEST_GetPrimaryKey();
+
+        cb();
+      });
+
+  Status s = txn->PreCommit();
+  EXPECT_TRUE(s.ok());
+
+  sleep(25);
 }
 
 }  // namespace sdk

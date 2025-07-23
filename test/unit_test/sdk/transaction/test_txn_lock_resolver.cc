@@ -87,7 +87,7 @@ TEST_F(SDKTxnLockResolverTest, TxnNotFound) {
   });
 
   Status s = lock_resolver->ResolveLock(fake_lock, Tso2Timestamp(init_tso));
-  EXPECT_TRUE(s.ok());
+  EXPECT_TRUE(s.IsTxnNotFound());
 }
 
 TEST_F(SDKTxnLockResolverTest, Locked) {

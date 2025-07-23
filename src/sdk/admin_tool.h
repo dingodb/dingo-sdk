@@ -15,11 +15,13 @@
 #ifndef DINGODB_SDK_ADMIN_TOOL_H_
 #define DINGODB_SDK_ADMIN_TOOL_H_
 
+#include <cstdint>
 #include <vector>
 
 #include "dingosdk/status.h"
 #include "proto/meta.pb.h"
 #include "sdk/rpc/coordinator_rpc_controller.h"
+#include "sdk/utils/callback.h"
 
 namespace dingodb {
 namespace sdk {
@@ -38,6 +40,8 @@ class AdminTool {
   Status GetCurrentTsoTimeStamp(pb::meta::TsoTimestamp& tso_timestamp, uint32_t count = 1);
 
   Status GetCurrentTimeStamp(int64_t& timestamp, uint32_t count = 1);
+
+  Status GetPhysicalTimeStamp(int64_t& timestamp_physical, uint32_t count = 1);
 
   Status IsCreateRegionInProgress(int64_t region_id, bool& out_create_in_progress);
 

@@ -53,6 +53,7 @@ void TxnCommitTask::DoAsync() {
   {
     WriteLockGuard guard(rw_lock_);
     next_batch = next_keys_;
+    need_retry_ = false;
     status_ = Status::OK();
   }
 
@@ -130,6 +131,8 @@ void TxnCommitTask::DoAsync() {
 }
 
 void TxnCommitTask::TxnCommitRpcCallback(const Status& status, TxnCommitRpc* rpc) {
+  DINGO_LOG(DEBUG) << "rpc : " << rpc->Method() << " request : " << rpc->Request()->ShortDebugString()
+                   << " response : " << rpc->Response()->ShortDebugString();
   Status s;
   bool need_retry = false;
   const auto* response = rpc->Response();

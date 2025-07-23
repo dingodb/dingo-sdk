@@ -44,6 +44,13 @@ Status AdminTool::GetCurrentTsoTimeStamp(pb::meta::TsoTimestamp& timestamp, uint
   return status;
 }
 
+Status AdminTool::GetPhysicalTimeStamp(int64_t& timestamp_physical, uint32_t count) {
+  pb::meta::TsoTimestamp tso_timestamp;
+  DINGO_RETURN_NOT_OK(GetCurrentTsoTimeStamp(tso_timestamp, count));
+  timestamp_physical = tso_timestamp.physical();
+  return Status::OK();
+}
+
 Status AdminTool::GetCurrentTimeStamp(int64_t& timestamp, uint32_t count) {
   pb::meta::TsoTimestamp tso;
   DINGO_RETURN_NOT_OK(GetCurrentTsoTimeStamp(tso, count));
