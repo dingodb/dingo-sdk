@@ -33,6 +33,8 @@
 #include "grpcpp/support/async_unary_call.h"
 #include "grpcpp/support/status.h"
 #include "grpcpp/support/stub_options.h"
+#include "sdk/common/common.h"
+#include "sdk/common/param_config.h"
 #include "sdk/rpc/rpc.h"
 #include "sdk/utils/net_util.h"
 
@@ -96,6 +98,13 @@ class UnaryRpc : public Rpc {
                        << response.DebugString();
     }
 
+    if (FLAGS_enable_trace_rpc_performance) {
+      int64_t end_time =
+          std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+              .count();
+      std::string str = fmt::format("status: {}", status.ToString());
+      TraceRpcPerformance(end_time - start_time, Method(), context->peer(), str);
+    }
     grpc_ctx->cb();
   }
 
@@ -130,6 +139,12 @@ class UnaryRpc : public Rpc {
     }
     CHECK_NOTNULL(p_stub);
 
+    if (FLAGS_enable_trace_rpc_performance) {
+      // Record the start time for performance tracing
+      start_time =
+          std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+              .count();
+    }
     auto reader = Prepare(p_stub, grpc_ctx->cq);
     reader->Finish(&response, &grpc_status, (void*)this);
   }
@@ -141,6 +156,8 @@ class UnaryRpc : public Rpc {
   grpc::Status grpc_status;
   std::unique_ptr<StubType> stub;
   std::unique_ptr<GrpcContext> grpc_ctx;
+
+  int64_t start_time{0};  // record the start time of the RPC call , use for trace
 
   static std::map<EndPoint, std::unique_ptr<StubType>> stubs;
   static std::mutex lk;

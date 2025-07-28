@@ -33,6 +33,9 @@ DEFINE_int64(grpc_poll_thread_num, 32, "grpc poll cq thread num");
 DEFINE_int64(rpc_max_retry, 3, "rpc call max retry times");
 DEFINE_int64(rpc_time_out_ms, 500000, "rpc call timeout ms");
 
+DEFINE_bool(enable_trace_rpc_performance, false, "enable trance rpc performance, use for debug");
+DEFINE_int64(rpc_elapse_time_threshold_us, 10000, "rpc elapse time threshold");
+
 DEFINE_int64(store_rpc_retry_delay_ms, 500, "store rpc retry delay ms");
 DEFINE_int64(store_rpc_max_retry, 120, "store rpc max retry times, use case: wrong leader or request range invalid");
 
