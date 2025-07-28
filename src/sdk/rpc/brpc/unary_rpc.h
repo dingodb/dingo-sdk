@@ -29,6 +29,7 @@
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "google/protobuf/message.h"
+#include "sdk/common/common.h"
 #include "sdk/common/param_config.h"
 #include "sdk/rpc/rpc.h"
 #include "sdk/utils/callback.h"
@@ -99,6 +100,13 @@ class UnaryRpc : public Rpc {
                        << response->DebugString();
     }
 
+    if (FLAGS_enable_trace_rpc_performance) {
+      int64_t end_time =
+          std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+              .count();
+      std::string str = fmt::format("request_id: {}, status: {}", controller.log_id(), status.ToString());
+      TraceRpcPerformance(end_time - start_time, Method(), endpoint2str(controller.remote_side()).c_str(), str);
+    }
     brpc_ctx->cb();
   }
 
@@ -118,6 +126,12 @@ class UnaryRpc : public Rpc {
     CHECK_NOTNULL(brpc_ctx);
     CHECK_NOTNULL(brpc_ctx->channel);
     StubType stub(brpc_ctx->channel.get());
+    if (FLAGS_enable_trace_rpc_performance) {
+      // Record the start time for performance tracing
+      start_time =
+          std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+              .count();
+    }
     Send(stub, brpc::NewCallback(this, &UnaryRpc::OnRpcDone));
   }
 
@@ -128,6 +142,7 @@ class UnaryRpc : public Rpc {
   ResponseType* response;
   brpc::Controller controller;
   BrpcContext* brpc_ctx;
+  int64_t start_time{0};  // record the start time of the RPC call , use for trace
 };
 
 #define DECLARE_UNARY_RPC_INNER(NS, SERVICE, METHOD, REQ_RSP_PREFIX)                                                  \

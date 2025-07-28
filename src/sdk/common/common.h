@@ -15,13 +15,19 @@
 #ifndef DINGODB_SDK_COMMON_H_
 #define DINGODB_SDK_COMMON_H_
 
+#include <fmt/base.h>
+#include <fmt/format.h>
+
 #include <cstdint>
+#include <string>
 #include <vector>
 
+#include "common/logging.h"
 #include "glog/logging.h"
 #include "google/protobuf/message.h"
 #include "proto/meta.pb.h"
 #include "proto/store.pb.h"
+#include "sdk/common/param_config.h"
 #include "sdk/rpc/rpc.h"
 #include "sdk/utils/net_util.h"
 
@@ -123,6 +129,16 @@ static bool IsRetryErrorCode(int32_t error_code) {
          error_code == pb::error::EKEY_OUT_OF_RANGE || error_code == pb::error::EVECTOR_INDEX_NOT_READY ||
          error_code == pb::error::ERAFT_NOT_FOUND || error_code == pb::error::EREGION_STANDBY ||
          error_code == pb::error::EREGION_NEW;
+}
+
+static void TraceRpcPerformance(int64_t elapse_time, const std::string& method_name, const std::string& endpoint,
+                                const std::string& str) {
+  if (FLAGS_enable_trace_rpc_performance) {
+    if (elapse_time > FLAGS_rpc_elapse_time_threshold_us) {
+      DINGO_LOG(INFO) << fmt::format("[sdk.trace.rpc][{}][{:.6f}][endpoint({})] {}", method_name, elapse_time / 1e6,
+                                     endpoint, str);
+    }
+  }
 }
 
 }  // namespace sdk

@@ -15,6 +15,7 @@
 #ifndef DINGODB_SDK_PARAM_CONFIG_H_
 #define DINGODB_SDK_PARAM_CONFIG_H_
 
+#include <gflags/gflags_declare.h>
 #include <cstdint>
 
 #include "gflags/gflags.h"
@@ -41,6 +42,9 @@ DECLARE_int64(rpc_max_retry);
 DECLARE_int64(rpc_time_out_ms);
 
 DECLARE_int64(grpc_poll_thread_num);
+
+DECLARE_bool(enable_trace_rpc_performance);
+DECLARE_int64(rpc_elapse_time_threshold_us);
 
 // each store rpc params, used for store rpc controller
 DECLARE_int64(store_rpc_max_retry);
