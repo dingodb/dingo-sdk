@@ -40,6 +40,7 @@ set(SDK_SRCS
   rawkv/raw_kv_region_scanner_impl.cc
   rpc/coordinator_rpc_controller.cc
   rpc/store_rpc_controller.cc
+  transaction/tso.cc
   transaction/txn_buffer.cc
   transaction/txn_impl.cc
   transaction/txn_lock_resolver.cc

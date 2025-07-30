@@ -14,12 +14,11 @@
 
 #include "sdk/transaction/txn_lock_resolver.h"
 
-#include <fmt/format.h>
-
 #include <cstdint>
 
 #include "common/logging.h"
 #include "dingosdk/status.h"
+#include "fmt/format.h"
 #include "glog/logging.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/common.h"
@@ -27,11 +26,33 @@
 #include "sdk/region.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+#include "sdk/utils/async_util.h"
 
 namespace dingodb {
 namespace sdk {
 
+static bool IsNeedRetry(int& times) {
+  bool retry = times++ < FLAGS_txn_op_max_retry;
+  if (retry) {
+    SleepUs(500);
+  }
+
+  return retry;
+}
+
 TxnLockResolver::TxnLockResolver(const ClientStub& stub) : stub_(stub) {}
+
+Status TxnLockResolver::GenTs(int64_t& ts) {
+  Status status;
+  int retry = 0;
+  do {
+    status = stub_.GetTsoProvider()->GenTs(2, ts);
+    if (status.IsOK()) return status;
+
+  } while (IsNeedRetry(retry));
+
+  return status;
+}
 
 // TODO: maybe support retry
 Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& lock_info, int64_t start_ts) {
@@ -81,7 +102,11 @@ Status TxnLockResolver::CheckTxnStatus(int64_t lock_ts, const std::string& prima
   DINGO_RETURN_NOT_OK(stub_.GetMetaCache()->LookupRegionByKey(primary_key, region));
 
   int64_t current_ts;
-  DINGO_RETURN_NOT_OK(stub_.GetAdminTool()->GetCurrentTimeStamp(current_ts));
+  auto status = GenTs(current_ts);
+  if (!status.IsOK()) {
+    DINGO_LOG(ERROR) << fmt::format("[sdk.txn.{}] gen ts fail, status({}).", start_ts, status.ToString());
+    return status;
+  }
 
   TxnCheckTxnStatusRpc rpc;
 

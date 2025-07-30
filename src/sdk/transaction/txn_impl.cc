@@ -47,7 +47,7 @@ Transaction::TxnImplSPtr Transaction::TxnImpl::GetSelfPtr() {
 }
 
 Status Transaction::TxnImpl::Begin() {
-  Status status = stub_.GetAdminTool()->GetCurrentTimeStamp(start_ts_, 2);
+  auto status = GenTs(start_ts_);
   if (status.ok()) {
     state_ = kActive;
   }
@@ -214,10 +214,24 @@ Status Transaction::TxnImpl::Commit() { return DoCommit(); }
 
 Status Transaction::TxnImpl::Rollback() { return DoRollback(); }
 
+Status Transaction::TxnImpl::GenTs(int64_t& ts) {
+  Status status;
+  int retry = 0;
+  do {
+    status = stub_.GetTsoProvider()->GenTs(2, ts);
+    if (status.IsOK()) return status;
+
+  } while (IsNeedRetry(retry));
+
+  DINGO_LOG(ERROR) << fmt::format("[sdk.txn.{}] gen ts fail, retry({}) status({}).", ID(), retry, status.ToString());
+
+  return status;
+}
+
 bool Transaction::TxnImpl::IsNeedRetry(int& times) {
   bool retry = times++ < FLAGS_txn_op_max_retry;
   if (retry) {
-    (void)usleep(FLAGS_txn_op_delay_ms * 1000);
+    SleepUs(FLAGS_txn_op_delay_ms * 1000);
   }
 
   return retry;
@@ -711,16 +725,20 @@ void Transaction::TxnImpl::DoTaskForPreCommit(TxnTask& task) {
   int retry = 0;
   do {
     rpc = gen_rpc_func(region);
-    if (is_one_pc_) rpc->MutableRequest()->set_try_one_pc(true);
+    if (is_one_pc_) {
+      rpc->MutableRequest()->set_try_one_pc(true);
+      int64_t min_commit_ts = 0;
+      status = GenTs(min_commit_ts);
+      if (!status.IsOK()) break;
+      rpc->MutableRequest()->set_min_commit_ts(min_commit_ts);
+    }
 
     for (const auto& mutation : task.mutations) {
       TxnMutation2MutationPB(*mutation, rpc->MutableRequest()->add_mutations());
     }
 
     status = LogAndSendRpc(stub_, *rpc, region);
-    if (!status.IsOK()) {
-      break;
-    }
+    if (!status.IsOK()) break;
 
     const auto* response = rpc->Response();
     CheckPreCommitResponse(response);
@@ -921,7 +939,7 @@ Status Transaction::TxnImpl::ProcessTxnCommitResponse(const TxnCommitResponse* r
     DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit ts expired, is_primary({}) pk({}) response({}).", ID(),
                                       is_primary, StringToHex(pk), txn_result.commit_ts_expired().ShortDebugString());
     if (is_primary) {
-      auto status = stub_.GetAdminTool()->GetCurrentTimeStamp(commit_ts_);
+      auto status = GenTs(commit_ts_);
       if (!status.IsOK()) return status;
       return Status::TxnCommitTsExpired("txn commit ts expired");
     }
@@ -1064,7 +1082,7 @@ Status Transaction::TxnImpl::DoCommit() {
 
   state_ = kCommitting;
 
-  DINGO_RETURN_NOT_OK(stub_.GetAdminTool()->GetCurrentTimeStamp(commit_ts_));
+  DINGO_RETURN_NOT_OK(GenTs(commit_ts_));
 
   CHECK(commit_ts_ > start_ts_) << fmt::format("commit_ts({}) must greater than start_ts({}).", commit_ts_, start_ts_);
 

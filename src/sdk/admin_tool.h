@@ -18,7 +18,6 @@
 #include <vector>
 
 #include "dingosdk/status.h"
-#include "proto/meta.pb.h"
 #include "sdk/rpc/coordinator_rpc_controller.h"
 
 namespace dingodb {
@@ -34,10 +33,6 @@ class AdminTool {
   explicit AdminTool(const ClientStub& stub) : stub_(stub) {}
 
   ~AdminTool() = default;
-
-  Status GetCurrentTsoTimeStamp(pb::meta::TsoTimestamp& tso_timestamp, uint32_t count = 1);
-
-  Status GetCurrentTimeStamp(int64_t& timestamp, uint32_t count = 1);
 
   Status IsCreateRegionInProgress(int64_t region_id, bool& out_create_in_progress);
 

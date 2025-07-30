@@ -102,7 +102,7 @@ void StoreRpcController::SendStoreRpc() {
 void StoreRpcController::MaybeDelay() {
   if (NeedDelay()) {
     auto delay_ms = FLAGS_store_rpc_retry_delay_ms * rpc_retry_times_;
-    Sleep(delay_ms * 1000);
+    SleepUs(delay_ms * 1000);
   }
 }
 
@@ -213,7 +213,7 @@ bool StoreRpcController::PickNextLeader(EndPoint& leader) {
 
   // TODO: filter old leader
   auto endpoints = region_->ReplicaEndPoint();
-  auto endpoint = endpoints[next_replica_index_ % endpoints.size()];
+  const auto& endpoint = endpoints[next_replica_index_ % endpoints.size()];
   next_replica_index_++;
   leader = endpoint;
 

@@ -15,6 +15,7 @@
 #ifndef DINGODB_SDK_HELPER_H_
 #define DINGODB_SDK_HELPER_H_
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -33,6 +34,11 @@ namespace sdk {
 
 inline uint64_t TimestampMs() {
   return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+      .count();
+}
+
+inline uint64_t TimestampUs() {
+  return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
       .count();
 }
 
