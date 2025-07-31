@@ -25,6 +25,7 @@
 #include "sdk/region_scanner.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/transaction/txn_common.h"
+#include "sdk/utils/async_util.h"
 
 namespace dingodb {
 namespace sdk {
@@ -148,7 +149,7 @@ Status TxnRegionScannerImpl::SetBatchSize(int64_t size) {
 bool TxnRegionScannerImpl::IsNeedRetry(int& times) {
   bool retry = times++ < FLAGS_txn_op_max_retry;
   if (retry) {
-    (void)usleep(FLAGS_txn_op_delay_ms * 1000);
+    SleepUs(FLAGS_txn_op_delay_ms * 1000);
   }
 
   return retry;

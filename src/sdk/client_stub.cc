@@ -75,6 +75,8 @@ Status ClientStub::Open(const std::vector<EndPoint>& endpoints) {
 
   auto_increment_manager_ = std::make_shared<AutoIncrementerManager>(*this);
 
+  tso_provider_ = std::make_shared<TsoProvider>(*this);
+
   return Status::OK();
 }
 

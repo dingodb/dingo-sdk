@@ -39,7 +39,7 @@ void TxnCheckStatusTask::DoAsync() {
   }
 
   int64_t current_ts;
-  s = stub.GetAdminTool()->GetCurrentTimeStamp(current_ts);
+  s = stub.GetTsoProvider()->GenTs(2, current_ts);
   if (!s.ok()) {
     DoAsyncDone(s);
     return;

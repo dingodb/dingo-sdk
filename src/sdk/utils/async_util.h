@@ -104,7 +104,7 @@ class ParallelExecutor {
   }
 };
 
-inline void Sleep(int64_t us) { std::this_thread::sleep_for(std::chrono::microseconds(us)); }
+inline void SleepUs(int64_t us) { std::this_thread::sleep_for(std::chrono::microseconds(us)); }
 
 #else
 
@@ -220,7 +220,7 @@ class ParallelExecutor {
   }
 };
 
-inline void Sleep(int64_t us) { bthread_usleep(us); }
+inline void SleepUs(int64_t us) { bthread_usleep(us); }
 
 #endif  // USE_GRPC
 

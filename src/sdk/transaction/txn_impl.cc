@@ -50,7 +50,7 @@ TxnImpl::TxnImpl(const ClientStub& stub, const TransactionOptions& options)
 TxnImplSPtr TxnImpl::GetSelfPtr() { return std::dynamic_pointer_cast<TxnImpl>(shared_from_this()); }
 
 Status TxnImpl::Begin() {
-  Status status = stub_.GetAdminTool()->GetCurrentTimeStamp(start_ts_, 1);
+  Status status = stub_.GetTsoProvider()->GenTs(2, start_ts_);
   if (status.ok()) {
     state_ = kActive;
   }
@@ -607,7 +607,7 @@ Status TxnImpl::ProcessTxnCommitResponse(const TxnCommitResponse* response, bool
     DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit ts expired, is_primary({}) pk({}) response({}).", ID(),
                                       is_primary, StringToHex(pk), txn_result.commit_ts_expired().ShortDebugString());
     if (is_primary) {
-      auto status = stub_.GetAdminTool()->GetCurrentTimeStamp(commit_ts_);
+      auto status = stub_.GetTsoProvider()->GenTs(2, commit_ts_);
       if (!status.IsOK()) return status;
       return Status::TxnCommitTsExpired("txn commit ts expired");
     }
@@ -651,7 +651,7 @@ Status TxnImpl::DoCommit() {
 
   state_ = kCommitting;
 
-  DINGO_RETURN_NOT_OK(stub_.GetAdminTool()->GetCurrentTimeStamp(commit_ts_));
+  DINGO_RETURN_NOT_OK(stub_.GetTsoProvider()->GenTs(2, commit_ts_));
 
   CHECK(commit_ts_ > start_ts_) << fmt::format("commit_ts({}) must greater than start_ts({}).", commit_ts_, start_ts_);
 
