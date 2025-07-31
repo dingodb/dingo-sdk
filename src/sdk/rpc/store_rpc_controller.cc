@@ -164,6 +164,9 @@ void StoreRpcController::SendStoreRpcCallBack() {
   } else if (error.errcode() == pb::error::Errno::EREQUEST_FULL) {
     status_ = Status::RemoteError(error.errcode(), error.errmsg());
 
+  } else if (error.errcode() == pb::error::Errno::ETXN_MEMORY_LOCK_CONFLICT) {
+    status_ = Status::TxnMemLockConflict(error.errcode(), error.errmsg());
+
   } else {
     // NOTE: other error we not clean cache, caller decide how to process
     status_ = Status::Incomplete(error.errcode(), error.errmsg());

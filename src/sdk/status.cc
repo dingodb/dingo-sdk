@@ -107,6 +107,9 @@ std::string Status::ToString() const {
       case kTxnWriteConflict:
         type = "TxnWriteConflict";
         break;
+      case kTxnMemLockConflict:
+        type = "TxnMemLockConflict";
+        break;
       case kTxnNotFound:
         type = "TxnNotFound";
         break;
