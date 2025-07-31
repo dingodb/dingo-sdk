@@ -104,6 +104,9 @@ std::string Status::ToString() const {
       case kTxnCommitTsExpired:
         type = "TxnCommitTsExpired";
         break;
+      case kTxnMemLockConflict:
+        type = "TxnMemLockConflict";
+        break;
       case kTxnWriteConflict:
         type = "TxnWriteConflict";
         break;
