@@ -93,7 +93,9 @@ void TxnPrewriteTask::DoAsync() {
     }
   }
 
-  Status status = stub.GetAdminTool()->GetPhysicalTimeStamp(ts_physical_, 1);
+
+  int64_t physical_ts{0};
+  Status status = stub.GetTsoProvider()->GenPhysicalTs(2, physical_ts);
 
   for (const auto& entry : region_id_to_mutations) {
     auto region_id = entry.first;
@@ -107,7 +109,7 @@ void TxnPrewriteTask::DoAsync() {
     FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
                    ToIsolationLevel(txn_impl_->GetOptions().isolation));
     rpc->MutableRequest()->set_primary_lock(primary_key_);
-    rpc->MutableRequest()->set_lock_ttl(ts_physical_ + FLAGS_txn_heartbeat_lock_delay_ms);
+    rpc->MutableRequest()->set_lock_ttl(physical_ts + FLAGS_txn_heartbeat_lock_delay_ms);
     rpc->MutableRequest()->set_txn_size(mutations_.size());
     rpc->MutableRequest()->set_try_one_pc(is_one_pc_);
 
@@ -126,7 +128,7 @@ void TxnPrewriteTask::DoAsync() {
         FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
                        ToIsolationLevel(txn_impl_->GetOptions().isolation));
         rpc->MutableRequest()->set_primary_lock(primary_key_);
-        rpc->MutableRequest()->set_lock_ttl(ts_physical_ + FLAGS_txn_heartbeat_lock_delay_ms);
+        rpc->MutableRequest()->set_lock_ttl(physical_ts + FLAGS_txn_heartbeat_lock_delay_ms);
         rpc->MutableRequest()->set_txn_size(mutations_.size());
         rpc->MutableRequest()->set_try_one_pc(is_one_pc_);
       }

@@ -12,44 +12,56 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef DINGODB_SDK_ADMIN_TOOL_H_
-#define DINGODB_SDK_ADMIN_TOOL_H_
+#ifndef DINGODB_SDK_TRANSACTION_TSO_H_
+#define DINGODB_SDK_TRANSACTION_TSO_H_
 
 #include <cstdint>
-#include <vector>
+#include <memory>
 
 #include "dingosdk/status.h"
 #include "proto/meta.pb.h"
-#include "sdk/rpc/coordinator_rpc_controller.h"
-#include "sdk/utils/callback.h"
+#include "sdk/utils/rw_lock.h"
 
 namespace dingodb {
 namespace sdk {
 
 class ClientStub;
 
-class AdminTool {
+class TsoProvider {
  public:
-  AdminTool(const AdminTool&) = delete;
-  const AdminTool& operator=(const AdminTool&) = delete;
+  TsoProvider(const ClientStub& stub);
+  ~TsoProvider() = default;
 
-  explicit AdminTool(const ClientStub& stub) : stub_(stub) {}
+  using TsoTimestamp = pb::meta::TsoTimestamp;
 
-  ~AdminTool() = default;
+  Status GenTs(uint32_t count, int64_t& ts);
 
-  Status IsCreateRegionInProgress(int64_t region_id, bool& out_create_in_progress);
+  Status GenPhysicalTs(int32_t count, int64_t& physical_ts);
 
-  Status DropRegion(int64_t region_id);
-
-  Status CreateTableIds(int64_t count, std::vector<int64_t>& out_table_ids);
-
-  Status DropIndex(int64_t index_id);
+  void Refresh();
 
  private:
+  // when period is beyond 1ms is considered stale
+  bool IsStale();
+  Status FetchTso(uint32_t count);
+
   const ClientStub& stub_;
+
+  // fetch batch size
+  const uint32_t batch_size_;
+
+  RWLock rwlock_;
+
+  int64_t physical_{0};
+  int64_t next_logical_{0};
+  int64_t max_logical_{0};
+
+  uint64_t last_time_us_{0};
 };
+
+using TsoProviderSPtr = std::shared_ptr<TsoProvider>;
 
 }  // namespace sdk
 }  // namespace dingodb
 
-#endif  // DINGODB_SDK_ADMIN_TOOL_H_
+#endif  // DINGODB_SDK_TRANSACTION_TSO_H_

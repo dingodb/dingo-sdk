@@ -19,13 +19,12 @@
 #include "common/logging.h"
 #include "dingosdk/status.h"
 #include "sdk/common/common.h"
+#include "sdk/common/helper.h"
 #include "sdk/common/param_config.h"
 #include "sdk/region.h"
 #include "sdk/rpc/store_rpc_controller.h"
 #include "sdk/transaction/txn_common.h"
 #include "sdk/utils/callback.h"
-#include "sdk/common/helper.h"
-
 
 namespace dingodb {
 namespace sdk {
@@ -39,13 +38,13 @@ void TxnHeartbeatTask::DoAsync() {
     return;
   }
 
-  Status status = stub.GetAdminTool()->GetPhysicalTimeStamp(ts_physical_, 1);
+  Status status = stub.GetTsoProvider()->GenPhysicalTs(2, physical_ts_);
 
   FillRpcContext(*rpc_.MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
                  pb::store::IsolationLevel::SnapshotIsolation);
   rpc_.MutableRequest()->set_start_ts(lock_ts_);
   rpc_.MutableRequest()->set_primary_lock(primary_key_);
-  rpc_.MutableRequest()->set_advise_lock_ttl(ts_physical_ + FLAGS_txn_heartbeat_lock_delay_ms);
+  rpc_.MutableRequest()->set_advise_lock_ttl(physical_ts_ + FLAGS_txn_heartbeat_lock_delay_ms);
 
   store_rpc_controller_.ResetRegion(region);
   store_rpc_controller_.AsyncCall([this](auto&& s) { TxnHeartbeatRpcCallback(std::forward<decltype(s)>(s)); });
@@ -70,7 +69,7 @@ void TxnHeartbeatTask::TxnHeartbeatRpcCallback(const Status& status) {
     }
     DINGO_LOG(INFO) << fmt::format(
         "[sdk.txn] txn_heartbeat, lock_ts: {}, primary_key: {}, advice_lock_ttl: {}, actually_lock_ttl: {}  ",
-        StringToHex(primary_key_), lock_ts_, ts_physical_ + FLAGS_txn_heartbeat_lock_delay_ms, response->lock_ttl());
+        StringToHex(primary_key_), lock_ts_, physical_ts_ + FLAGS_txn_heartbeat_lock_delay_ms, response->lock_ttl());
   }
 
   DoAsyncDone(status_);

@@ -25,6 +25,7 @@
 #include "sdk/region_scanner.h"
 #include "sdk/rpc/coordinator_rpc_controller.h"
 #include "sdk/rpc/rpc_client.h"
+#include "sdk/transaction/tso.h"
 #include "sdk/transaction/txn_lock_resolver.h"
 #include "sdk/vector/vector_index_cache.h"
 #include "utils/actuator.h"
@@ -105,6 +106,11 @@ class ClientStub {
     return auto_increment_manager_;
   }
 
+  virtual TsoProviderSPtr GetTsoProvider() const {
+    DCHECK_NOTNULL(tso_provider_.get());
+    return tso_provider_;
+  }
+
  private:
   // TODO: use unique ptr
   std::shared_ptr<CoordinatorRpcController> coordinator_rpc_controller_;
@@ -120,6 +126,7 @@ class ClientStub {
   std::shared_ptr<VectorIndexCache> vector_index_cache_;
   std::shared_ptr<DocumentIndexCache> document_index_cache_;
   std::shared_ptr<AutoIncrementerManager> auto_increment_manager_;
+  TsoProviderSPtr tso_provider_;
 };
 
 }  // namespace sdk

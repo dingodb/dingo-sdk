@@ -36,6 +36,11 @@ inline uint64_t TimestampMs() {
       .count();
 }
 
+inline uint64_t TimestampUs() {
+  return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+      .count();
+}
+
 inline int64_t Timestamp() {
   return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
