@@ -72,6 +72,7 @@ class Status {
   DECLARE_ERROR_STATUS(Incomplete, kIncomplete);
   DECLARE_ERROR_STATUS(NotLeader, kNotLeader);
   DECLARE_ERROR_STATUS(TxnLockConflict, kTxnLockConflict);
+  DECLARE_ERROR_STATUS(TxnMemLockConflict, kTxnMemLockConflict);
   DECLARE_ERROR_STATUS(PushMinCommitTs, kPushMinCommitTs);
   DECLARE_ERROR_STATUS(TxnWriteConflict, kTxnWriteConflict);
   DECLARE_ERROR_STATUS(TxnNotFound, kTxnNotFound);
@@ -112,6 +113,7 @@ class Status {
     kNotLeader = 18,
     kTxnLockConflict = 19,
     kPushMinCommitTs = 29,
+    kTxnMemLockConflict = 30,
     kTxnWriteConflict = 20,
     kTxnNotFound = 21,
     kTxnPrimaryMismatch = 22,

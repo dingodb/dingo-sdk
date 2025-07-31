@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "common/logging.h"
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "google/protobuf/message.h"
 #include "proto/meta.pb.h"
@@ -140,6 +141,12 @@ static void TraceRpcPerformance(int64_t elapse_time, const std::string& method_n
     }
   }
 }
+
+static bool IsUniversalNeedRetryError(Status status) {
+  return status.IsNetworkError() || status.IsRemoteError() || status.IsNotLeader() || status.IsNoLeader();
+}
+
+static bool IsTxnNeedRetryError(Status status) { return status.IsTxnMemLockConflict(); }
 
 }  // namespace sdk
 }  // namespace dingodb
