@@ -214,7 +214,7 @@ bool StoreRpcController::PickNextLeader(EndPoint& leader) {
 
   // TODO: filter old leader
   auto endpoints = region_->ReplicaEndPoint();
-  auto endpoint = endpoints[next_replica_index_ % endpoints.size()];
+  const auto& endpoint = endpoints[next_replica_index_ % endpoints.size()];
   next_replica_index_++;
   leader = endpoint;
 

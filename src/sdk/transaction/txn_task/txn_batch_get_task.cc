@@ -145,7 +145,7 @@ void TxnBatchGetTask::TxnBatchGetRpcCallback(const Status& status, TxnBatchGetRp
   }
 
   {
-    ReadLockGuard guard(rw_lock_);
+    WriteLockGuard guard(rw_lock_);
     if (s.ok()) {
       if (!need_retry) {
         for (const auto& kv : response->kvs()) {
