@@ -23,6 +23,7 @@
 #include "proto/common.pb.h"
 #include "proto/coordinator.pb.h"
 #include "sdk/common/common.h"
+#include "sdk/common/helper.h"
 #include "sdk/common/param_config.h"
 #include "sdk/region.h"
 #include "sdk/rpc/coordinator_rpc.h"
@@ -74,6 +75,9 @@ Status MetaCache::LookupRegionBetweenRange(std::string_view start_key, std::stri
 
     s = FastLookUpRegionByKeyUnlocked(start_key, region);
     if (s.IsOK()) {
+      CHECK(start_key >= region->Range().start_key())
+          << "start_key should greater than region start_key, start_key:" << StringToHex(start_key)
+          << " region start_key:" << StringToHex(region->Range().start_key());
       return s;
     }
   }
@@ -82,6 +86,9 @@ Status MetaCache::LookupRegionBetweenRange(std::string_view start_key, std::stri
   s = ScanRegionsBetweenRange(start_key, end_key, kPrefetchRegionCount, regions);
   if (s.IsOK() && !regions.empty()) {
     region = std::move(regions.front());
+    CHECK(start_key >= region->Range().start_key())
+        << "start_key should greater than region start_key, start_key:" << StringToHex(start_key)
+        << " region start_key:" << StringToHex(region->Range().start_key());
   }
 
   return s;
@@ -97,6 +104,9 @@ Status MetaCache::LookupRegionBetweenRangeNoPrefetch(std::string_view start_key,
 
     s = FastLookUpRegionByKeyUnlocked(start_key, region);
     if (s.IsOK()) {
+      CHECK(start_key >= region->Range().start_key())
+          << "start_key should greater than region start_key, start_key:" << StringToHex(start_key)
+          << " region start_key:" << StringToHex(region->Range().start_key());
       return s;
     }
   }
@@ -105,6 +115,9 @@ Status MetaCache::LookupRegionBetweenRangeNoPrefetch(std::string_view start_key,
   s = ScanRegionsBetweenRange(start_key, end_key, 1, regions);
   if (s.IsOK() && !regions.empty()) {
     region = std::move(regions.front());
+    CHECK(start_key >= region->Range().start_key())
+        << "start_key should greater than region start_key, start_key:" << StringToHex(start_key)
+        << " region start_key:" << StringToHex(region->Range().start_key());
   }
 
   return s;

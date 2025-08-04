@@ -359,6 +359,11 @@ Status TxnImpl::DoScan(const std::string& start_key, const std::string& end_key,
       std::string amend_start_key =
           scan_state.next_key <= region->Range().start_key() ? region->Range().start_key() : scan_state.next_key;
       std::string amend_end_key = end_key <= region->Range().end_key() ? end_key : region->Range().end_key();
+      CHECK(amend_start_key < amend_end_key)
+          << "amend_start_key should less than amend_end_key, " << StringToHex(amend_start_key)
+          << " >= " << StringToHex(amend_end_key) << " start_key:" << StringToHex(start_key)
+          << " end_key:" << StringToHex(end_key) << " region start_key:" << StringToHex(region->Range().start_key())
+          << " region end_key:" << StringToHex(region->Range().end_key());
 
       DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] scan region({}) range[{}, {}).", ID(), region->RegionId(),
                                       StringToHex(amend_start_key), StringToHex(amend_end_key));
