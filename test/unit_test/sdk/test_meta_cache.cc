@@ -52,8 +52,8 @@ TEST_F(SDKMetaCacheTest, LookupRegionByKey) {
   EXPECT_TRUE(got.IsOK());
 
   EXPECT_EQ(tmp->RegionId(), region->RegionId());
-  EXPECT_EQ(tmp->Range().start_key(), region->Range().start_key());
-  EXPECT_EQ(tmp->Range().end_key(), region->Range().end_key());
+  EXPECT_EQ(tmp->GetRange().start_key, region->GetRange().start_key);
+  EXPECT_EQ(tmp->GetRange().end_key, region->GetRange().end_key);
 }
 
 TEST_F(SDKMetaCacheTest, ClearRange) {
@@ -332,8 +332,8 @@ TEST_F(SDKMetaCacheTest, StaleRegion) {
     Status got = meta_cache->TEST_FastLookUpRegionByKey("b", tmp);
     EXPECT_TRUE(got.IsOK());
     EXPECT_FALSE(tmp->IsStale());
-    EXPECT_EQ(tmp->Epoch().version(), a2c_version2->Epoch().version());
-    EXPECT_EQ(tmp->Epoch().conf_version(), a2c_version2->Epoch().conf_version());
+    EXPECT_EQ(tmp->GetEpoch().version, a2c_version2->GetEpoch().version);
+    EXPECT_EQ(tmp->GetEpoch().conf_version, a2c_version2->GetEpoch().conf_version);
 
     EXPECT_TRUE(a2c->IsStale());
   }
@@ -347,8 +347,8 @@ TEST_F(SDKMetaCacheTest, StaleRegion) {
     Status got = meta_cache->TEST_FastLookUpRegionByKey("b", tmp);
     EXPECT_TRUE(got.IsOK());
     EXPECT_FALSE(tmp->IsStale());
-    EXPECT_EQ(tmp->Epoch().version(), a2c_conf2->Epoch().version());
-    EXPECT_EQ(tmp->Epoch().conf_version(), a2c_conf2->Epoch().conf_version());
+    EXPECT_EQ(tmp->GetEpoch().version, a2c_conf2->GetEpoch().version);
+    EXPECT_EQ(tmp->GetEpoch().conf_version, a2c_conf2->GetEpoch().conf_version);
 
     EXPECT_TRUE(a2c->IsStale());
     EXPECT_TRUE(a2c_version2->IsStale());
@@ -384,8 +384,8 @@ TEST_F(SDKMetaCacheTest, LookupRegionBetweenRangeFromRemote) {
   EXPECT_TRUE(got.IsOK());
 
   EXPECT_EQ(tmp->RegionId(), region->RegionId());
-  EXPECT_EQ(tmp->Range().start_key(), region->Range().start_key());
-  EXPECT_EQ(tmp->Range().end_key(), region->Range().end_key());
+  EXPECT_EQ(tmp->GetRange().start_key, region->GetRange().start_key);
+  EXPECT_EQ(tmp->GetRange().end_key, region->GetRange().end_key);
 }
 
 TEST_F(SDKMetaCacheTest, LookupRegionBetweenRangeFromCache) {
@@ -399,8 +399,8 @@ TEST_F(SDKMetaCacheTest, LookupRegionBetweenRangeFromCache) {
   EXPECT_TRUE(got.IsOK());
 
   EXPECT_EQ(tmp->RegionId(), region->RegionId());
-  EXPECT_EQ(tmp->Range().start_key(), region->Range().start_key());
-  EXPECT_EQ(tmp->Range().end_key(), region->Range().end_key());
+  EXPECT_EQ(tmp->GetRange().start_key, region->GetRange().start_key);
+  EXPECT_EQ(tmp->GetRange().end_key, region->GetRange().end_key);
 }
 
 TEST_F(SDKMetaCacheTest, LookupRegionBetweenRangePrefetch) {
@@ -422,14 +422,14 @@ TEST_F(SDKMetaCacheTest, LookupRegionBetweenRangePrefetch) {
   EXPECT_TRUE(got.IsOK());
 
   EXPECT_EQ(tmp->RegionId(), a2c->RegionId());
-  EXPECT_EQ(tmp->Range().start_key(), a2c->Range().start_key());
-  EXPECT_EQ(tmp->Range().end_key(), a2c->Range().end_key());
+  EXPECT_EQ(tmp->GetRange().start_key, a2c->GetRange().start_key);
+  EXPECT_EQ(tmp->GetRange().end_key, a2c->GetRange().end_key);
 
   got = meta_cache->TEST_FastLookUpRegionByKey("e", tmp);
   EXPECT_TRUE(got.IsOK());
   EXPECT_EQ(tmp->RegionId(), e2g->RegionId());
-  EXPECT_EQ(tmp->Range().start_key(), e2g->Range().start_key());
-  EXPECT_EQ(tmp->Range().end_key(), e2g->Range().end_key());
+  EXPECT_EQ(tmp->GetRange().start_key, e2g->GetRange().start_key);
+  EXPECT_EQ(tmp->GetRange().end_key, e2g->GetRange().end_key);
 }
 
 TEST_F(SDKMetaCacheTest, LookupRegionBetweenRangeNoPrefetch) {
@@ -449,8 +449,8 @@ TEST_F(SDKMetaCacheTest, LookupRegionBetweenRangeNoPrefetch) {
   EXPECT_TRUE(got.IsOK());
 
   EXPECT_EQ(tmp->RegionId(), a2c->RegionId());
-  EXPECT_EQ(tmp->Range().start_key(), a2c->Range().start_key());
-  EXPECT_EQ(tmp->Range().end_key(), a2c->Range().end_key());
+  EXPECT_EQ(tmp->GetRange().start_key, a2c->GetRange().start_key);
+  EXPECT_EQ(tmp->GetRange().end_key, a2c->GetRange().end_key);
 }
 
 TEST_F(SDKMetaCacheTest, ScanRegionsBetweenContinuousRangeNoRegion) {
@@ -568,9 +568,9 @@ TEST_F(SDKMetaCacheTest, ScanRegionsBetweenContinuousRangeRegionFromCache) {
 
     auto target = regions[0];
     EXPECT_EQ(target->RegionId(), region->RegionId());
-    EXPECT_EQ(target->Range().start_key(), region->Range().start_key());
+    EXPECT_EQ(target->GetRange().start_key, region->GetRange().start_key);
 
-    EXPECT_EQ(target->Range().end_key(), region->Range().end_key());
+    EXPECT_EQ(target->GetRange().end_key, region->GetRange().end_key);
   }
 
   {
@@ -586,9 +586,9 @@ TEST_F(SDKMetaCacheTest, ScanRegionsBetweenContinuousRangeRegionFromCache) {
 
     auto target = regions[0];
     EXPECT_EQ(target->RegionId(), c2e->RegionId());
-    EXPECT_EQ(target->Range().start_key(), c2e->Range().start_key());
+    EXPECT_EQ(target->GetRange().start_key, c2e->GetRange().start_key);
 
-    EXPECT_EQ(target->Range().end_key(), c2e->Range().end_key());
+    EXPECT_EQ(target->GetRange().end_key, c2e->GetRange().end_key);
   }
 
   {
@@ -606,8 +606,8 @@ TEST_F(SDKMetaCacheTest, ScanRegionsBetweenContinuousRangeRegionFromCache) {
 
     auto target = regions[0];
     EXPECT_EQ(target->RegionId(), c2e->RegionId());
-    EXPECT_EQ(target->Range().start_key(), c2e->Range().start_key());
-    EXPECT_EQ(target->Range().end_key(), c2e->Range().end_key());
+    EXPECT_EQ(target->GetRange().start_key, c2e->GetRange().start_key);
+    EXPECT_EQ(target->GetRange().end_key, c2e->GetRange().end_key);
   }
 }
 
@@ -624,12 +624,12 @@ TEST_F(SDKMetaCacheTest, ScanRegionsBetweenContinuousRangeMultipleRegionFromCach
     EXPECT_EQ(regions.size(), 2);
 
     EXPECT_EQ(regions[0]->RegionId(), a2c->RegionId());
-    EXPECT_EQ(regions[0]->Range().start_key(), a2c->Range().start_key());
-    EXPECT_EQ(regions[0]->Range().end_key(), a2c->Range().end_key());
+    EXPECT_EQ(regions[0]->GetRange().start_key, a2c->GetRange().start_key);
+    EXPECT_EQ(regions[0]->GetRange().end_key, a2c->GetRange().end_key);
 
     EXPECT_EQ(regions[1]->RegionId(), c2e->RegionId());
-    EXPECT_EQ(regions[1]->Range().start_key(), c2e->Range().start_key());
-    EXPECT_EQ(regions[1]->Range().end_key(), c2e->Range().end_key());
+    EXPECT_EQ(regions[1]->GetRange().start_key, c2e->GetRange().start_key);
+    EXPECT_EQ(regions[1]->GetRange().end_key, c2e->GetRange().end_key);
   }
 
   {
@@ -646,12 +646,12 @@ TEST_F(SDKMetaCacheTest, ScanRegionsBetweenContinuousRangeMultipleRegionFromCach
     EXPECT_EQ(regions.size(), 2);
 
     EXPECT_EQ(regions[0]->RegionId(), c2e->RegionId());
-    EXPECT_EQ(regions[0]->Range().start_key(), c2e->Range().start_key());
-    EXPECT_EQ(regions[0]->Range().end_key(), c2e->Range().end_key());
+    EXPECT_EQ(regions[0]->GetRange().start_key, c2e->GetRange().start_key);
+    EXPECT_EQ(regions[0]->GetRange().end_key, c2e->GetRange().end_key);
 
     EXPECT_EQ(regions[1]->RegionId(), e2g->RegionId());
-    EXPECT_EQ(regions[1]->Range().start_key(), e2g->Range().start_key());
-    EXPECT_EQ(regions[1]->Range().end_key(), e2g->Range().end_key());
+    EXPECT_EQ(regions[1]->GetRange().start_key, e2g->GetRange().start_key);
+    EXPECT_EQ(regions[1]->GetRange().end_key, e2g->GetRange().end_key);
   }
 }
 
@@ -678,16 +678,16 @@ TEST_F(SDKMetaCacheTest, ScanRegionsBetweenContinuousRangeMultipleRegionFromRemo
     EXPECT_EQ(regions.size(), 3);
 
     EXPECT_EQ(regions[0]->RegionId(), a2c->RegionId());
-    EXPECT_EQ(regions[0]->Range().start_key(), a2c->Range().start_key());
-    EXPECT_EQ(regions[0]->Range().end_key(), a2c->Range().end_key());
+    EXPECT_EQ(regions[0]->GetRange().start_key, a2c->GetRange().start_key);
+    EXPECT_EQ(regions[0]->GetRange().end_key, a2c->GetRange().end_key);
 
     EXPECT_EQ(regions[1]->RegionId(), c2e->RegionId());
-    EXPECT_EQ(regions[1]->Range().start_key(), c2e->Range().start_key());
-    EXPECT_EQ(regions[1]->Range().end_key(), c2e->Range().end_key());
+    EXPECT_EQ(regions[1]->GetRange().start_key, c2e->GetRange().start_key);
+    EXPECT_EQ(regions[1]->GetRange().end_key, c2e->GetRange().end_key);
 
     EXPECT_EQ(regions[2]->RegionId(), e2g->RegionId());
-    EXPECT_EQ(regions[2]->Range().start_key(), e2g->Range().start_key());
-    EXPECT_EQ(regions[2]->Range().end_key(), e2g->Range().end_key());
+    EXPECT_EQ(regions[2]->GetRange().start_key, e2g->GetRange().start_key);
+    EXPECT_EQ(regions[2]->GetRange().end_key, e2g->GetRange().end_key);
   }
 
   {
@@ -697,12 +697,12 @@ TEST_F(SDKMetaCacheTest, ScanRegionsBetweenContinuousRangeMultipleRegionFromRemo
     EXPECT_EQ(regions.size(), 2);
 
     EXPECT_EQ(regions[0]->RegionId(), a2c->RegionId());
-    EXPECT_EQ(regions[0]->Range().start_key(), a2c->Range().start_key());
-    EXPECT_EQ(regions[0]->Range().end_key(), a2c->Range().end_key());
+    EXPECT_EQ(regions[0]->GetRange().start_key, a2c->GetRange().start_key);
+    EXPECT_EQ(regions[0]->GetRange().end_key, a2c->GetRange().end_key);
 
     EXPECT_EQ(regions[1]->RegionId(), c2e->RegionId());
-    EXPECT_EQ(regions[1]->Range().start_key(), c2e->Range().start_key());
-    EXPECT_EQ(regions[1]->Range().end_key(), c2e->Range().end_key());
+    EXPECT_EQ(regions[1]->GetRange().start_key, c2e->GetRange().start_key);
+    EXPECT_EQ(regions[1]->GetRange().end_key, c2e->GetRange().end_key);
   }
 
   {
@@ -712,12 +712,12 @@ TEST_F(SDKMetaCacheTest, ScanRegionsBetweenContinuousRangeMultipleRegionFromRemo
     EXPECT_EQ(regions.size(), 2);
 
     EXPECT_EQ(regions[0]->RegionId(), c2e->RegionId());
-    EXPECT_EQ(regions[0]->Range().start_key(), c2e->Range().start_key());
-    EXPECT_EQ(regions[0]->Range().end_key(), c2e->Range().end_key());
+    EXPECT_EQ(regions[0]->GetRange().start_key, c2e->GetRange().start_key);
+    EXPECT_EQ(regions[0]->GetRange().end_key, c2e->GetRange().end_key);
 
     EXPECT_EQ(regions[1]->RegionId(), e2g->RegionId());
-    EXPECT_EQ(regions[1]->Range().start_key(), e2g->Range().start_key());
-    EXPECT_EQ(regions[1]->Range().end_key(), e2g->Range().end_key());
+    EXPECT_EQ(regions[1]->GetRange().start_key, e2g->GetRange().start_key);
+    EXPECT_EQ(regions[1]->GetRange().end_key, e2g->GetRange().end_key);
   }
 }
 

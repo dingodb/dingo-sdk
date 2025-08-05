@@ -87,7 +87,7 @@ void RawKvBatchGetTask::DoAsync() {
     auto region = iter->second;
 
     auto rpc = std::make_unique<KvBatchGetRpc>();
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->Epoch());
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->GetEpoch());
     for (const auto& key : entry.second) {
       auto* fill = rpc->MutableRequest()->add_keys();
       *fill = key;

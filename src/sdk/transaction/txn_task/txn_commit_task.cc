@@ -93,7 +93,7 @@ void TxnCommitTask::DoAsync() {
     rpc->MutableRequest()->Clear();
     rpc->MutableRequest()->set_start_ts(txn_impl_->GetStartTs());
     rpc->MutableRequest()->set_commit_ts(txn_impl_->GetCommitTs());
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch(),
                    ToIsolationLevel(txn_impl_->GetOptions().isolation));
 
     for (const auto& key : entry.second) {
@@ -108,7 +108,7 @@ void TxnCommitTask::DoAsync() {
         rpc = std::make_unique<TxnCommitRpc>();
         rpc->MutableRequest()->set_start_ts(txn_impl_->GetStartTs());
         rpc->MutableRequest()->set_commit_ts(txn_impl_->GetCommitTs());
-        FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
+        FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch(),
                        ToIsolationLevel(txn_impl_->GetOptions().isolation));
       }
       auto* fill = rpc->MutableRequest()->add_keys();

@@ -53,15 +53,25 @@ class StoreRpcController {
 
   // backoff
   void MaybeDelay();
-  bool NeedDelay() const;
-
   bool PickNextLeader(EndPoint& leader);
 
   RegionPtr ProcessStoreRegionInfo(const pb::error::StoreRegionInfo& store_region_info);
 
-  bool NeedRetry() const;
+  // below funciton only works for store rpc controller
+  bool NeedPickLeader() {
+    return !rpc_.GetEndPoint().IsValid() || status_.IsNetworkError() || status_.IsNotLeader() || status_.IsNoLeader();
+  }
 
-  bool NeedPickLeader() const;
+  static bool IsUniversalNeedRetryError(const Status& status) {
+    return status.IsNetworkError() || status.IsRemoteError() || status.IsNotLeader() || status.IsNoLeader();
+  }
+
+  static bool IsTxnNeedRetryError(const Status& status) { return status.IsTxnMemLockConflict(); }
+
+  static bool NeedDelay(const Status& status) {
+    return status.IsRemoteError() || status.IsNoLeader() || status.IsTxnMemLockConflict();
+  }
+  // above funciton only works for store rpc controller
 
   static const pb::error::Error& GetResponseError(Rpc& rpc);
 

@@ -79,13 +79,13 @@ Status MetaCache::LookupRegionBetweenRange(std::string_view start_key, std::stri
 
     s = FastLookUpRegionByKeyUnlocked(start_key, region);
     if (s.IsOK()) {
-      CHECK(end_key > region->Range().start_key())
+      CHECK(end_key > region->GetRange().start_key)
           << "end_key should greater than region start_key, end_key:" << StringToHex(end_key)
-          << " region start_key:" << StringToHex(region->Range().start_key());
+          << " region start_key:" << StringToHex(region->GetRange().start_key);
 
-      DINGO_LOG_IF(WARNING, start_key < region->Range().start_key())
+      DINGO_LOG_IF(WARNING, start_key < region->GetRange().start_key)
           << "start_key is less than region start_key, start_key:" << StringToHex(start_key)
-          << " region start_key:" << StringToHex(region->Range().start_key());
+          << " region start_key:" << StringToHex(region->GetRange().start_key);
       return s;
     }
   }
@@ -94,13 +94,13 @@ Status MetaCache::LookupRegionBetweenRange(std::string_view start_key, std::stri
   s = ScanRegionsBetweenRange(start_key, end_key, kPrefetchRegionCount, regions);
   if (s.IsOK() && !regions.empty()) {
     region = std::move(regions.front());
-    CHECK(end_key > region->Range().start_key())
+    CHECK(end_key > region->GetRange().start_key)
         << "end_key should greater than region start_key, end_key:" << StringToHex(end_key)
-        << " region start_key:" << StringToHex(region->Range().start_key());
+        << " region start_key:" << StringToHex(region->GetRange().start_key);
 
-    DINGO_LOG_IF(WARNING, start_key < region->Range().start_key())
+    DINGO_LOG_IF(WARNING, start_key < region->GetRange().start_key)
         << "start_key is less than region start_key, start_key:" << StringToHex(start_key)
-        << " region start_key:" << StringToHex(region->Range().start_key());
+        << " region start_key:" << StringToHex(region->GetRange().start_key);
   }
 
   return s;
@@ -118,13 +118,13 @@ Status MetaCache::LookupRegionBetweenRangeNoPrefetch(std::string_view start_key,
 
     s = FastLookUpRegionByKeyUnlocked(start_key, region);
     if (s.IsOK()) {
-      CHECK(end_key > region->Range().start_key())
+      CHECK(end_key > region->GetRange().start_key)
           << "end_key should greater than region start_key, end_key:" << StringToHex(end_key)
-          << " region start_key:" << StringToHex(region->Range().start_key());
+          << " region start_key:" << StringToHex(region->GetRange().start_key);
 
-      DINGO_LOG_IF(WARNING, start_key < region->Range().start_key())
+      DINGO_LOG_IF(WARNING, start_key < region->GetRange().start_key)
           << "start_key is less than region start_key, start_key:" << StringToHex(start_key)
-          << " region start_key:" << StringToHex(region->Range().start_key());
+          << " region start_key:" << StringToHex(region->GetRange().start_key);
       return s;
     }
   }
@@ -133,13 +133,13 @@ Status MetaCache::LookupRegionBetweenRangeNoPrefetch(std::string_view start_key,
   s = ScanRegionsBetweenRange(start_key, end_key, 1, regions);
   if (s.IsOK() && !regions.empty()) {
     region = std::move(regions.front());
-    CHECK(end_key > region->Range().start_key())
+    CHECK(end_key > region->GetRange().start_key)
         << "end_key should greater than region start_key, end_key:" << StringToHex(end_key)
-        << " region start_key:" << StringToHex(region->Range().start_key());
+        << " region start_key:" << StringToHex(region->GetRange().start_key);
 
-    DINGO_LOG_IF(WARNING, start_key < region->Range().start_key())
+    DINGO_LOG_IF(WARNING, start_key < region->GetRange().start_key)
         << "start_key is less than region start_key, start_key:" << StringToHex(start_key)
-        << " region start_key:" << StringToHex(region->Range().start_key());
+        << " region start_key:" << StringToHex(region->GetRange().start_key);
   }
 
   return s;
@@ -175,7 +175,7 @@ Status MetaCache::ScanRegionsBetweenContinuousRange(std::string_view start_key, 
       auto end_iter = region_by_key_.lower_bound(end_key);
       if (end_iter != region_by_key_.begin()) {
         end_iter--;
-        if (end_iter->second->Range().end_key() == end_key) {
+        if (end_iter->second->GetRange().end_key == end_key) {
           auto iter = start_iter;
           while (iter != end_iter) {
             to_return.push_back(iter->second);
@@ -190,8 +190,8 @@ Status MetaCache::ScanRegionsBetweenContinuousRange(std::string_view start_key, 
   if (!to_return.empty()) {
     if (to_return.size() == 1) {
       auto& find = to_return[0];
-      CHECK_EQ(find->Range().start_key(), start_key);
-      CHECK_EQ(find->Range().end_key(), end_key);
+      CHECK_EQ(find->GetRange().start_key, start_key);
+      CHECK_EQ(find->GetRange().end_key, end_key);
       regions.swap(to_return);
       return Status::OK();
     } else {
@@ -202,7 +202,7 @@ Status MetaCache::ScanRegionsBetweenContinuousRange(std::string_view start_key, 
 
       bool continues = true;
       while (next != to_return.end()) {
-        if ((*cur)->Range().end_key() != (*next)->Range().start_key()) {
+        if ((*cur)->GetRange().end_key != (*next)->GetRange().start_key) {
           continues = false;
           break;
         }
@@ -263,7 +263,7 @@ void MetaCache::ClearCache() {
 }
 
 void MetaCache::MaybeAddRegion(const std::shared_ptr<Region>& new_region) {
-  if (new_region->range_.start_key() >= new_region->range_.end_key()) {
+  if (new_region->range_.start_key >= new_region->range_.end_key) {
     DINGO_LOG(WARNING) << "err : region start_key >= region end_key\n" << new_region->ToString();
     return;
   }
@@ -301,14 +301,14 @@ Status MetaCache::FastLookUpRegionByKeyUnlocked(std::string_view key, std::share
   auto found_region = iter->second;
   CHECK(!found_region->IsStale());
 
-  auto range = found_region->Range();
-  CHECK(key >= range.start_key()) << fmt::format("key:{} is less than range start_key:{}, region:{}", StringToHex(key),
-                                                 StringToHex(range.start_key()), found_region->ToString());
+  auto range = found_region->GetRange();
+  CHECK(key >= range.start_key) << fmt::format("key:{} is less than range start_key:{}, region:{}", StringToHex(key),
+                                               StringToHex(range.start_key), found_region->ToString());
 
-  if (key >= range.end_key()) {
+  if (key >= range.end_key) {
     std::string msg = fmt::format(
         "not found region for key:{} in cache, key is out of bounds, nearest found_region:{} range:({}-{})",
-        StringToHex(key), found_region->RegionId(), StringToHex(range.start_key()), StringToHex(range.end_key()));
+        StringToHex(key), found_region->RegionId(), StringToHex(range.start_key), StringToHex(range.end_key));
 
     DINGO_LOG(DEBUG) << msg;
     return Status::NotFound(msg);
@@ -481,7 +481,7 @@ void MetaCache::ProcesssQueryRegion(const pb::common::Region& query_region, std:
 }
 
 bool MetaCache::NeedUpdateRegion(const std::shared_ptr<Region>& old_region, const std::shared_ptr<Region>& new_region) {
-  return EpochCompare(old_region->Epoch(), new_region->Epoch()) > 0;
+  return EpochCompare(old_region->GetEpoch(), new_region->GetEpoch()) > 0;
 }
 
 void MetaCache::RemoveRegionUnlocked(int64_t region_id) {
@@ -492,13 +492,13 @@ void MetaCache::RemoveRegionUnlocked(int64_t region_id) {
   region->MarkStale();
   region_by_id_.erase(iter);
 
-  CHECK(region_by_key_.erase(region->Range().start_key()) == 1);
+  CHECK(region_by_key_.erase(region->GetRange().start_key) == 1);
 
   DINGO_LOG(DEBUG) << "remove region and mark stale, region_id:" << region_id << ", region: " << region->ToString();
 }
 
 void MetaCache::AddRangeToCacheUnlocked(const std::shared_ptr<Region>& region) {
-  auto region_start_key = region->Range().start_key();
+  auto region_start_key = region->GetRange().start_key;
 
   std::vector<std::shared_ptr<Region>> to_removes;
   auto key_iter = region_by_key_.lower_bound(region_start_key);
@@ -506,19 +506,19 @@ void MetaCache::AddRangeToCacheUnlocked(const std::shared_ptr<Region>& region) {
   // remove before range when end_key > region_start_key
   if (key_iter != region_by_key_.begin()) {
     key_iter--;
-    auto to_remove_start_key = key_iter->second->Range().start_key();
+    auto to_remove_start_key = key_iter->second->GetRange().start_key;
     CHECK(to_remove_start_key < region_start_key)
         << "to_remove_start_key:" << to_remove_start_key << " expect le:" << region_start_key;
 
-    if (key_iter->second->Range().end_key() > region_start_key) {
+    if (key_iter->second->GetRange().end_key > region_start_key) {
       to_removes.emplace_back(key_iter->second);
     }
     key_iter++;
   }
 
-  auto region_end_key = region->Range().end_key();
+  auto region_end_key = region->GetRange().end_key;
   // remove ranges which  region_start_key <= start_key < region_end_key
-  while (key_iter != region_by_key_.end() && key_iter->second->Range().start_key() < region_end_key) {
+  while (key_iter != region_by_key_.end() && key_iter->second->GetRange().start_key < region_end_key) {
     to_removes.emplace_back(key_iter->second);
     key_iter++;
   }
@@ -529,7 +529,7 @@ void MetaCache::AddRangeToCacheUnlocked(const std::shared_ptr<Region>& region) {
 
   // add region to cache
   CHECK(region_by_id_.insert(std::make_pair(region->RegionId(), region)).second);
-  CHECK(region_by_key_.insert(std::make_pair(region->Range().start_key(), region)).second);
+  CHECK(region_by_key_.insert(std::make_pair(region->GetRange().start_key, region)).second);
 
   region->UnMarkStale();
 

@@ -92,7 +92,8 @@ std::string VectorIndex::ToString(bool verbose) const {
 bool VectorIndex::ExistRegion(std::shared_ptr<Region> region) const {
   for (const auto& it : part_id_to_range_) {
     auto index_range = it.second;
-    if (region->Range().start_key() >= index_range.start_key() && region->Range().end_key() <= index_range.end_key()) {
+    if (region->GetRange().start_key >= index_range.start_key() &&
+        region->GetRange().end_key <= index_range.end_key()) {
       return true;
     }
   }

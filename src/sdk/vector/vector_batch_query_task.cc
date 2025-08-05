@@ -84,7 +84,7 @@ void VectorBatchQueryTask::DoAsync() {
     auto region = iter->second;
 
     auto rpc = std::make_unique<VectorBatchQueryRpc>();
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->Epoch());
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->GetEpoch());
     // TODO: extract fuction
     rpc->MutableRequest()->set_without_vector_data(!query_param_.with_vector_data);
     rpc->MutableRequest()->set_without_scalar_data(!query_param_.with_scalar_data);

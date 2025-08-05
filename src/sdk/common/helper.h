@@ -19,10 +19,12 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <string>
 
 #include "common/logging.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
+#include "proto/common.pb.h"
 #include "proto/meta.pb.h"
 #include "sdk/client_stub.h"
 #include "sdk/rpc/store_rpc_controller.h"
@@ -177,6 +179,101 @@ static std::string StringToHex(const std::string_view& str) {
     ss << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(static_cast<unsigned char>(ch));
   }
   return ss.str();
+}
+
+static StoreType PBStoreTypeToStoreType(pb::common::StoreType pb_store_type) {
+  switch (pb_store_type) {
+    case pb::common::StoreType::NODE_TYPE_STORE:
+      return StoreType::kNodeStore;
+    case pb::common::StoreType::NODE_TYPE_INDEX:
+      return StoreType::kNodeIndex;
+    case pb::common::StoreType::NODE_TYPE_DOCUMENT:
+      return StoreType::kNodeDocument;
+    default:
+      return StoreType::kNodeNone;
+  }
+}
+
+static RegionType PBRegionTypeToRegionType(pb::common::RegionType pb_region_type) {
+  switch (pb_region_type) {
+    case pb::common::RegionType::STORE_REGION:
+      return RegionType::kRegionStore;
+    case pb::common::RegionType::INDEX_REGION:
+      return RegionType::kRegionIndex;
+    case pb::common::RegionType::DOCUMENT_REGION:
+      return RegionType::kRegionDocument;
+    default:
+      DINGO_LOG(ERROR) << fmt::format("Unknown region type: {}", static_cast<int>(pb_region_type));
+      return RegionType::kRegionNone;
+  }
+}
+
+static pb::common::StoreType StoreTypeToPBStoreType(StoreType store_type) {
+  switch (store_type) {
+    case StoreType::kNodeStore:
+      return pb::common::StoreType::NODE_TYPE_STORE;
+    case StoreType::kNodeIndex:
+      return pb::common::StoreType::NODE_TYPE_INDEX;
+    case StoreType::kNodeDocument:
+      return pb::common::StoreType::NODE_TYPE_DOCUMENT;
+    default:
+      DINGO_LOG(ERROR) << fmt::format("Unknown store type: {}", static_cast<int>(store_type));
+      return pb::common::StoreType::NODE_TYPE_STORE;
+  }
+}
+
+static StoreState PBStoreStateToStoreState(pb::common::StoreState pb_store_state) {
+  switch (pb_store_state) {
+    case pb::common::StoreState::STORE_NEW:
+      return StoreState::kStoreNew;
+    case pb::common::StoreState::STORE_NORMAL:
+      return StoreState::kStoreNormal;
+    case pb::common::StoreState::STORE_OFFLINE:
+      return StoreState::kStoreOffline;
+    default:
+      DINGO_LOG(ERROR) << fmt::format("Unknown store state: {}", static_cast<int>(pb_store_state));
+      return StoreState::kStoreNew;
+  }
+}
+
+static StoreInState PBStoreInStateToStoreInState(pb::common::StoreInState pb_store_in_state) {
+  switch (pb_store_in_state) {
+    case pb::common::StoreInState::STORE_IN:
+      return StoreInState::kStoreIn;
+    case pb::common::StoreInState::STORE_OUT:
+      return StoreInState::kStoreOut;
+    default:
+      DINGO_LOG(ERROR) << fmt::format("Unknown store in state: {}", static_cast<int>(pb_store_in_state));
+      return StoreInState::kStoreOut;
+  }
+}
+
+static std::string RegionTypeToString(RegionType region_type) {
+  switch (region_type) {
+    case RegionType::kRegionStore:
+      return "Store";
+    case RegionType::kRegionIndex:
+      return "Index";
+    case RegionType::kRegionDocument:
+      return "Document";
+    default:
+      DINGO_LOG(ERROR) << fmt::format("Unknown region type: {}", static_cast<int>(region_type));
+      return "Unknown";
+  }
+}
+
+static pb::common::RegionType RegionTypeToPBRegionType(RegionType region_type) {
+  switch (region_type) {
+    case RegionType::kRegionStore:
+      return pb::common::RegionType::STORE_REGION;
+    case RegionType::kRegionIndex:
+      return pb::common::RegionType::INDEX_REGION;
+    case RegionType::kRegionDocument:
+      return pb::common::RegionType::DOCUMENT_REGION;
+    default:
+      DINGO_LOG(ERROR) << fmt::format("Unknown region type: {}", static_cast<int>(region_type));
+      return pb::common::RegionType::STORE_REGION;
+  }
 }
 
 }  // namespace sdk

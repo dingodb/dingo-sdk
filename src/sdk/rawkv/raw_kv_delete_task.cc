@@ -33,7 +33,7 @@ void RawKvDeleteTask::DoAsync() {
   }
 
   rpc_.MutableRequest()->Clear();
-  FillRpcContext(*rpc_.MutableRequest()->mutable_context(), region->RegionId(), region->Epoch());
+  FillRpcContext(*rpc_.MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch());
   auto* fill = rpc_.MutableRequest()->add_keys();
   *fill = key_;
 

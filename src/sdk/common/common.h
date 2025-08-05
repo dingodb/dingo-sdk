@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "common/logging.h"
+#include "dingosdk/metric.h"
 #include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "google/protobuf/message.h"
@@ -40,6 +41,26 @@ namespace sdk {
 
 enum LogLevel { kDEBUG = 0, kINFO = 1, kWARNING = 2, kERROR = 3, kFATAL = 4 };
 
+struct Range {
+  std::string start_key;
+  std::string end_key;
+  explicit Range(const std::string& start, const std::string& end) : start_key(start), end_key(end) {}
+
+  Range() = delete;
+
+  std::string ToString() const { return fmt::format("Range(start_key: {}, end_key: {})", start_key, end_key); }
+};
+
+struct RegionEpoch {
+  int64_t version;
+  int64_t conf_version;
+  explicit RegionEpoch(int64_t v, int64_t cv) : version(v), conf_version(cv) {}
+  RegionEpoch() = delete;
+  std::string ToString() const {
+    return fmt::format("RegionEpoch(version: {}, conf_version: {})", version, conf_version);
+  }
+};
+
 static int64_t Tso2Timestamp(pb::meta::TsoTimestamp tso) {
   return (tso.physical() << kPhysicalShiftBits) + tso.logical();
 }
@@ -47,22 +68,22 @@ static int64_t Tso2Timestamp(pb::meta::TsoTimestamp tso) {
 // if a == b, return 0
 // if a < b, return 1
 // if a > b, return -1
-static int EpochCompare(const pb::common::RegionEpoch& a, const pb::common::RegionEpoch& b) {
-  if (b.version() > a.version()) {
+static int EpochCompare(const RegionEpoch& a, const RegionEpoch& b) {
+  if (b.version > a.version) {
     return 1;
   }
 
-  if (b.version() < a.version()) {
+  if (b.version < a.version) {
     return -1;
   }
 
   // below version equal
 
-  if (b.conf_version() > a.conf_version()) {
+  if (b.conf_version > a.conf_version) {
     return 1;
   }
 
-  if (b.conf_version() < a.conf_version()) {
+  if (b.conf_version < a.conf_version) {
     return -1;
   }
 
@@ -70,19 +91,20 @@ static int EpochCompare(const pb::common::RegionEpoch& a, const pb::common::Regi
   return 0;
 }
 
-static void FillRpcContext(pb::store::Context& context, const int64_t region_id, const pb::common::RegionEpoch& epoch) {
+static void FillRpcContext(pb::store::Context& context, const int64_t region_id, const RegionEpoch& epoch) {
   context.set_region_id(region_id);
-  *context.mutable_region_epoch() = epoch;
+  context.mutable_region_epoch()->set_version(epoch.version);
+  context.mutable_region_epoch()->set_conf_version(epoch.conf_version);
 }
 
-static void FillRpcContext(pb::store::Context& context, const int64_t region_id, const pb::common::RegionEpoch& epoch,
+static void FillRpcContext(pb::store::Context& context, const int64_t region_id, const RegionEpoch& epoch,
                            const pb::store::IsolationLevel isolation) {
   FillRpcContext(context, region_id, epoch);
 
   context.set_isolation_level(isolation);
 }
 
-static void FillRpcContext(pb::store::Context& context, const int64_t region_id, const pb::common::RegionEpoch& epoch,
+static void FillRpcContext(pb::store::Context& context, const int64_t region_id, const RegionEpoch& epoch,
                            const std::vector<uint64_t>& resolved_locks, const pb::store::IsolationLevel isolation) {
   FillRpcContext(context, region_id, epoch, isolation);
 
@@ -141,12 +163,6 @@ static void TraceRpcPerformance(int64_t elapse_time, const std::string& method_n
     }
   }
 }
-
-static bool IsUniversalNeedRetryError(Status status) {
-  return status.IsNetworkError() || status.IsRemoteError() || status.IsNotLeader() || status.IsNoLeader();
-}
-
-static bool IsTxnNeedRetryError(Status status) { return status.IsTxnMemLockConflict(); }
 
 }  // namespace sdk
 }  // namespace dingodb

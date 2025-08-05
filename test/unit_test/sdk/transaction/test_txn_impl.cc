@@ -103,7 +103,8 @@ TEST_F(SDKTxnImplTest, Get) {
     auto context = request->context();
     EXPECT_EQ(context.region_id(), region->RegionId());
     EXPECT_TRUE(context.has_region_epoch());
-    EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
+    EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                              region->GetEpoch()));
 
     EXPECT_EQ(request->key(), key);
     EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());

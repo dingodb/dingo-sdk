@@ -86,7 +86,7 @@ void DocumentDeleteTask::DoAsync() {
     auto region = iter->second;
 
     auto rpc = std::make_unique<DocumentDeleteRpc>();
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->Epoch());
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->GetEpoch());
 
     for (const auto& id : entry.second) {
       rpc->MutableRequest()->add_ids(id);

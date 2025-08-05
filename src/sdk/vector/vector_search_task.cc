@@ -226,7 +226,7 @@ void VectorSearchPartTask::DoAsync() {
 
 void VectorSearchPartTask::FillVectorSearchRpcRequest(pb::index::VectorSearchRequest* request,
                                                       const std::shared_ptr<Region>& region) {
-  FillRpcContext(*request->mutable_context(), region->RegionId(), region->Epoch());
+  FillRpcContext(*request->mutable_context(), region->RegionId(), region->GetEpoch());
   *(request->mutable_parameter()) = search_parameter_;
   for (const auto& vector_id : target_vectors_) {
     // NOTE* vector_id is useless
@@ -300,7 +300,7 @@ void VectorSearchPartTask::SearchByBruteForce() {
     CHECK(region_id_to_region_index_.find(region_id) != region_id_to_region_index_.end());
     auto region_index = region_id_to_region_index_[region_id];
     auto region = regions_[region_index];
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch());
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch());
     *(rpc->MutableRequest()->mutable_parameter()) = paramer;
     for (const auto& vector_id : target_vectors_) {
       FillVectorWithIdPB(rpc->MutableRequest()->add_vector_with_ids(), vector_id, false);

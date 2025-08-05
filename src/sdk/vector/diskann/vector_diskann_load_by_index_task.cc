@@ -115,7 +115,7 @@ void VectorLoadPartTask::DoAsync() {
 
   for (const auto& region : regions) {
     auto rpc = std::make_unique<VectorLoadRpc>();
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch());
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch());
     *(rpc->MutableRequest()->mutable_parameter()) = param_;
     StoreRpcController controller(stub, *rpc, region);
     controllers_.push_back(controller);

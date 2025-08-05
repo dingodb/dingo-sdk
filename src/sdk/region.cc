@@ -23,9 +23,9 @@ namespace sdk {
 Region::Region(int64_t id, pb::common::Range range, pb::common::RegionEpoch epoch, pb::common::RegionType type,
                std::vector<Replica> replicas)
     : region_id_(id),
-      range_(std::move(range)),
-      epoch_(std::move(epoch)),
-      region_type_(type),
+      range_(range.start_key(), range.end_key()),
+      epoch_(epoch.version(), epoch.conf_version()),
+      region_type_(PBRegionTypeToRegionType(type)),
       replicas_(std::move(replicas)),
       stale_(true) {
   for (auto& r : replicas_) {
@@ -122,9 +122,9 @@ std::string Region::ToString() {
   ReadLockGuard guard(rw_lock_);
 
   // region_id, start_key-end_key, version, config_version, type, replicas
-  return fmt::format("({}, [{}-{}], [{},{}], {}, {})", region_id_, StringToHex(range_.start_key()),
-                     StringToHex(range_.end_key()), epoch_.version(), epoch_.conf_version(),
-                     RegionType_Name(region_type_), ReplicasAsStringUnlocked());
+  return fmt::format("({}, [{}-{}], [{},{}], {}, {})", region_id_, StringToHex(range_.start_key),
+                     StringToHex(range_.end_key), epoch_.version, epoch_.conf_version, RegionTypeToString(region_type_),
+                     ReplicasAsStringUnlocked());
 }
 
 }  // namespace sdk

@@ -89,7 +89,7 @@ void DocumentBatchQueryTask::DoAsync() {
     auto region = iter->second;
 
     auto rpc = std::make_unique<DocumentBatchQueryRpc>();
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->Epoch());
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->GetEpoch());
     rpc->MutableRequest()->set_without_scalar_data(!query_param_.with_scalar_data);
 
     if (query_param_.with_scalar_data) {

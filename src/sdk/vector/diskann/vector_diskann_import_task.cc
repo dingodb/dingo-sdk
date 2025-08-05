@@ -111,7 +111,7 @@ void VectorImportAddTask::DoAsync() {
     auto region = iter->second;
 
     auto rpc = std::make_unique<VectorImportRpc>();
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->Epoch());
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->GetEpoch());
 
     for (const auto& id : entry.second) {
       int64_t idx = vector_id_to_idx_[id];
@@ -234,7 +234,7 @@ void VectorImportDeleteTask::DoAsync() {
     auto region = iter->second;
 
     auto rpc = std::make_unique<VectorImportRpc>();
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->Epoch());
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->GetEpoch());
 
     for (const auto& id : entry.second) {
       rpc->MutableRequest()->add_delete_ids(id);

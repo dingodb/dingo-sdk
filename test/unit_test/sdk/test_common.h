@@ -20,11 +20,11 @@
 #include <ctime>
 #include <string>
 
-#include "sdk/common/common.h"
 #include "proto/common.pb.h"
 #include "proto/error.pb.h"
 #include "proto/meta.pb.h"
 #include "proto/store.pb.h"
+#include "sdk/common/common.h"
 #include "sdk/region.h"
 #include "sdk/utils/net_util.h"
 
@@ -139,10 +139,12 @@ static void Region2ScanRegionInfo(const std::shared_ptr<Region>& region,
   scan_region_info->set_region_id(region->RegionId());
 
   auto* range = scan_region_info->mutable_range();
-  *range = region->Range();
+  range->set_start_key(region->GetRange().start_key);
+  range->set_end_key(region->GetRange().end_key);
 
   auto* epoch = scan_region_info->mutable_region_epoch();
-  *epoch = region->Epoch();
+  epoch->set_version(region->GetEpoch().version);
+  epoch->set_conf_version(region->GetEpoch().conf_version);
 
   auto replicas = region->Replicas();
   for (const auto& r : replicas) {
@@ -161,10 +163,12 @@ static void Region2StoreRegionInfo(const std::shared_ptr<Region>& region,
   store_region_info->set_region_id(region->RegionId());
 
   auto* epoch = store_region_info->mutable_current_region_epoch();
-  *epoch = region->Epoch();
+  epoch->set_version(region->GetEpoch().version);
+  epoch->set_conf_version(region->GetEpoch().conf_version);
 
   auto* range = store_region_info->mutable_current_range();
-  *range = region->Range();
+  range->set_start_key(region->GetRange().start_key);
+  range->set_end_key(region->GetRange().end_key);
 
   auto replicas = region->Replicas();
   for (const auto& r : replicas) {

@@ -45,7 +45,7 @@ void TxnCheckStatusTask::DoAsync() {
     return;
   }
 
-  FillRpcContext(*rpc_.MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
+  FillRpcContext(*rpc_.MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch(),
                  pb::store::IsolationLevel::SnapshotIsolation);
   rpc_.MutableRequest()->set_primary_key(primary_key_);
   rpc_.MutableRequest()->set_lock_ts(lock_ts_);
