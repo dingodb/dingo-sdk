@@ -64,7 +64,7 @@ std::unique_ptr<TxnScanRpc> TxnRegionScannerImpl::GenTxnScanRpc(uint64_t resolve
   auto rpc = std::make_unique<TxnScanRpc>();
 
   rpc->MutableRequest()->set_start_ts(txn_start_ts_);
-  FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(), {resolved_lock},
+  FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch(), {resolved_lock},
                  ToIsolationLevel(txn_options_.isolation));
 
   auto* range_with_option = rpc->MutableRequest()->mutable_range();
@@ -169,11 +169,11 @@ Status TxnRegionScannerFactoryImpl::NewRegionScanner(const ScannerOptions& optio
   }
 
   CHECK(options.start_key < options.end_key);
-  CHECK(options.start_key >= options.region->Range().start_key())
+  CHECK(options.start_key >= options.region->GetRange().start_key)
       << fmt::format("start_key({}) should greater than region range start_key({})", options.start_key,
-                     options.region->Range().start_key());
-  CHECK(options.end_key <= options.region->Range().end_key()) << fmt::format(
-      "end_key({}) should little than region range end_key({})", options.end_key, options.region->Range().end_key());
+                     options.region->GetRange().start_key);
+  CHECK(options.end_key <= options.region->GetRange().end_key) << fmt::format(
+      "end_key({}) should little than region range end_key({})", options.end_key, options.region->GetRange().end_key);
 
   RegionScannerPtr tmp(new TxnRegionScannerImpl(options.stub, options.region, options.txn_options.value(),
                                                 options.start_ts.value(), options.start_key, options.end_key));

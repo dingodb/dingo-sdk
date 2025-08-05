@@ -14,6 +14,7 @@
 
 #include <memory>
 
+#include "dingosdk/metric.h"
 #include "gtest/gtest.h"
 #include "sdk/common/common.h"
 #include "sdk/rpc/coordinator_rpc.h"
@@ -71,7 +72,8 @@ TEST_F(SDKTxnLockResolverTest, TxnNotFound) {
     auto context = request->context();
     EXPECT_EQ(context.region_id(), region->RegionId());
     EXPECT_TRUE(context.has_region_epoch());
-    EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
+    EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                              region->GetEpoch()));
 
     EXPECT_EQ(request->primary_key(), fake_lock.primary_lock());
     EXPECT_EQ(request->lock_ts(), fake_lock.lock_ts());
@@ -120,7 +122,8 @@ TEST_F(SDKTxnLockResolverTest, Locked) {
     auto context = request->context();
     EXPECT_EQ(context.region_id(), region->RegionId());
     EXPECT_TRUE(context.has_region_epoch());
-    EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
+    EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                              region->GetEpoch()));
 
     EXPECT_EQ(request->primary_key(), fake_lock.primary_lock());
     EXPECT_EQ(request->lock_ts(), fake_lock.lock_ts());
@@ -167,7 +170,8 @@ TEST_F(SDKTxnLockResolverTest, Committed) {
         auto context = request->context();
         EXPECT_EQ(context.region_id(), region->RegionId());
         EXPECT_TRUE(context.has_region_epoch());
-        EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
+        EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                                  region->GetEpoch()));
 
         EXPECT_EQ(request->primary_key(), fake_lock.primary_lock());
         EXPECT_EQ(request->lock_ts(), fake_lock.lock_ts());
@@ -190,7 +194,8 @@ TEST_F(SDKTxnLockResolverTest, Committed) {
         auto context = request->context();
         EXPECT_EQ(context.region_id(), region->RegionId());
         EXPECT_TRUE(context.has_region_epoch());
-        EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
+        EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                                  region->GetEpoch()));
 
         EXPECT_EQ(request->start_ts(), fake_lock.lock_ts());
         EXPECT_EQ(request->commit_ts(), Tso2Timestamp(fake_tso));
@@ -238,7 +243,8 @@ TEST_F(SDKTxnLockResolverTest, CommittedResolvePrimaryKeyFail) {
         auto context = request->context();
         EXPECT_EQ(context.region_id(), region->RegionId());
         EXPECT_TRUE(context.has_region_epoch());
-        EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
+        EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                                  region->GetEpoch()));
 
         EXPECT_EQ(request->primary_key(), fake_lock.primary_lock());
         EXPECT_EQ(request->lock_ts(), fake_lock.lock_ts());
@@ -260,7 +266,8 @@ TEST_F(SDKTxnLockResolverTest, CommittedResolvePrimaryKeyFail) {
         auto context = request->context();
         EXPECT_EQ(context.region_id(), region->RegionId());
         EXPECT_TRUE(context.has_region_epoch());
-        EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
+        EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                                  region->GetEpoch()));
 
         EXPECT_EQ(request->start_ts(), fake_lock.lock_ts());
         EXPECT_EQ(request->commit_ts(), Tso2Timestamp(fake_tso));
@@ -312,7 +319,8 @@ TEST_F(SDKTxnLockResolverTest, CommittedResolveConflictKeyFail) {
         auto context = request->context();
         EXPECT_EQ(context.region_id(), region->RegionId());
         EXPECT_TRUE(context.has_region_epoch());
-        EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
+        EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                                  region->GetEpoch()));
 
         EXPECT_EQ(request->primary_key(), fake_lock.primary_lock());
         EXPECT_EQ(request->lock_ts(), fake_lock.lock_ts());
@@ -334,7 +342,8 @@ TEST_F(SDKTxnLockResolverTest, CommittedResolveConflictKeyFail) {
         auto context = request->context();
         EXPECT_EQ(context.region_id(), region->RegionId());
         EXPECT_TRUE(context.has_region_epoch());
-        EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
+        EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                                  region->GetEpoch()));
 
         EXPECT_EQ(request->start_ts(), fake_lock.lock_ts());
         EXPECT_EQ(request->commit_ts(), Tso2Timestamp(fake_tso));
@@ -386,7 +395,8 @@ TEST_F(SDKTxnLockResolverTest, Rollbacked) {
         auto context = request->context();
         EXPECT_EQ(context.region_id(), region->RegionId());
         EXPECT_TRUE(context.has_region_epoch());
-        EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
+        EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                                  region->GetEpoch()));
 
         EXPECT_EQ(request->primary_key(), fake_lock.primary_lock());
         EXPECT_EQ(request->lock_ts(), fake_lock.lock_ts());
@@ -409,7 +419,8 @@ TEST_F(SDKTxnLockResolverTest, Rollbacked) {
         auto context = request->context();
         EXPECT_EQ(context.region_id(), region->RegionId());
         EXPECT_TRUE(context.has_region_epoch());
-        EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
+        EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                                  region->GetEpoch()));
 
         EXPECT_EQ(request->start_ts(), fake_lock.lock_ts());
         EXPECT_EQ(request->commit_ts(), 0);

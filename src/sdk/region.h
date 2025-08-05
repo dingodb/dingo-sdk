@@ -19,12 +19,14 @@
 #include <memory>
 #include <vector>
 
+#include "dingosdk/metric.h"
 #include "dingosdk/status.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
 #include "sdk/utils/net_util.h"
 #include "sdk/utils/rw_lock.h"
+#include "sdk/common/common.h"
 
 namespace dingodb {
 namespace sdk {
@@ -50,11 +52,11 @@ class Region {
 
   int64_t RegionId() const { return region_id_; }
 
-  const pb::common::Range& Range() const { return range_; }
+  const Range& GetRange() const { return range_; }
 
-  const pb::common::RegionEpoch& Epoch() const { return epoch_; }
+  const RegionEpoch& GetEpoch() const { return epoch_; }
 
-  pb::common::RegionType RegionType() const { return region_type_; }
+  RegionType GetRegionType() const { return region_type_; }
 
   std::vector<Replica> Replicas();
 
@@ -70,7 +72,7 @@ class Region {
 
   std::string ReplicasAsString();
 
-  std::string DescribeEpoch() const { return fmt::format("{},{}", epoch_.version(), epoch_.conf_version()); }
+  std::string DescribeEpoch() const { return epoch_.ToString(); }
 
   std::string ToString();
 
@@ -92,9 +94,9 @@ class Region {
   std::string ReplicasAsStringUnlocked() const;
 
   const int64_t region_id_;
-  const pb::common::Range range_;
-  const pb::common::RegionEpoch epoch_;
-  const pb::common::RegionType region_type_;
+  Range range_;
+  RegionEpoch epoch_;
+  RegionType region_type_;
 
   RWLock rw_lock_;
   EndPoint leader_addr_;

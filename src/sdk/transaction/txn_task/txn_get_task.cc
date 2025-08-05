@@ -37,7 +37,7 @@ void TxnGetTask::DoAsync() {
   rpc_.MutableRequest()->Clear();
   rpc_.MutableRequest()->set_start_ts(txn_impl_->GetStartTs());
   rpc_.MutableRequest()->set_key(key_);
-  FillRpcContext(*rpc_.MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(), {resolved_lock_},
+  FillRpcContext(*rpc_.MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch(), {resolved_lock_},
                  ToIsolationLevel(txn_impl_->GetOptions().isolation));
 
   store_rpc_controller_.ResetRegion(region);

@@ -89,8 +89,8 @@ void RawKvScanTask::ScanNext() {
   }
 
   std::string scanner_start_key =
-      next_start_key_ <= region->Range().start_key() ? region->Range().start_key() : next_start_key_;
-  std::string scanner_end_key = end_key_ <= region->Range().end_key() ? end_key_ : region->Range().end_key();
+      next_start_key_ <= region->GetRange().start_key ? region->GetRange().start_key : next_start_key_;
+  std::string scanner_end_key = end_key_ <= region->GetRange().end_key ? end_key_ : region->GetRange().end_key;
   ScannerOptions options(stub, region, scanner_start_key, scanner_end_key);
 
   std::shared_ptr<RegionScanner> scanner;
@@ -111,7 +111,7 @@ void RawKvScanTask::ScannerOpenCallback(Status status, std::shared_ptr<RegionSca
   }
 
   DINGO_LOG(INFO) << fmt::format("region:{} scan start, region range:({}-{})", region->RegionId(),
-                                 region->Range().start_key(), region->Range().end_key());
+                                 region->GetRange().start_key, region->GetRange().end_key);
 
   CHECK(scanner->HasMore());
   ScanNextWithScanner(scanner);
@@ -124,7 +124,7 @@ void RawKvScanTask::ScanNextWithScanner(std::shared_ptr<RegionScanner> scanner) 
     scanner->AsyncNextBatch(tmp_scanner_scan_kvs_,
                             [this, scanner](auto&& s) { NextBatchCallback(std::forward<decltype(s)>(s), scanner); });
   } else {
-    next_start_key_ = region->Range().end_key();
+    next_start_key_ = region->GetRange().end_key;
     DINGO_LOG(INFO) << fmt::format("region:{} scan finished, continue to scan between [{},{}), next_start:{}, ",
                                    region->RegionId(), start_key_, end_key_, next_start_key_);
     ScanNext();

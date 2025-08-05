@@ -159,7 +159,7 @@ void DocumentSearchAllPartTask::DoAsync() {
 
 void DocumentSearchAllPartTask::FillDocumentSearchAllRpcRequest(pb::document::DocumentSearchAllRequest* request,
                                                                 const std::shared_ptr<Region>& region) {
-  FillRpcContext(*request->mutable_context(), region->RegionId(), region->Epoch());
+  FillRpcContext(*request->mutable_context(), region->RegionId(), region->GetEpoch());
 
   pb::common::DocumentSearchParameter search_parameter;
   DocumentTranslater::FillInternalDocSearchAllParams(&search_parameter, search_param_);

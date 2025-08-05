@@ -178,7 +178,7 @@ void DocumentScanQueryPartTask::DoAsync() {
 
 void DocumentScanQueryPartTask::FillDocumentScanQueryRpcRequest(pb::document::DocumentScanQueryRequest* request,
                                                                 const std::shared_ptr<Region>& region) {
-  FillRpcContext(*request->mutable_context(), region->RegionId(), region->Epoch());
+  FillRpcContext(*request->mutable_context(), region->RegionId(), region->GetEpoch());
 
   request->set_document_id_start(scan_query_param_.doc_id_start);
   request->set_is_reverse_scan(scan_query_param_.is_reverse);

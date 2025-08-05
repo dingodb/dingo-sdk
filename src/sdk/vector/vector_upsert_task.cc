@@ -104,7 +104,7 @@ void VectorUpsertTask::DoAsync() {
     auto region = iter->second;
 
     auto rpc = std::make_unique<VectorAddRpc>();
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->Epoch());
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->GetEpoch());
     rpc->MutableRequest()->set_is_update(true);
 
     for (const auto& id : entry.second) {

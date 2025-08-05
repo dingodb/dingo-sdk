@@ -14,6 +14,7 @@
 
 #include <memory>
 
+#include "dingosdk/metric.h"
 #include "gtest/gtest.h"
 #include "sdk/region.h"
 #include "test_common.h"
@@ -53,11 +54,11 @@ class SDKRegionTest : public testing::Test {
 
 TEST_F(SDKRegionTest, TestInit) {
   EXPECT_EQ(region->RegionId(), 1);
-  EXPECT_EQ(region->Range().start_key(), "a");
-  EXPECT_EQ(region->Range().end_key(), "b");
-  EXPECT_EQ(region->Epoch().version(), 1);
-  EXPECT_EQ(region->Epoch().conf_version(), 1);
-  EXPECT_EQ(region->RegionType(), pb::common::STORE_REGION);
+  EXPECT_EQ(region->GetRange().start_key, "a");
+  EXPECT_EQ(region->GetRange().end_key, "b");
+  EXPECT_EQ(region->GetEpoch().version, 1);
+  EXPECT_EQ(region->GetEpoch().conf_version, 1);
+  EXPECT_EQ(region->GetRegionType(), RegionType::kRegionStore);
 
   auto end_points = region->ReplicaEndPoint();
 

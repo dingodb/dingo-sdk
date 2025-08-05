@@ -18,17 +18,17 @@
 #include <utility>
 #include <vector>
 
+#include "common/logging.h"
+#include "dingosdk/client.h"
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "mock_region_scanner.h"
-#include "dingosdk/client.h"
-#include "sdk/common/common.h"
-#include "common/logging.h"
 #include "proto/error.pb.h"
+#include "sdk/common/common.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/rpc/store_rpc.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/callback.h"
 #include "test_base.h"
 #include "test_common.h"
@@ -71,7 +71,8 @@ TEST_F(SDKRawKVTest, Get) {
     auto context = kv_get_rpc->Request()->context();
     EXPECT_EQ(context.region_id(), region->RegionId());
     EXPECT_TRUE(context.has_region_epoch());
-    EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
+    EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                              region->GetEpoch()));
 
     kv_get_rpc->MutableResponse()->set_value("pong");
     cb();
@@ -227,7 +228,8 @@ TEST_F(SDKRawKVTest, Put) {
     auto context = kv_put_rpc->Request()->context();
     EXPECT_EQ(context.region_id(), region->RegionId());
     EXPECT_TRUE(context.has_region_epoch());
-    EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
+    EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                              region->GetEpoch()));
 
     auto kv = kv_put_rpc->MutableRequest()->kv();
     EXPECT_EQ(kv.key(), key);
@@ -773,7 +775,8 @@ TEST_F(SDKRawKVTest, CompareAndSet) {
     auto context = kv_rpc->Request()->context();
     EXPECT_EQ(context.region_id(), region->RegionId());
     EXPECT_TRUE(context.has_region_epoch());
-    EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
+    EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                              region->GetEpoch()));
 
     auto kv = kv_rpc->Request()->kv();
     EXPECT_EQ(kv.key(), key);

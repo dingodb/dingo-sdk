@@ -364,13 +364,13 @@ Status TxnImpl::DoScan(const std::string& start_key, const std::string& end_key,
       }
 
       std::string amend_start_key =
-          scan_state.next_key <= region->Range().start_key() ? region->Range().start_key() : scan_state.next_key;
-      std::string amend_end_key = end_key <= region->Range().end_key() ? end_key : region->Range().end_key();
+          scan_state.next_key <= region->GetRange().start_key ? region->GetRange().start_key : scan_state.next_key;
+      std::string amend_end_key = end_key <= region->GetRange().end_key ? end_key : region->GetRange().end_key;
       CHECK(amend_start_key < amend_end_key)
           << "amend_start_key should less than amend_end_key, " << StringToHex(amend_start_key)
           << " >= " << StringToHex(amend_end_key) << " start_key:" << StringToHex(start_key)
-          << " end_key:" << StringToHex(end_key) << " region start_key:" << StringToHex(region->Range().start_key())
-          << " region end_key:" << StringToHex(region->Range().end_key());
+          << " end_key:" << StringToHex(end_key) << " region start_key:" << StringToHex(region->GetRange().start_key)
+          << " region end_key:" << StringToHex(region->GetRange().end_key);
 
       DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] scan region({}) range[{}, {}).", ID(), region->RegionId(),
                                       StringToHex(amend_start_key), StringToHex(amend_end_key));
@@ -420,7 +420,7 @@ Status TxnImpl::DoScan(const std::string& start_key, const std::string& end_key,
 
     auto region = scanner->GetRegion();
     CHECK(region != nullptr) << "region should not nullptr.";
-    scan_state.next_key = region->Range().end_key();
+    scan_state.next_key = region->GetRange().end_key;
     scanner->Close();
     scan_state.scanner = nullptr;
   }
@@ -480,17 +480,19 @@ Status TxnImpl::TryResolveTxnPreCommitConflict(const TxnPrewriteResponse* respon
 }
 
 void TxnImpl::ScheduleHeartBeat() {
-  stub_.GetActuator()->Schedule([shared_this = shared_from_this()] { shared_this->DoHeartBeat(); },
-                                FLAGS_txn_heartbeat_interval_ms);
+  stub_.GetActuator()->Schedule(
+      [shared_this = shared_from_this(), start_ts = start_ts_, primary_key = buffer_->GetPrimaryKey()] {
+        shared_this->DoHeartBeat(start_ts, primary_key);
+      },
+      FLAGS_txn_heartbeat_interval_ms);
 }
 
-void TxnImpl::DoHeartBeat() {
+void TxnImpl::DoHeartBeat(int64_t start_ts, std::string primary_key) {
   State state = state_.load();
   if (state != kPreCommitted && state != kPreCommitting) {
     return;
   }
-  std::shared_ptr<TxnHeartbeatTask> heartbeat_task =
-      std::make_shared<TxnHeartbeatTask>(stub_, start_ts_, buffer_->GetPrimaryKey());
+  std::shared_ptr<TxnHeartbeatTask> heartbeat_task = std::make_shared<TxnHeartbeatTask>(stub_, start_ts, primary_key);
   auto status = heartbeat_task->Run();
   if (status.ok()) {
     ScheduleHeartBeat();

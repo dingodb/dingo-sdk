@@ -49,7 +49,7 @@ RawKvRegionScannerImpl::~RawKvRegionScannerImpl() {
 
 void RawKvRegionScannerImpl::PrepareScanBegionRpc(KvScanBeginRpc& rpc) {
   auto* request = rpc.MutableRequest();
-  FillRpcContext(*request->mutable_context(), region->RegionId(), region->Epoch());
+  FillRpcContext(*request->mutable_context(), region->RegionId(), region->GetEpoch());
   auto* range_with_option = request->mutable_range();
   range_with_option->mutable_range()->set_start_key(start_key_);
   range_with_option->mutable_range()->set_end_key(end_key_);
@@ -98,7 +98,7 @@ Status RawKvRegionScannerImpl::Open() {
 
 void RawKvRegionScannerImpl::PrepareScanReleaseRpc(KvScanReleaseRpc& rpc) {
   auto* request = rpc.MutableRequest();
-  FillRpcContext(*request->mutable_context(), region->RegionId(), region->Epoch());
+  FillRpcContext(*request->mutable_context(), region->RegionId(), region->GetEpoch());
   request->set_scan_id(scan_id_);
 }
 
@@ -144,7 +144,7 @@ bool RawKvRegionScannerImpl::HasMore() const { return has_more_; }
 
 void RawKvRegionScannerImpl::PrepareScanContinueRpc(KvScanContinueRpc& rpc) {
   auto* request = rpc.MutableRequest();
-  FillRpcContext(*request->mutable_context(), region->RegionId(), region->Epoch());
+  FillRpcContext(*request->mutable_context(), region->RegionId(), region->GetEpoch());
   request->set_scan_id(scan_id_);
   request->set_max_fetch_cnt(batch_size_);
 }
@@ -223,11 +223,11 @@ RawKvRegionScannerFactoryImpl::~RawKvRegionScannerFactoryImpl() = default;
 Status RawKvRegionScannerFactoryImpl::NewRegionScanner(const ScannerOptions& options,
                                                        std::shared_ptr<RegionScanner>& scanner) {
   CHECK(options.start_key < options.end_key);
-  CHECK(options.start_key >= options.region->Range().start_key())
+  CHECK(options.start_key >= options.region->GetRange().start_key)
       << fmt::format("start_key:{} should greater than region range start_key:{}", options.start_key,
-                     options.region->Range().start_key());
-  CHECK(options.end_key <= options.region->Range().end_key()) << fmt::format(
-      "end_key:{} should little than region range end_key:{}", options.end_key, options.region->Range().end_key());
+                     options.region->GetRange().start_key);
+  CHECK(options.end_key <= options.region->GetRange().end_key) << fmt::format(
+      "end_key:{} should little than region range end_key:{}", options.end_key, options.region->GetRange().end_key);
 
   std::shared_ptr<RegionScanner> tmp(
       new RawKvRegionScannerImpl(options.stub, options.region, options.start_key, options.end_key));

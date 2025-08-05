@@ -14,9 +14,9 @@
 
 #include "sdk/rawkv/raw_kv_get_task.h"
 
+#include "dingosdk/status.h"
 #include "sdk/common/common.h"
 #include "sdk/rawkv/raw_kv_task.h"
-#include "dingosdk/status.h"
 
 namespace dingodb {
 namespace sdk {
@@ -34,7 +34,7 @@ void RawKvGetTask::DoAsync() {
   }
 
   rpc_.MutableRequest()->Clear();
-  FillRpcContext(*rpc_.MutableRequest()->mutable_context(), region->RegionId(), region->Epoch());
+  FillRpcContext(*rpc_.MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch());
   rpc_.MutableRequest()->set_key(key_);
 
   store_rpc_controller_.ResetRegion(region);

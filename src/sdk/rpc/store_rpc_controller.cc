@@ -23,6 +23,7 @@
 #include "proto/common.pb.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/common.h"
+#include "sdk/common/helper.h"
 #include "sdk/common/param_config.h"
 #include "sdk/utils/async_util.h"
 
@@ -100,7 +101,7 @@ void StoreRpcController::SendStoreRpc() {
 }
 
 void StoreRpcController::MaybeDelay() {
-  if (NeedDelay()) {
+  if (NeedDelay(status_)) {
     auto delay_ms = FLAGS_store_rpc_retry_delay_ms * rpc_retry_times_;
     SleepUs(delay_ms * 1000);
   }
@@ -178,7 +179,7 @@ void StoreRpcController::SendStoreRpcCallBack() {
 
 void StoreRpcController::RetrySendRpcOrFireCallback() {
   if (!status_.IsOK() && (IsUniversalNeedRetryError(status_) || IsTxnNeedRetryError(status_))) {
-    if (NeedRetry()) {
+    if (rpc_retry_times_ < FLAGS_store_rpc_max_retry) {
       rpc_retry_times_++;
       DoAsyncCall();
       return;
@@ -225,7 +226,7 @@ bool StoreRpcController::PickNextLeader(EndPoint& leader) {
 
 void StoreRpcController::ResetRegion(RegionPtr region) {
   if (region_) {
-    if (!(EpochCompare(region_->Epoch(), region->Epoch()) > 0)) {
+    if (!(EpochCompare(region_->GetEpoch(), region->GetEpoch()) > 0)) {
       DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}] reset region fail, epoch not match, {} {}.", rpc_.Method(),
                                         region->DescribeEpoch(), region_->DescribeEpoch());
     }
@@ -249,8 +250,9 @@ RegionPtr StoreRpcController::ProcessStoreRegionInfo(const pb::error::StoreRegio
     replicas.push_back({endpoint, kFollower});
   }
 
-  RegionPtr region = std::make_shared<Region>(
-      id, store_region_info.current_range(), store_region_info.current_region_epoch(), region_->RegionType(), replicas);
+  RegionPtr region =
+      std::make_shared<Region>(id, store_region_info.current_range(), store_region_info.current_region_epoch(),
+                               RegionTypeToPBRegionType(region_->GetRegionType()), replicas);
 
   EndPoint leader;
   if (region_->GetLeader(leader).IsOK()) {
@@ -259,12 +261,6 @@ RegionPtr StoreRpcController::ProcessStoreRegionInfo(const pb::error::StoreRegio
 
   return region;
 }
-
-bool StoreRpcController::NeedRetry() const { return this->rpc_retry_times_ < FLAGS_store_rpc_max_retry; }
-
-bool StoreRpcController::NeedDelay() const { return status_.IsRemoteError() || status_.IsNoLeader(); }
-
-bool StoreRpcController::NeedPickLeader() const { return !status_.IsRemoteError(); }
 
 }  // namespace sdk
 }  // namespace dingodb

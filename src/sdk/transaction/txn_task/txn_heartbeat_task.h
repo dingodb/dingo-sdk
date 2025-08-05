@@ -29,7 +29,7 @@ namespace sdk {
 
 class TxnHeartbeatTask : public TxnTask {
  public:
-  TxnHeartbeatTask(const ClientStub& stub, int64_t lock_ts, const std::string& primary_key)
+  TxnHeartbeatTask(const ClientStub& stub, int64_t lock_ts, const std::string primary_key)
       : TxnTask(stub), lock_ts_(lock_ts), primary_key_(primary_key), store_rpc_controller_(stub, rpc_) {}
 
   ~TxnHeartbeatTask() override = default;

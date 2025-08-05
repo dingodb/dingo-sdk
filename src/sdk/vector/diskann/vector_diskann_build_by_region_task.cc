@@ -98,7 +98,7 @@ void VectorBuildByRegionTask::DoAsync() {
     auto region = it.second;
     auto rpc = std::make_unique<VectorBuildRpc>();
 
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch());
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch());
 
     StoreRpcController controller(stub, *rpc, region);
     controllers_.push_back(controller);

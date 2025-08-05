@@ -88,7 +88,7 @@ void VectorResetByRegionTask::DoAsync() {
     auto region = it.second;
     auto rpc = std::make_unique<VectorResetRpc>();
 
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch());
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch());
 
     StoreRpcController controller(stub, *rpc, region);
     controllers_.push_back(controller);

@@ -171,7 +171,7 @@ void VectorScanQueryPartTask::DoAsync() {
 
 void VectorScanQueryPartTask::FillVectorScanQueryRpcRequest(pb::index::VectorScanQueryRequest* request,
                                                             const std::shared_ptr<Region>& region) {
-  FillRpcContext(*request->mutable_context(), region->RegionId(), region->Epoch());
+  FillRpcContext(*request->mutable_context(), region->RegionId(), region->GetEpoch());
 
   request->set_vector_id_start(scan_query_param_.vector_id_start);
   request->set_is_reverse_scan(scan_query_param_.is_reverse);

@@ -101,7 +101,7 @@ void VectorCountMemoryPartTask::DoAsync() {
 
   for (const auto& region : regions) {
     auto rpc = std::make_unique<VectorCountMemoryRpc>();
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch());
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch());
     StoreRpcController controller(stub, *rpc, region);
     controllers_.push_back(controller);
 

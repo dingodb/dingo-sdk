@@ -118,7 +118,7 @@ void DocumentAddTask::DoAsync() {
     auto region = iter->second;
 
     auto rpc = std::make_unique<DocumentAddRpc>();
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->Epoch());
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->GetEpoch());
 
     for (const auto& id : entry.second) {
       int64_t idx = doc_id_to_idx_[id];

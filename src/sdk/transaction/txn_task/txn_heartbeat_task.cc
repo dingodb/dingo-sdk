@@ -44,7 +44,7 @@ void TxnHeartbeatTask::DoAsync() {
     return;
   }
 
-  FillRpcContext(*rpc_.MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
+  FillRpcContext(*rpc_.MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch(),
                  pb::store::IsolationLevel::SnapshotIsolation);
   rpc_.MutableRequest()->set_start_ts(lock_ts_);
   rpc_.MutableRequest()->set_primary_lock(primary_key_);

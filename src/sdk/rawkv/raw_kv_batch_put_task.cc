@@ -83,7 +83,7 @@ void RawKvBatchPutTask::DoAsync() {
     auto region = iter->second;
 
     auto rpc = std::make_unique<KvBatchPutRpc>();
-    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->Epoch());
+    FillRpcContext(*rpc->MutableRequest()->mutable_context(), region_id, region->GetEpoch());
     for (const auto& key : entry.second) {
       auto kv = std::find_if(kvs_.begin(), kvs_.end(), [&](const KVPair& kv) { return kv.key == key; });
       CHECK(kv != kvs_.end()) << "can't find key:" << key;

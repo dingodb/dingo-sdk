@@ -98,13 +98,13 @@ void VectorCountTask::SubTaskCallback(Status status, VectorCountPartTask* sub_ta
   }
 }
 
-static void DecodeRangeToVectorId(const pb::common::Range& range, int64_t& begin_vector_id, int64_t& end_vector_id) {
-  begin_vector_id = vector_codec::DecodeVectorId(range.start_key());
-  int64_t temp_end_vector_id = vector_codec::DecodeVectorId(range.end_key());
+static void DecodeRangeToVectorId(const Range& range, int64_t& begin_vector_id, int64_t& end_vector_id) {
+  begin_vector_id = vector_codec::DecodeVectorId(range.start_key);
+  int64_t temp_end_vector_id = vector_codec::DecodeVectorId(range.end_key);
   if (temp_end_vector_id > 0) {
     end_vector_id = temp_end_vector_id;
   } else {
-    if (vector_codec::DecodePartitionId(range.end_key()) > vector_codec::DecodePartitionId(range.start_key())) {
+    if (vector_codec::DecodePartitionId(range.end_key) > vector_codec::DecodePartitionId(range.start_key)) {
       end_vector_id = INT64_MAX;
     }
   }
@@ -135,14 +135,14 @@ void VectorCountPartTask::DoAsync() {
   for (const auto& region : partition_regions) {
     int64_t region_start_vector_id;
     int64_t region_end_vector_id;
-    DecodeRangeToVectorId(region->Range(), region_start_vector_id, region_end_vector_id);
+    DecodeRangeToVectorId(region->GetRange(), region_start_vector_id, region_end_vector_id);
 
     auto start = std::max(region_start_vector_id, start_vector_id_);
     auto end = std::min(region_end_vector_id, end_vector_id_);
 
     if (start < end) {
       auto rpc = std::make_unique<VectorCountRpc>();
-      FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch());
+      FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch());
 
       rpc->MutableRequest()->set_vector_id_start(start);
       rpc->MutableRequest()->set_vector_id_end(end);

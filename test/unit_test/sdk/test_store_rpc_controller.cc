@@ -14,17 +14,17 @@
 
 #include <memory>
 
+#include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "mock_store_rpc_controller.h"
-#include "sdk/common/common.h"
 #include "proto/error.pb.h"
+#include "sdk/common/common.h"
 #include "sdk/region.h"
 #include "sdk/rpc/rpc.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
-#include "dingosdk/status.h"
 #include "test_base.h"
 #include "test_common.h"
 
@@ -259,7 +259,7 @@ TEST_F(SDKStoreRpcControllerTest, RegionVersionWithStoreRegionInfo) {
   EXPECT_TRUE(got.IsOK());
   EXPECT_FALSE(region->IsStale());
   EXPECT_EQ(region->RegionId(), new_region->RegionId());
-  EXPECT_EQ(EpochCompare(region->Epoch(), new_region->Epoch()), 0);
+  EXPECT_EQ(EpochCompare(region->GetEpoch(), new_region->GetEpoch()), 0);
 }
 
 TEST_F(SDKStoreRpcControllerTest, RegionNotFound) {

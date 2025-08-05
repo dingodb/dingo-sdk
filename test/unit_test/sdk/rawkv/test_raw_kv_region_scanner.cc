@@ -16,15 +16,15 @@
 #include <memory>
 #include <string>
 
+#include "dingosdk/client.h"
+#include "dingosdk/status.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "dingosdk/client.h"
+#include "proto/error.pb.h"
 #include "sdk/common/common.h"
 #include "sdk/common/param_config.h"
-#include "proto/error.pb.h"
 #include "sdk/rawkv/raw_kv_region_scanner_impl.h"
 #include "sdk/rpc/store_rpc.h"
-#include "dingosdk/status.h"
 #include "sdk/utils/async_util.h"
 #include "test_base.h"
 #include "test_common.h"
@@ -80,7 +80,8 @@ TEST_F(SDKRawKvRegionScannerImplTest, OpenCloseSuccess) {
         auto context = request->context();
         EXPECT_EQ(context.region_id(), region->RegionId());
         EXPECT_TRUE(context.has_region_epoch());
-        EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
+        EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                                  region->GetEpoch()));
 
         EXPECT_TRUE(request->has_range());
         const auto& range_with_option = request->range();
@@ -89,8 +90,8 @@ TEST_F(SDKRawKvRegionScannerImplTest, OpenCloseSuccess) {
 
         EXPECT_TRUE(range_with_option.has_range());
         const auto& range = range_with_option.range();
-        EXPECT_EQ(region->Range().start_key(), range.start_key());
-        EXPECT_EQ(region->Range().end_key(), range.end_key());
+        EXPECT_EQ(region->GetRange().start_key, range.start_key());
+        EXPECT_EQ(region->GetRange().end_key, range.end_key());
 
         EXPECT_EQ(0, request->max_fetch_cnt());
         EXPECT_FALSE(request->key_only());
@@ -111,14 +112,15 @@ TEST_F(SDKRawKvRegionScannerImplTest, OpenCloseSuccess) {
         auto context = request->context();
         EXPECT_EQ(context.region_id(), region->RegionId());
         EXPECT_TRUE(context.has_region_epoch());
-        EXPECT_EQ(0, EpochCompare(context.region_epoch(), region->Epoch()));
+        EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                                  region->GetEpoch()));
 
         EXPECT_EQ(scan_id, kv_rpc->Request()->scan_id());
 
         cb();
       });
 
-  RawKvRegionScannerImpl scanner(*stub, region, region->Range().start_key(), region->Range().end_key());
+  RawKvRegionScannerImpl scanner(*stub, region, region->GetRange().start_key, region->GetRange().end_key);
   Status open = OpenScanner(scanner);
   EXPECT_TRUE(open.ok());
   EXPECT_TRUE(scanner.HasMore());
@@ -143,7 +145,7 @@ TEST_F(SDKRawKvRegionScannerImplTest, OpenFail) {
     cb();
   });
 
-  RawKvRegionScannerImpl scanner(*stub, region, region->Range().start_key(), region->Range().end_key());
+  RawKvRegionScannerImpl scanner(*stub, region, region->GetRange().start_key, region->GetRange().end_key);
   Status open = OpenScanner(scanner);
   EXPECT_FALSE(open.ok());
 
@@ -180,7 +182,7 @@ TEST_F(SDKRawKvRegionScannerImplTest, OpenSuccessCloseFail) {
         cb();
       });
 
-  RawKvRegionScannerImpl scanner(*stub, region, region->Range().start_key(), region->Range().end_key());
+  RawKvRegionScannerImpl scanner(*stub, region, region->GetRange().start_key, region->GetRange().end_key);
   Status open = OpenScanner(scanner);
   EXPECT_TRUE(open.ok());
   EXPECT_TRUE(scanner.HasMore());
@@ -195,7 +197,7 @@ TEST_F(SDKRawKvRegionScannerImplTest, SetBatchSize) {
   CHECK(meta_cache->LookupRegionBetweenRange("a", "c", region).ok());
   CHECK_NOTNULL(region.get());
 
-  RawKvRegionScannerImpl scanner(*stub, region, region->Range().start_key(), region->Range().end_key());
+  RawKvRegionScannerImpl scanner(*stub, region, region->GetRange().start_key, region->GetRange().end_key);
 
   EXPECT_EQ(scanner.GetBatchSize(), FLAGS_scan_batch_size);
 
@@ -247,7 +249,7 @@ TEST_F(SDKRawKvRegionScannerImplTest, NextBatchFail) {
         cb();
       });
 
-  RawKvRegionScannerImpl scanner(*stub, region, region->Range().start_key(), region->Range().end_key());
+  RawKvRegionScannerImpl scanner(*stub, region, region->GetRange().start_key, region->GetRange().end_key);
   Status open = OpenScanner(scanner);
   EXPECT_TRUE(open.ok());
   EXPECT_TRUE(scanner.HasMore());
@@ -294,7 +296,7 @@ TEST_F(SDKRawKvRegionScannerImplTest, NextBatchNoData) {
         cb();
       });
 
-  RawKvRegionScannerImpl scanner(*stub, region, region->Range().start_key(), region->Range().end_key());
+  RawKvRegionScannerImpl scanner(*stub, region, region->GetRange().start_key, region->GetRange().end_key);
   Status open = OpenScanner(scanner);
   EXPECT_TRUE(open.ok());
   EXPECT_TRUE(scanner.HasMore());
@@ -362,7 +364,7 @@ TEST_F(SDKRawKvRegionScannerImplTest, NextBatchWithData) {
         }
       });
 
-  RawKvRegionScannerImpl scanner(*stub, region, region->Range().start_key(), region->Range().end_key());
+  RawKvRegionScannerImpl scanner(*stub, region, region->GetRange().start_key, region->GetRange().end_key);
   Status open = OpenScanner(scanner);
   EXPECT_TRUE(open.ok());
   EXPECT_TRUE(scanner.HasMore());

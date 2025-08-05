@@ -55,12 +55,12 @@ Status RawKvDeleteRangeTask::Init() {
     for (int i = 0; i < regions.size() - 1; i++) {
       auto cur = regions[i];
       auto next = regions[i + 1];
-      if (cur->Range().end_key() != next->Range().start_key()) {
+      if (cur->GetRange().end_key != next->GetRange().start_key) {
         std::string msg = fmt::format("regions bewteen [{}, {}) not continuous", start_key_, end_key_);
         DINGO_LOG(WARNING) << msg
                            << fmt::format(", cur region:{} ({}-{}), next region:{} ({}-{})", cur->RegionId(),
-                                          cur->Range().start_key(), cur->Range().end_key(), next->RegionId(),
-                                          next->Range().start_key(), next->Range().end_key());
+                                          cur->GetRange().start_key, cur->GetRange().end_key, next->RegionId(),
+                                          next->GetRange().start_key, next->GetRange().end_key);
 
         Status ret = Status::Aborted(msg);
         return ret;
@@ -98,13 +98,13 @@ void RawKvDeleteRangeTask::DeleteNextRange() {
   }
 
   CHECK_NOTNULL(region.get());
-  const auto& range = region->Range();
-  auto start = (range.start_key() <= next_start_key_ ? next_start_key_ : range.start_key());
-  auto end = (range.end_key() <= end_key_) ? range.end_key() : end_key_;
+  const auto& range = region->GetRange();
+  auto start = (range.start_key <= next_start_key_ ? next_start_key_ : range.start_key);
+  auto end = (range.end_key <= end_key_) ? range.end_key : end_key_;
 
   //  fill rpc
   auto rpc = std::make_unique<KvDeleteRangeRpc>();
-  FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch());
+  FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch());
   auto* range_with_option = rpc->MutableRequest()->mutable_range();
   auto* to_fill_range = range_with_option->mutable_range();
   to_fill_range->set_start_key(start);

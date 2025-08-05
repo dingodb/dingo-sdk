@@ -98,13 +98,13 @@ void DocumentCountTask::SubTaskCallback(Status status, DocumentCountPartTask* su
   }
 }
 
-static void DecodeRangeToDocId(const pb::common::Range& range, int64_t& begin_vector_id, int64_t& end_vector_id) {
-  begin_vector_id = document_codec::DecodeDocumentId(range.start_key());
-  int64_t temp_end_vector_id = document_codec::DecodeDocumentId(range.end_key());
+static void DecodeRangeToDocId(const Range& range, int64_t& begin_vector_id, int64_t& end_vector_id) {
+  begin_vector_id = document_codec::DecodeDocumentId(range.start_key);
+  int64_t temp_end_vector_id = document_codec::DecodeDocumentId(range.end_key);
   if (temp_end_vector_id > 0) {
     end_vector_id = temp_end_vector_id;
   } else {
-    if (document_codec::DecodePartitionId(range.end_key()) > document_codec::DecodePartitionId(range.start_key())) {
+    if (document_codec::DecodePartitionId(range.end_key) > document_codec::DecodePartitionId(range.start_key)) {
       end_vector_id = INT64_MAX;
     }
   }
@@ -135,14 +135,14 @@ void DocumentCountPartTask::DoAsync() {
   for (const auto& region : partition_regions) {
     int64_t region_start_doc_id;
     int64_t region_end_doc_id;
-    DecodeRangeToDocId(region->Range(), region_start_doc_id, region_end_doc_id);
+    DecodeRangeToDocId(region->GetRange(), region_start_doc_id, region_end_doc_id);
 
     auto start = std::max(region_start_doc_id, start_doc_id_);
     auto end = std::min(region_end_doc_id, end_doc_id_);
 
     if (start < end) {
       auto rpc = std::make_unique<DocumentCountRpc>();
-      FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->Epoch());
+      FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch());
 
       rpc->MutableRequest()->set_document_id_start(start);
       rpc->MutableRequest()->set_document_id_end(end);
