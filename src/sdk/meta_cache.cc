@@ -75,8 +75,12 @@ Status MetaCache::LookupRegionBetweenRange(std::string_view start_key, std::stri
 
     s = FastLookUpRegionByKeyUnlocked(start_key, region);
     if (s.IsOK()) {
-      CHECK(start_key >= region->Range().start_key())
-          << "start_key should greater than region start_key, start_key:" << StringToHex(start_key)
+      CHECK(end_key > region->Range().start_key())
+          << "end_key should greater than region start_key, end_key:" << StringToHex(end_key)
+          << " region start_key:" << StringToHex(region->Range().start_key());
+
+      DINGO_LOG_IF(WARNING, start_key < region->Range().start_key())
+          << "start_key is less than region start_key, start_key:" << StringToHex(start_key)
           << " region start_key:" << StringToHex(region->Range().start_key());
       return s;
     }
@@ -86,8 +90,12 @@ Status MetaCache::LookupRegionBetweenRange(std::string_view start_key, std::stri
   s = ScanRegionsBetweenRange(start_key, end_key, kPrefetchRegionCount, regions);
   if (s.IsOK() && !regions.empty()) {
     region = std::move(regions.front());
-    CHECK(start_key >= region->Range().start_key())
-        << "start_key should greater than region start_key, start_key:" << StringToHex(start_key)
+    CHECK(end_key > region->Range().start_key())
+        << "end_key should greater than region start_key, end_key:" << StringToHex(end_key)
+        << " region start_key:" << StringToHex(region->Range().start_key());
+
+    DINGO_LOG_IF(WARNING, start_key < region->Range().start_key())
+        << "start_key is less than region start_key, start_key:" << StringToHex(start_key)
         << " region start_key:" << StringToHex(region->Range().start_key());
   }
 
@@ -104,8 +112,12 @@ Status MetaCache::LookupRegionBetweenRangeNoPrefetch(std::string_view start_key,
 
     s = FastLookUpRegionByKeyUnlocked(start_key, region);
     if (s.IsOK()) {
-      CHECK(start_key >= region->Range().start_key())
-          << "start_key should greater than region start_key, start_key:" << StringToHex(start_key)
+      CHECK(end_key > region->Range().start_key())
+          << "end_key should greater than region start_key, end_key:" << StringToHex(end_key)
+          << " region start_key:" << StringToHex(region->Range().start_key());
+
+      DINGO_LOG_IF(WARNING, start_key < region->Range().start_key())
+          << "start_key is less than region start_key, start_key:" << StringToHex(start_key)
           << " region start_key:" << StringToHex(region->Range().start_key());
       return s;
     }
@@ -115,8 +127,12 @@ Status MetaCache::LookupRegionBetweenRangeNoPrefetch(std::string_view start_key,
   s = ScanRegionsBetweenRange(start_key, end_key, 1, regions);
   if (s.IsOK() && !regions.empty()) {
     region = std::move(regions.front());
-    CHECK(start_key >= region->Range().start_key())
-        << "start_key should greater than region start_key, start_key:" << StringToHex(start_key)
+    CHECK(end_key > region->Range().start_key())
+        << "end_key should greater than region start_key, end_key:" << StringToHex(end_key)
+        << " region start_key:" << StringToHex(region->Range().start_key());
+
+    DINGO_LOG_IF(WARNING, start_key < region->Range().start_key())
+        << "start_key is less than region start_key, start_key:" << StringToHex(start_key)
         << " region start_key:" << StringToHex(region->Range().start_key());
   }
 
