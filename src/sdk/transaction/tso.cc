@@ -19,6 +19,7 @@
 #include "sdk/client_stub.h"
 #include "sdk/common/common.h"
 #include "sdk/common/helper.h"
+#include "sdk/common/param_config.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/utils/async_util.h"
 #include "sdk/utils/rw_lock.h"
@@ -26,19 +27,7 @@
 namespace dingodb {
 namespace sdk {
 
-static const uint32_t kStalePeriodUs = 1000;  // 1000 microseconds
-static const uint32_t kBatchSize = 256;       // default batch size
-
-static bool IsNeedRetry(int& times) {
-  bool retry = times++ < FLAGS_txn_op_max_retry;
-  if (retry) {
-    SleepUs(500);
-  }
-
-  return retry;
-}
-
-TsoProvider::TsoProvider(const ClientStub& stub) : stub_(stub), batch_size_(kBatchSize) {
+TsoProvider::TsoProvider(const ClientStub& stub) : stub_(stub), batch_size_(FLAGS_tso_batch_size) {
   last_time_us_ = TimestampUs();
 }
 
@@ -47,24 +36,34 @@ Status TsoProvider::GenTs(uint32_t count, int64_t& ts) {
   WriteLockGuard guard(rwlock_);
   int retry = 0;
   Status status;
+  bool is_stale = IsStale();
   do {
-    if (max_logical_ >= count + next_logical_ && !IsStale()) {
+    if (max_logical_ >= count + next_logical_ && !is_stale) {
       TsoTimestamp tso;
       tso.set_physical(physical_);
       tso.set_logical(next_logical_);
-
       ts = Tso2Timestamp(tso);
 
       next_logical_ += count;
+      CHECK(ts > 0) << "ts should be greater than 0 , ts:" << ts;
 
       return Status::OK();
     }
 
     status = FetchTso(batch_size_);
+    is_stale = false;
 
-  } while (IsNeedRetry(retry));
+  } while (retry++ < FLAGS_txn_op_max_retry);
 
-  DINGO_LOG(ERROR) << fmt::format("[sdk.tso] gen ts fail, retry({}), status({}).", retry, status.ToString());
+  DINGO_LOG(ERROR) << fmt::format(
+      "[sdk.tso] gen ts fail, retry({}), status({}), max_logical({}), next_logical({}), physical_ts({}).", retry,
+      status.ToString(), max_logical_, next_logical_, physical_);
+
+  if (status.ok()) {
+    status = Status::Incomplete(
+        fmt::format("[sdk.tso] gen ts fail, retry({}), status({}), max_logical({}), next_logical({}), physical_ts({}).",
+                    retry, status.ToString(), max_logical_, next_logical_, physical_));
+  }
 
   return status;
 }
@@ -80,17 +79,27 @@ Status TsoProvider::GenPhysicalTs(int32_t count, int64_t& physical_ts) {
   do {
     status = FetchTso(batch_size_);
 
-    if (max_logical_ >= count + next_logical_ && !IsStale()) {
+    if (max_logical_ >= count + next_logical_) {
       physical_ts = physical_;
 
       next_logical_ += count;
 
+      CHECK(physical_ts > 0) << "physical_ts should be greater than 0 , physical_ts:" << physical_ts;
+
       return Status::OK();
     }
 
-  } while (IsNeedRetry(retry));
+  } while (retry++ < FLAGS_txn_op_max_retry);
 
-  DINGO_LOG(ERROR) << fmt::format("[sdk.tso] gen ts fail, retry({}), status({}).", retry, status.ToString());
+  DINGO_LOG(ERROR) << fmt::format(
+      "[sdk.tso] gen ts fail, retry({}), status({}), max_logical({}), next_logical({}), physical_ts({}).", retry,
+      status.ToString(), max_logical_, next_logical_, physical_);
+
+  if (status.ok()) {
+    status = Status::Incomplete(
+        fmt::format("[sdk.tso] gen ts fail, retry({}), status({}), max_logical({}), next_logical({}), physical_ts({}).",
+                    retry, status.ToString(), max_logical_, next_logical_, physical_));
+  }
 
   return status;
 }
@@ -104,7 +113,7 @@ void TsoProvider::Refresh() {
 
 bool TsoProvider::IsStale() {
   auto now_us = TimestampUs();
-  bool is_stale = now_us > (last_time_us_ + kStalePeriodUs);
+  bool is_stale = now_us > (last_time_us_ + FLAGS_stale_period_us);
   if (is_stale) last_time_us_ = now_us;
 
   return is_stale;
