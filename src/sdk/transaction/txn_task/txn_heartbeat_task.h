@@ -42,7 +42,7 @@ class TxnHeartbeatTask : public TxnTask {
   void TxnHeartbeatRpcCallback(const Status& status);
 
   int64_t lock_ts_{0};
-  const std::string& primary_key_;
+  const std::string primary_key_;
 
   int64_t physical_ts_{0};
   StoreRpcController store_rpc_controller_;

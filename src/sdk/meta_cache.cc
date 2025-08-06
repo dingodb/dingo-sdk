@@ -35,6 +35,7 @@ namespace sdk {
 using pb::coordinator::ScanRegionInfo;
 
 Status MetaCache::LookupRegionByKey(std::string_view key, std::shared_ptr<Region>& region) {
+  DINGO_LOG(DEBUG) << fmt::format("LookupRegionByKey key:{}", StringToHex(key));
   CHECK(!key.empty()) << "key should not empty";
   Status s;
   {
@@ -51,6 +52,7 @@ Status MetaCache::LookupRegionByKey(std::string_view key, std::shared_ptr<Region
 }
 
 Status MetaCache::LookupRegionByRegionId(int64_t region_id, std::shared_ptr<Region>& region) {
+  DINGO_LOG(DEBUG) << fmt::format("LookupRegionByRegionId region_id:{}", region_id);
   CHECK_GT(region_id, 0) << "region_id should bigger than 0";
   Status s;
   {
@@ -67,6 +69,8 @@ Status MetaCache::LookupRegionByRegionId(int64_t region_id, std::shared_ptr<Regi
 
 Status MetaCache::LookupRegionBetweenRange(std::string_view start_key, std::string_view end_key,
                                            std::shared_ptr<Region>& region) {
+  DINGO_LOG(DEBUG) << fmt::format("LookupRegionBetweenRange start_key:{}, end_key:{}", StringToHex(start_key),
+                                  StringToHex(end_key));
   CHECK(!start_key.empty()) << "start_key should not empty";
   CHECK(!end_key.empty()) << "end_key should not empty";
   Status s;
@@ -104,6 +108,8 @@ Status MetaCache::LookupRegionBetweenRange(std::string_view start_key, std::stri
 
 Status MetaCache::LookupRegionBetweenRangeNoPrefetch(std::string_view start_key, std::string_view end_key,
                                                      std::shared_ptr<Region>& region) {
+  DINGO_LOG(DEBUG) << fmt::format("LookupRegionBetweenRangeNoPrefetch start_key:{}, end_key:{}", StringToHex(start_key),
+                                  StringToHex(end_key));
   CHECK(!start_key.empty()) << "start_key should not empty";
   CHECK(!end_key.empty()) << "end_key should not empty";
   Status s;
@@ -141,10 +147,11 @@ Status MetaCache::LookupRegionBetweenRangeNoPrefetch(std::string_view start_key,
 
 Status MetaCache::ScanRegionsBetweenRange(std::string_view start_key, std::string_view end_key, int64_t limit,
                                           std::vector<std::shared_ptr<Region>>& regions) {
+  DINGO_LOG(DEBUG) << fmt::format("ScanRegionsBetweenRange start_key:{}, end_key:{}, limit:{}", StringToHex(start_key),
+                                  StringToHex(end_key), limit);
   CHECK(!start_key.empty()) << "start_key should not empty";
   CHECK(!end_key.empty()) << "end_key should not empty";
   CHECK_GE(limit, 0) << "limit should greater or equal 0";
-
   ScanRegionsRpc rpc;
   rpc.MutableRequest()->set_key(std::string(start_key));
   rpc.MutableRequest()->set_range_end(std::string(end_key));
@@ -295,13 +302,13 @@ Status MetaCache::FastLookUpRegionByKeyUnlocked(std::string_view key, std::share
   CHECK(!found_region->IsStale());
 
   auto range = found_region->Range();
-  CHECK(key >= range.start_key()) << fmt::format("key:{} is less than range start_key:{}, region:{}", key,
-                                                 range.start_key(), found_region->ToString());
+  CHECK(key >= range.start_key()) << fmt::format("key:{} is less than range start_key:{}, region:{}", StringToHex(key),
+                                                 StringToHex(range.start_key()), found_region->ToString());
 
   if (key >= range.end_key()) {
-    std::string msg =
-        fmt::format("not found region for key:{} in cache, key is out of bounds, nearest found_region:{} range:({}-{})",
-                    key, found_region->RegionId(), range.start_key(), range.end_key());
+    std::string msg = fmt::format(
+        "not found region for key:{} in cache, key is out of bounds, nearest found_region:{} range:({}-{})",
+        StringToHex(key), found_region->RegionId(), StringToHex(range.start_key()), StringToHex(range.end_key()));
 
     DINGO_LOG(DEBUG) << msg;
     return Status::NotFound(msg);
