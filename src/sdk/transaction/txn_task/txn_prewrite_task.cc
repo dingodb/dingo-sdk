@@ -93,9 +93,13 @@ void TxnPrewriteTask::DoAsync() {
     }
   }
 
-
   int64_t physical_ts{0};
   Status status = stub.GetTsoProvider()->GenPhysicalTs(2, physical_ts);
+
+  if (!status.ok()) {
+    DoAsyncDone(status);
+    return;
+  }
 
   for (const auto& entry : region_id_to_mutations) {
     auto region_id = entry.first;

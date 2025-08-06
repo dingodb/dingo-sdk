@@ -16,6 +16,7 @@
 #define DINGODB_SDK_PARAM_CONFIG_H_
 
 #include <gflags/gflags_declare.h>
+
 #include <cstdint>
 
 #include "gflags/gflags.h"
@@ -70,5 +71,8 @@ DECLARE_bool(log_rpc_time);
 
 DECLARE_int64(txn_heartbeat_interval_ms);
 DECLARE_int64(txn_heartbeat_lock_delay_ms);
+
+DECLARE_uint32(stale_period_us);
+DECLARE_uint32(tso_batch_size);
 
 #endif  // DINGODB_SDK_PARAM_CONFIG_H_

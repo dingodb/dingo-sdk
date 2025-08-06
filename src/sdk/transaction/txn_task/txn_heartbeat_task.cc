@@ -38,7 +38,11 @@ void TxnHeartbeatTask::DoAsync() {
     return;
   }
 
-  Status status = stub.GetTsoProvider()->GenPhysicalTs(2, physical_ts_);
+  s = stub.GetTsoProvider()->GenPhysicalTs(2, physical_ts_);
+  if (!s.ok()) {
+    DoAsyncDone(s);
+    return;
+  }
 
   FillRpcContext(*rpc_.MutableRequest()->mutable_context(), region->RegionId(), region->Epoch(),
                  pb::store::IsolationLevel::SnapshotIsolation);
