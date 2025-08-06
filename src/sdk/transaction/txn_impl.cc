@@ -131,7 +131,8 @@ Status TxnImpl::BatchGet(const std::vector<std::string>& keys, std::vector<KVPai
 }
 
 Status TxnImpl::Put(const std::string& key, const std::string& value) {
-  CHECK(state_.load() == kActive) << "state is not active, state:" << StateName(state_.load());
+  State state = state_.load();
+  CHECK(state == kActive) << "state is not active, state:" << StateName(state);
 
   if (key.empty()) {
     return Status::InvalidArgument("param key is empty");
@@ -141,7 +142,8 @@ Status TxnImpl::Put(const std::string& key, const std::string& value) {
 }
 
 Status TxnImpl::BatchPut(const std::vector<KVPair>& kvs) {
-  CHECK(state_.load() == kActive) << "state is not active, state:" << StateName(state_.load());
+  State state = state_.load();
+  CHECK(state == kActive) << "state is not active, state:" << StateName(state);
 
   for (const auto& kv : kvs) {
     if (kv.key.empty()) {
@@ -153,7 +155,8 @@ Status TxnImpl::BatchPut(const std::vector<KVPair>& kvs) {
 }
 
 Status TxnImpl::PutIfAbsent(const std::string& key, const std::string& value) {
-  CHECK(state_.load() == kActive) << "state is not active, state:" << StateName(state_.load());
+  State state = state_.load();
+  CHECK(state == kActive) << "state is not active, state:" << StateName(state);
 
   if (key.empty()) {
     return Status::InvalidArgument("param key is empty");
@@ -163,7 +166,8 @@ Status TxnImpl::PutIfAbsent(const std::string& key, const std::string& value) {
 }
 
 Status TxnImpl::BatchPutIfAbsent(const std::vector<KVPair>& kvs) {
-  CHECK(state_.load() == kActive) << "state is not active, state:" << StateName(state_.load());
+  State state = state_.load();
+  CHECK(state == kActive) << "state is not active, state:" << StateName(state);
 
   for (const auto& kv : kvs) {
     if (kv.key.empty()) {
@@ -175,7 +179,8 @@ Status TxnImpl::BatchPutIfAbsent(const std::vector<KVPair>& kvs) {
 }
 
 Status TxnImpl::Delete(const std::string& key) {
-  CHECK(state_.load() == kActive) << "state is not active, state:" << StateName(state_.load());
+  State state = state_.load();
+  CHECK(state == kActive) << "state is not active, state:" << StateName(state);
 
   if (key.empty()) {
     return Status::InvalidArgument("param key is empty");
@@ -185,7 +190,8 @@ Status TxnImpl::Delete(const std::string& key) {
 }
 
 Status TxnImpl::BatchDelete(const std::vector<std::string>& keys) {
-  CHECK(state_.load() == kActive) << "state is not active, state:" << StateName(state_.load());
+  State state = state_.load();
+  CHECK(state == kActive) << "state is not active, state:" << StateName(state);
 
   for (const auto& key : keys) {
     if (key.empty()) {
@@ -198,7 +204,8 @@ Status TxnImpl::BatchDelete(const std::vector<std::string>& keys) {
 
 Status TxnImpl::Scan(const std::string& start_key, const std::string& end_key, uint64_t limit,
                      std::vector<KVPair>& out_kvs) {
-  CHECK(state_.load() == kActive) << "state is not active, state:" << StateName(state_.load());
+  State state = state_.load();
+  CHECK(state == kActive) << "state is not active, state:" << StateName(state);
 
   if (start_key.empty() || end_key.empty()) {
     return Status::InvalidArgument("start_key and end_key must not empty");
@@ -478,7 +485,8 @@ void TxnImpl::ScheduleHeartBeat() {
 }
 
 void TxnImpl::DoHeartBeat() {
-  if (state_.load() != kPreCommitted && state_.load() != kPreCommitting) {
+  State state = state_.load();
+  if (state != kPreCommitted && state != kPreCommitting) {
     return;
   }
   std::shared_ptr<TxnHeartbeatTask> heartbeat_task =
@@ -642,11 +650,12 @@ Status TxnImpl::CommitOrdinaryKey() {
 }
 
 Status TxnImpl::DoCommit() {
-  if (state_.load() == kCommitted) {
+  State state = state_.load();
+  if (state == kCommitted) {
     return Status::OK();
-  } else if (state_.load() != kPreCommitted) {
+  } else if (state != kPreCommitted) {
     return Status::IllegalState(
-        fmt::format("forbid commit, state {}, expect {}", StateName(state_.load()), StateName(kPreCommitted)));
+        fmt::format("forbid commit, state {}, expect {}", StateName(state), StateName(kPreCommitted)));
   }
 
   if (buffer_->IsEmpty()) {
@@ -714,8 +723,9 @@ Status TxnImpl::DoRollback() {
   // TODO: client txn status maybe inconsistence with server
   // so we should check txn status first and then take action
   // TODO: maybe support rollback when txn is active
-  if (state_.load() != kRollbacking && state_.load() != kPreCommitting && state_.load() != kPreCommitted) {
-    return Status::IllegalState(fmt::format("forbid rollback, state {}", StateName(state_.load())));
+  State state = state_.load();
+  if (state != kRollbacking && state != kPreCommitting && state != kPreCommitted) {
+    return Status::IllegalState(fmt::format("forbid rollback, state {}", StateName(state)));
   }
 
   state_.store(kRollbacking);
