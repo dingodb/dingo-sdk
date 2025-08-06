@@ -52,7 +52,7 @@ TxnImplSPtr TxnImpl::GetSelfPtr() { return std::dynamic_pointer_cast<TxnImpl>(sh
 Status TxnImpl::Begin() {
   Status status = stub_.GetTsoProvider()->GenTs(2, start_ts_);
   if (status.ok()) {
-    state_ = kActive;
+    state_.store(kActive);
   }
 
   return status;
@@ -131,7 +131,7 @@ Status TxnImpl::BatchGet(const std::vector<std::string>& keys, std::vector<KVPai
 }
 
 Status TxnImpl::Put(const std::string& key, const std::string& value) {
-  CHECK(state_ == kActive) << "state is not active, state:" << StateName(state_);
+  CHECK(state_.load() == kActive) << "state is not active, state:" << StateName(state_.load());
 
   if (key.empty()) {
     return Status::InvalidArgument("param key is empty");
@@ -141,7 +141,7 @@ Status TxnImpl::Put(const std::string& key, const std::string& value) {
 }
 
 Status TxnImpl::BatchPut(const std::vector<KVPair>& kvs) {
-  CHECK(state_ == kActive) << "state is not active, state:" << StateName(state_);
+  CHECK(state_.load() == kActive) << "state is not active, state:" << StateName(state_.load());
 
   for (const auto& kv : kvs) {
     if (kv.key.empty()) {
@@ -153,7 +153,7 @@ Status TxnImpl::BatchPut(const std::vector<KVPair>& kvs) {
 }
 
 Status TxnImpl::PutIfAbsent(const std::string& key, const std::string& value) {
-  CHECK(state_ == kActive) << "state is not active, state:" << StateName(state_);
+  CHECK(state_.load() == kActive) << "state is not active, state:" << StateName(state_.load());
 
   if (key.empty()) {
     return Status::InvalidArgument("param key is empty");
@@ -163,7 +163,7 @@ Status TxnImpl::PutIfAbsent(const std::string& key, const std::string& value) {
 }
 
 Status TxnImpl::BatchPutIfAbsent(const std::vector<KVPair>& kvs) {
-  CHECK(state_ == kActive) << "state is not active, state:" << StateName(state_);
+  CHECK(state_.load() == kActive) << "state is not active, state:" << StateName(state_.load());
 
   for (const auto& kv : kvs) {
     if (kv.key.empty()) {
@@ -175,7 +175,7 @@ Status TxnImpl::BatchPutIfAbsent(const std::vector<KVPair>& kvs) {
 }
 
 Status TxnImpl::Delete(const std::string& key) {
-  CHECK(state_ == kActive) << "state is not active, state:" << StateName(state_);
+  CHECK(state_.load() == kActive) << "state is not active, state:" << StateName(state_.load());
 
   if (key.empty()) {
     return Status::InvalidArgument("param key is empty");
@@ -185,7 +185,7 @@ Status TxnImpl::Delete(const std::string& key) {
 }
 
 Status TxnImpl::BatchDelete(const std::vector<std::string>& keys) {
-  CHECK(state_ == kActive) << "state is not active, state:" << StateName(state_);
+  CHECK(state_.load() == kActive) << "state is not active, state:" << StateName(state_.load());
 
   for (const auto& key : keys) {
     if (key.empty()) {
@@ -198,7 +198,7 @@ Status TxnImpl::BatchDelete(const std::vector<std::string>& keys) {
 
 Status TxnImpl::Scan(const std::string& start_key, const std::string& end_key, uint64_t limit,
                      std::vector<KVPair>& out_kvs) {
-  CHECK(state_ == kActive) << "state is not active, state:" << StateName(state_);
+  CHECK(state_.load() == kActive) << "state is not active, state:" << StateName(state_.load());
 
   if (start_key.empty() || end_key.empty()) {
     return Status::InvalidArgument("start_key and end_key must not empty");
@@ -478,7 +478,7 @@ void TxnImpl::ScheduleHeartBeat() {
 }
 
 void TxnImpl::DoHeartBeat() {
-  if (state_ != kPreCommitted && state_ != kPreCommitting) {
+  if (state_.load() != kPreCommitted && state_.load() != kPreCommitting) {
     return;
   }
   std::shared_ptr<TxnHeartbeatTask> heartbeat_task =
@@ -494,10 +494,10 @@ void TxnImpl::DoHeartBeat() {
 
 // TODO: process AlreadyExist if mutaion is PutIfAbsent
 Status TxnImpl::DoPreCommit() {
-  state_ = kPreCommitting;
+  state_.store(kPreCommitting);
 
   if (buffer_->IsEmpty()) {
-    state_ = kPreCommitted;
+    state_.store(kPreCommitted);
     return Status::OK();
   }
 
@@ -577,7 +577,7 @@ Status TxnImpl::DoPreCommit() {
     }
   }
 
-  state_ = is_one_pc_ ? kCommitted : kPreCommitted;
+  state_.store(is_one_pc_ ? kCommitted : kPreCommitted);
 
   return Status::OK();
 }
@@ -642,19 +642,19 @@ Status TxnImpl::CommitOrdinaryKey() {
 }
 
 Status TxnImpl::DoCommit() {
-  if (state_ == kCommitted) {
+  if (state_.load() == kCommitted) {
     return Status::OK();
-  } else if (state_ != kPreCommitted) {
+  } else if (state_.load() != kPreCommitted) {
     return Status::IllegalState(
-        fmt::format("forbid commit, state {}, expect {}", StateName(state_), StateName(kPreCommitted)));
+        fmt::format("forbid commit, state {}, expect {}", StateName(state_.load()), StateName(kPreCommitted)));
   }
 
   if (buffer_->IsEmpty()) {
-    state_ = kCommitted;
+    state_.store(kCommitted);
     return Status::OK();
   }
 
-  state_ = kCommitting;
+  state_.store(kCommitting);
 
   DINGO_RETURN_NOT_OK(stub_.GetTsoProvider()->GenTs(2, commit_ts_));
 
@@ -665,7 +665,7 @@ Status TxnImpl::DoCommit() {
   Status status = CommitPrimaryKey();
   if (!status.ok()) {
     if (status.IsTxnRolledBack()) {
-      state_ = kRollbackted;
+      state_.store(kRollbackted);
     } else {
       DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] commit primary key fail, status({}).", ID(), status.ToString());
     }
@@ -673,7 +673,7 @@ Status TxnImpl::DoCommit() {
     return status;
   }
 
-  state_ = kCommitted;
+  state_.store(kCommitted);
 
   // commit ordinary keys
   CommitOrdinaryKey();
@@ -714,11 +714,11 @@ Status TxnImpl::DoRollback() {
   // TODO: client txn status maybe inconsistence with server
   // so we should check txn status first and then take action
   // TODO: maybe support rollback when txn is active
-  if (state_ != kRollbacking && state_ != kPreCommitting && state_ != kPreCommitted) {
-    return Status::IllegalState(fmt::format("forbid rollback, state {}", StateName(state_)));
+  if (state_.load() != kRollbacking && state_.load() != kPreCommitting && state_.load() != kPreCommitted) {
+    return Status::IllegalState(fmt::format("forbid rollback, state {}", StateName(state_.load())));
   }
 
-  state_ = kRollbacking;
+  state_.store(kRollbacking);
 
   // rollback primary key
   auto status = RollbackPrimaryKey();
@@ -726,7 +726,7 @@ Status TxnImpl::DoRollback() {
     return status;
   }
 
-  state_ = kRollbackted;
+  state_.store(kRollbackted);
   if (is_one_pc_) {
     return Status::OK();
   }

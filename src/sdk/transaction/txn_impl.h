@@ -15,6 +15,7 @@
 #ifndef DINGODB_SDK_TRANSACTION_IMPL_H_
 #define DINGODB_SDK_TRANSACTION_IMPL_H_
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -181,7 +182,7 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   const ClientStub& stub_;
   const TransactionOptions options_;
 
-  State state_;
+  std::atomic<State> state_;
 
   int64_t start_ts_{0};
   int64_t commit_ts_{0};
