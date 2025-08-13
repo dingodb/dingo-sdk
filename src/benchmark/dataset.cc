@@ -68,6 +68,8 @@ DECLARE_string(vector_search_filter_source);
 
 DECLARE_string(vector_search_scalar_filter_radius);
 
+DECLARE_bool(use_coprocessor);
+
 namespace dingodb {
 namespace benchmark {
 
@@ -389,7 +391,10 @@ bool JsonDataset::Init() {
   // if enable  scalar filter
   if (!FLAGS_vector_search_filter.empty()) {
     if (!HandleScalarAndNeighborsJson()) {
-      LOG(ERROR) << "use vector_search_filter, but scalar_labels.json or neighbors_labels_label*.json not exist";
+      LOG(ERROR)
+          << (FLAGS_use_coprocessor
+                  ? "use vector_search_filter, but scalar_labels.json or neighbors_int_*.json not exist"
+                  : "use vector_search_filter, but scalar_labels.json or neighbors_labels_label*.json not exist");
       return false;
     }
   } else {
@@ -540,7 +545,7 @@ uint32_t JsonDataset::LoadTrainData(std::shared_ptr<rapidjson::Document> doc, ui
 }
 
 bool JsonDataset::HandleScalarAndNeighborsJson() {
-  // find scalar_labels.json and  neighbors_labels_label*.json
+  // find scalar_labels.json and  ( neighbors_labels_label*.json or neighbors_int_*.json )
   // if enable  scalar filter
   std::string type = GetType();
 
@@ -578,21 +583,26 @@ bool JsonDataset::HandleScalarAndNeighborsJson() {
     std::cout << "scalar_labels size : " << scalar_labels_map->size() << std::endl;
     LOG(INFO) << "scalar_labels size : " << scalar_labels_map->size();
 
-    std::vector<std::string> neighbors_labels =
-        dingodb::benchmark::TraverseDirectory(dirpath_, std::string("neighbors_labels_label"));
+    std::vector<std::string> neighbors_labels = dingodb::benchmark::TraverseDirectory(
+        dirpath_, std::string(FLAGS_use_coprocessor ? "neighbors_int" : "neighbors_labels_label"));
     if ((type == "BioasqMediumDataset" || type == "OpenaiLargeDataset") && neighbors_labels.empty()) {
-      LOG(ERROR) << "use vector_search_filter, but type : " << type << " neighbors_labels not exist";
+      LOG(ERROR) << "use vector_search_filter, but type : " << type
+                 << (FLAGS_use_coprocessor ? " neighbors_int not exist" : " neighbors_labels not exist");
       return false;
     }
 
     if (neighbors_labels.empty()) {
-      LOG(ERROR) << "use vector_search_filter, but type : " << type << " neighbors_labels_label*.json not exist";
+      LOG(ERROR) << "use vector_search_filter, but type : " << type
+                 << (FLAGS_use_coprocessor ? " neighbors_int*.json not exist"
+                                           : " neighbors_labels_label*.json not exist");
       return false;
     }
 
-    // find assign neighbors_labels_label
+    // find assign neighbors_labels_label or neighbors_int
     std::string target_neighbors_label;
-    std::string part_file = "neighbors_labels_label_" + FLAGS_vector_search_scalar_filter_radius + "p" + ".json";
+    std::string part_file = FLAGS_use_coprocessor
+                                ? "neighbors_int_" + FLAGS_vector_search_scalar_filter_radius + "p" + ".json"
+                                : "neighbors_labels_label_" + FLAGS_vector_search_scalar_filter_radius + "p" + ".json";
 
     std::cout << "vector_search_scalar_filter_radius file : " << part_file << std::endl;
     LOG(INFO) << "vector_search_scalar_filter_radius file : " << part_file;
@@ -608,7 +618,7 @@ bool JsonDataset::HandleScalarAndNeighborsJson() {
     }
 
     if (target_neighbors_label.empty()) {
-      LOG(ERROR) << "neighbors_labels*.json not exist";
+      LOG(ERROR) << (FLAGS_use_coprocessor ? "neighbors_int_*.json not exist" : "neighbors_labels*.json not exist");
       return false;
     }
 
@@ -631,8 +641,13 @@ bool JsonDataset::HandleScalarAndNeighborsJson() {
       return false;
     }
 
-    std::cout << "neighbors label : " << "label_" + FLAGS_vector_search_scalar_filter_radius + "p" << std::endl;
-    LOG(INFO) << "neighbors label : " << "label_" + FLAGS_vector_search_scalar_filter_radius + "p";
+    if (FLAGS_use_coprocessor) {
+      std::cout << "neighbors int : " << "int_" + FLAGS_vector_search_scalar_filter_radius + "p" << std::endl;
+      LOG(INFO) << "neighbors int : " << "int_" + FLAGS_vector_search_scalar_filter_radius + "p";
+    } else {
+      std::cout << "neighbors label : " << "label_" + FLAGS_vector_search_scalar_filter_radius + "p" << std::endl;
+      LOG(INFO) << "neighbors label : " << "label_" + FLAGS_vector_search_scalar_filter_radius + "p";
+    }
 
   }  //  if ((type == "BioasqMediumDataset" || type == "OpenaiLargeDataset")) {
 
@@ -743,26 +758,30 @@ bool JsonDataset::ParseNeighborsLabelsJson(const std::string& json_file) {
   for (size_t i = 0; i < array.Size(); ++i) {
     auto& obj = array[i];
     if (!obj.IsObject()) {
-      LOG(ERROR) << "neighbors_labels_label*.json is not object";
+      LOG(ERROR) << (FLAGS_use_coprocessor ? "neighbors_int_*.json is not object"
+                                           : "neighbors_labels_label*.json is not object");
       return false;
     }
     if (!obj.HasMember("id") || !obj.HasMember("neighbors_id")) {
-      LOG(ERROR) << "neighbors_labels_label*.json id or neighbors_id not exist";
+      LOG(ERROR) << (FLAGS_use_coprocessor ? "neighbors_int_*.json id or neighbors_id not exist"
+                                           : "neighbors_labels_label*.json id or neighbors_id not exist");
       return false;
     }
 
     int64_t id = obj["id"].GetInt64();
     const auto& neighbors_id_array = obj["neighbors_id"].GetArray();
     if (id < 0 || neighbors_id_array.Size() == 0) {
-      LOG(ERROR) << fmt ::format("neighbors_labels_label*.json id:{} < 0 or neighbors_id_array:{} is empty", id,
-                                 neighbors_id_array.Size());
+      LOG(ERROR) << (FLAGS_use_coprocessor
+                         ? fmt::format("neighbors_int_*.json id:{} < 0 or neighbors_id not exist", id)
+                         : fmt::format("neighbors_labels_label*.json id:{} < 0 or neighbors_id not exist", id));
       return false;
     }
     std::vector<int64_t> neighbors;
     for (size_t j = 0; j < neighbors_id_array.Size(); ++j) {
       int64_t neighbor_id = neighbors_id_array[j].GetInt64();
       if (neighbor_id < 0) {
-        LOG(ERROR) << fmt::format("neighbors_labels_label*.json id:{} < 0", neighbor_id);
+        LOG(ERROR) << (FLAGS_use_coprocessor ? fmt::format("neighbors_int_*.json id:{} < 0", neighbor_id)
+                                             : fmt::format("neighbors_labels_label*.json id:{} < 0", neighbor_id));
         return false;
       }
       neighbors.push_back(neighbor_id);
@@ -1497,7 +1516,17 @@ bool BioasqMediumDataset::ParseTrainData(const rapidjson::Value& obj, sdk::Vecto
       scalar_value.fields.push_back(field);
       vector_with_id.scalar_data["labels"] = scalar_value;
     }
+
+    if (FLAGS_use_coprocessor) {
+      sdk::ScalarValue scalar_value;
+      scalar_value.type = sdk::Type::kINT64;
+      sdk::ScalarField field;
+      field.long_data = item["id"].GetInt64() + 1;
+      scalar_value.fields.push_back(field);
+      vector_with_id.scalar_data["id"] = scalar_value;
+    }
   }
+  vector_count_.fetch_add(1);
 
   return true;
 }
@@ -1543,17 +1572,35 @@ Dataset::TestEntryPtr BioasqMediumDataset::ParseTestData(const rapidjson::Value&
       already_set_label_name_.store(true);
     }
 
-    value = label_name_;
-    sdk::ScalarValue scalar_value;
-    scalar_value.type = sdk::Type::kSTRING;
-    sdk::ScalarField field;
-    field.string_data = value;
-    scalar_value.fields.push_back(field);
-    vector_with_id.scalar_data["labels"] = scalar_value;
+    {
+      value = label_name_;
+      sdk::ScalarValue scalar_value;
+      scalar_value.type = sdk::Type::kSTRING;
+      sdk::ScalarField field;
+      field.string_data = value;
+      scalar_value.fields.push_back(field);
+      vector_with_id.scalar_data["labels"] = scalar_value;
+    }
+
+    if (FLAGS_use_coprocessor) {
+      sdk::ScalarValue scalar_value;
+      scalar_value.type = sdk::Type::kINT64;
+      sdk::ScalarField field;
+      field.long_data = item["id"].GetInt64() + 1;
+      scalar_value.fields.push_back(field);
+      vector_with_id.scalar_data["id"] = scalar_value;
+    }
   }
 
   Dataset::TestEntryPtr entry = std::make_shared<Dataset::TestEntry>();
   entry->vector_with_id = vector_with_id;
+
+  if (FLAGS_use_coprocessor) {
+    std::string filter_json;
+    int64_t radius = std::stoll(FLAGS_vector_search_scalar_filter_radius);
+    filter_json = "id:int:" + std::to_string(vector_count_.load() * radius / 100) + ":gte";
+    entry->filter_json = GenFilterJson(filter_json);
+  }
 
   // ignore filter json
   // entry->filter_json = GenFilterJson(filter_value);
