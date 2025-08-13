@@ -279,6 +279,7 @@ class BioasqMediumDataset : public JsonDataset {
  private:
   mutable std::atomic<bool> already_set_label_name_{false};
   mutable std::string label_name_;
+  mutable std::atomic<int> vector_count_{0};
 };
 
 class OpenaiLargeDataset : public BioasqMediumDataset {

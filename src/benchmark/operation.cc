@@ -23,6 +23,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <ostream>
 #include <random>
 #include <sstream>
 #include <string>
@@ -560,7 +561,6 @@ Operation::Result BaseOperation::VectorSearch(VectorIndexEntryPtr entry,
                                               const std::vector<sdk::VectorWithId>& vector_with_ids,
                                               const sdk::SearchParam& search_param) {
   Operation::Result result;
-
   for (const auto& vector_with_id : vector_with_ids) {
     result.write_bytes += vector_with_id.vector.Size();
   }
@@ -571,6 +571,7 @@ Operation::Result BaseOperation::VectorSearch(VectorIndexEntryPtr entry,
   sdk::VectorClient* vector_client = nullptr;
   result.status = client->NewVectorClient(&vector_client);
   if (!result.status.IsOK()) {
+    DINGO_LOG(ERROR) << fmt::format("new vector client failed, error: {}", result.status.ToString());
     return result;
   }
 
@@ -1384,6 +1385,7 @@ Operation::Result VectorSearchOperation::ExecuteManualData(VectorIndexEntryPtr e
   ready_report.store(true);
   auto result = VectorSearch(entry, vector_with_ids, search_param);
   if (!result.status.IsOK()) {
+    DINGO_LOG(ERROR) << fmt::format("VectorSearch failed: {}", result.status.ToString());
     return result;
   }
 
@@ -1391,6 +1393,13 @@ Operation::Result VectorSearchOperation::ExecuteManualData(VectorIndexEntryPtr e
     auto& entry = batch_test_entries[i];
     if (i < result.vector_search_results.size()) {
       auto& search_result = result.vector_search_results[i];
+      //   print all result ids
+      //   std::string s;
+      //   s += fmt::format("search_result.vector_datas size: {} , ids : ", search_result.vector_datas.size());
+      //   for (auto& vector_data : search_result.vector_datas) {
+      //     s += fmt::format("{}, ", vector_data.vector_data.id);
+      //   }
+      //   DINGO_LOG(INFO) << s;
 
       result.recalls.push_back(CalculateRecallRate(entry->neighbors, search_result.vector_datas));
 
