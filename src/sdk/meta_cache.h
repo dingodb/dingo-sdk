@@ -73,6 +73,7 @@ class MetaCache {
 
   // be sure new_region will not destroy when call this func
   void MaybeAddRegion(const std::shared_ptr<Region>& new_region);
+  void MaybeAddRegions(const std::vector<std::shared_ptr<Region>>& new_regions);
 
   Status TEST_FastLookUpRegionByKey(std::string_view key, std::shared_ptr<Region>& region) {  // NOLINT
     ReadLockGuard guard(rw_lock_);

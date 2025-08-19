@@ -97,13 +97,8 @@ Status MetaCache::LookupRegionBetweenRange(std::string_view start_key, std::stri
   s = ScanRegionsBetweenRange(start_key, end_key, kPrefetchRegionCount, regions);
   if (s.IsOK() && !regions.empty()) {
     region = std::move(regions.front());
-
     DINGO_LOG_IF(WARNING, start_key < region->GetRange().start_key) << fmt::format(
         "start_key is less than region start_key, range: [{}, {}], region_range: [{}, {}]", StringToHex(start_key),
-        StringToHex(end_key), StringToHex(region->GetRange().start_key), StringToHex(region->GetRange().end_key));
-
-    CHECK(end_key > region->GetRange().start_key) << fmt::format(
-        "end_key should greater than region start_key, range: [{}, {}], region_range: [{}, {}]", StringToHex(start_key),
         StringToHex(end_key), StringToHex(region->GetRange().start_key), StringToHex(region->GetRange().end_key));
   }
 
@@ -141,10 +136,6 @@ Status MetaCache::LookupRegionBetweenRangeNoPrefetch(std::string_view start_key,
     DINGO_LOG_IF(WARNING, start_key < region->GetRange().start_key) << fmt::format(
         "start_key is less than region start_key, range: [{}, {}], region_range: [{}, {}]", StringToHex(start_key),
         StringToHex(end_key), StringToHex(region->GetRange().start_key), StringToHex(region->GetRange().end_key));
-
-    CHECK(end_key > region->GetRange().start_key) << fmt::format(
-        "end_key should greater than region start_key, range: [{}, {}], region_range: [{}, {}]", StringToHex(start_key),
-        StringToHex(end_key), StringToHex(region->GetRange().start_key), StringToHex(region->GetRange().end_key));
   }
 
   return s;
@@ -164,7 +155,20 @@ Status MetaCache::ScanRegionsBetweenRange(std::string_view start_key, std::strin
 
   DINGO_RETURN_NOT_OK(coordinator_rpc_controller_->SyncCall(rpc));
 
-  return ProcessScanRegionsBetweenRangeResponse(*rpc.Response(), regions);
+  Status s = ProcessScanRegionsBetweenRangeResponse(*rpc.Response(), regions);
+
+  // check end_key > region_start_key
+  auto region = regions.front();
+  CHECK(end_key > region->GetRange().start_key) << fmt::format(
+      "end_key is less than or equal to region start_key, range: [{}, {}], region_range: [{}, {}], request:[{}], "
+      "response:[{}]",
+      StringToHex(start_key), StringToHex(end_key), StringToHex(region->GetRange().start_key),
+      StringToHex(region->GetRange().end_key), rpc.Request()->DebugString(), rpc.Response()->DebugString());
+
+  if (s.ok()) {
+    MaybeAddRegions(regions);
+  }
+  return s;
 }
 
 Status MetaCache::ScanRegionsBetweenContinuousRange(std::string_view start_key, std::string_view end_key,
@@ -230,7 +234,13 @@ Status MetaCache::ScanRegionsBetweenContinuousRange(std::string_view start_key, 
 
   DINGO_RETURN_NOT_OK(coordinator_rpc_controller_->SyncCall(rpc));
 
-  return ProcessScanRegionsBetweenRangeResponse(*rpc.Response(), regions);
+  Status s = ProcessScanRegionsBetweenRangeResponse(*rpc.Response(), regions);
+  if (s.ok()) {
+    for (const auto& new_region : regions) {
+      MaybeAddRegion(new_region);
+    }
+  }
+  return s;
 }
 
 void MetaCache::ClearRange(const std::shared_ptr<Region>& region) {
@@ -276,6 +286,17 @@ void MetaCache::MaybeAddRegion(const std::shared_ptr<Region>& new_region) {
   WriteLockGuard guard(rw_lock_);
 
   MaybeAddRegionUnlocked(new_region);
+}
+
+void MetaCache::MaybeAddRegions(const std::vector<std::shared_ptr<Region>>& new_regions) {
+  WriteLockGuard guard(rw_lock_);
+  for (const auto& new_region : new_regions) {
+    if (new_region->range_.start_key >= new_region->range_.end_key) {
+      DINGO_LOG(WARNING) << "err : region start_key >= region end_key\n" << new_region->ToString();
+      return;
+    }
+    MaybeAddRegionUnlocked(new_region);
+  }
 }
 
 void MetaCache::MaybeAddRegionUnlocked(const std::shared_ptr<Region>& new_region) {
@@ -333,8 +354,13 @@ Status MetaCache::SlowLookUpRegionByKey(std::string_view key, std::shared_ptr<Re
     return send;
   }
 
-  return ProcessScanRegionsByKeyResponse(*rpc.Response(), region);
+  Status s = ProcessScanRegionsByKeyResponse(*rpc.Response(), region);
+  if (s.ok()) {
+    MaybeAddRegion(region);
+  }
+  return s;
 }
+
 Status MetaCache::FastLookUpRegionByRegionIdUnlocked(int64_t region_id, std::shared_ptr<Region>& region) {
   auto it = region_by_id_.find(region_id);
   if (it == region_by_id_.end()) {
@@ -353,7 +379,11 @@ Status MetaCache::SlowLookUpRegionByRegionId(int64_t region_id, std::shared_ptr<
   if (!send.IsOK()) {
     return send;
   }
-  return ProcessQueryRegionsByRegionIdResponse(*rpc.Response(), region);
+  Status s = ProcessQueryRegionsByRegionIdResponse(*rpc.Response(), region);
+  if (s.ok()) {
+    MaybeAddRegion(region);
+  }
+  return s;
 }
 
 Status MetaCache::ProcessQueryRegionsByRegionIdResponse(const pb::coordinator::QueryRegionResponse& response,
@@ -362,15 +392,8 @@ Status MetaCache::ProcessQueryRegionsByRegionIdResponse(const pb::coordinator::Q
     const auto& region_pb = response.region();
     std::shared_ptr<Region> new_region;
     ProcesssQueryRegion(region_pb, new_region);
-    {
-      WriteLockGuard guard(rw_lock_);
+    region = new_region;
 
-      MaybeAddRegionUnlocked(new_region);
-      auto iter = region_by_id_.find(region_pb.id());
-      CHECK(iter != region_by_id_.end());
-      CHECK(iter->second.get() != nullptr);
-      region = iter->second;
-    }
     return Status::OK();
   } else {
     DINGO_LOG(WARNING) << "response:" << response.DebugString();
@@ -385,15 +408,8 @@ Status MetaCache::ProcessScanRegionsByKeyResponse(const pb::coordinator::ScanReg
     const auto& scan_region_info = response.regions(0);
     std::shared_ptr<Region> new_region;
     ProcessScanRegionInfo(scan_region_info, new_region);
-    {
-      WriteLockGuard guard(rw_lock_);
+    region = new_region;
 
-      MaybeAddRegionUnlocked(new_region);
-      auto iter = region_by_id_.find(scan_region_info.region_id());
-      CHECK(iter != region_by_id_.end());
-      CHECK(iter->second.get() != nullptr);
-      region = iter->second;
-    }
     return Status::OK();
   } else {
     DINGO_LOG(WARNING) << "response:" << response.DebugString();
@@ -409,15 +425,7 @@ Status MetaCache::ProcessScanRegionsBetweenRangeResponse(const pb::coordinator::
     for (const auto& scan_region_info : response.regions()) {
       std::shared_ptr<Region> new_region;
       ProcessScanRegionInfo(scan_region_info, new_region);
-      {
-        WriteLockGuard guard(rw_lock_);
-
-        MaybeAddRegionUnlocked(new_region);
-        auto iter = region_by_id_.find(scan_region_info.region_id());
-        CHECK(iter != region_by_id_.end());
-        CHECK(iter->second.get() != nullptr);
-        tmp_regions.push_back(iter->second);
-      }
+      tmp_regions.push_back(new_region);
     }
 
     CHECK(!tmp_regions.empty());
