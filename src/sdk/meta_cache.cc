@@ -157,15 +157,13 @@ Status MetaCache::ScanRegionsBetweenRange(std::string_view start_key, std::strin
 
   Status s = ProcessScanRegionsBetweenRangeResponse(*rpc.Response(), regions);
 
-  // check end_key > region_start_key
-  auto region = regions.front();
-  CHECK(end_key > region->GetRange().start_key) << fmt::format(
-      "end_key is less than or equal to region start_key, range: [{}, {}], region_range: [{}, {}], request:[{}], "
-      "response:[{}]",
-      StringToHex(start_key), StringToHex(end_key), StringToHex(region->GetRange().start_key),
-      StringToHex(region->GetRange().end_key), rpc.Request()->DebugString(), rpc.Response()->DebugString());
-
   if (s.ok()) {
+    CHECK(!regions.empty());
+    CHECK(end_key > regions.front()->GetRange().start_key) << fmt::format(
+        "end_key is less than or equal to region start_key, range: [{}, {}], region_range: [{}, {}], request:[{}], "
+        "response:[{}]",
+        StringToHex(start_key), StringToHex(end_key), StringToHex(regions.front()->GetRange().start_key),
+        StringToHex(regions.front()->GetRange().end_key), rpc.Request()->DebugString(), rpc.Response()->DebugString());
     MaybeAddRegions(regions);
   }
   return s;
@@ -236,9 +234,13 @@ Status MetaCache::ScanRegionsBetweenContinuousRange(std::string_view start_key, 
 
   Status s = ProcessScanRegionsBetweenRangeResponse(*rpc.Response(), regions);
   if (s.ok()) {
-    for (const auto& new_region : regions) {
-      MaybeAddRegion(new_region);
-    }
+    CHECK(!regions.empty());
+    CHECK(end_key > regions.front()->GetRange().start_key) << fmt::format(
+        "end_key is less than or equal to region start_key, range: [{}, {}], region_range: [{}, {}], request:[{}], "
+        "response:[{}]",
+        StringToHex(start_key), StringToHex(end_key), StringToHex(regions.front()->GetRange().start_key),
+        StringToHex(regions.front()->GetRange().end_key), rpc.Request()->DebugString(), rpc.Response()->DebugString());
+    MaybeAddRegions(regions);
   }
   return s;
 }
