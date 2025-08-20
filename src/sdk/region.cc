@@ -27,7 +27,7 @@ Region::Region(int64_t id, pb::common::Range range, pb::common::RegionEpoch epoc
       epoch_(epoch.version(), epoch.conf_version()),
       region_type_(PBRegionTypeToRegionType(type)),
       replicas_(std::move(replicas)),
-      stale_(true) {
+      stale_(false) {
   for (auto& r : replicas_) {
     if (r.role == kLeader) {
       leader_addr_ = r.end_point;

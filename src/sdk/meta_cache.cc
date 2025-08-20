@@ -245,7 +245,7 @@ Status MetaCache::ScanRegionsBetweenContinuousRange(std::string_view start_key, 
   return s;
 }
 
-void MetaCache::ClearRange(const std::shared_ptr<Region>& region) {
+void MetaCache::ClearRegion(const std::shared_ptr<Region>& region) {
   WriteLockGuard guard(rw_lock_);
 
   auto iter = region_by_id_.find(region->RegionId());
@@ -253,8 +253,20 @@ void MetaCache::ClearRange(const std::shared_ptr<Region>& region) {
     DINGO_LOG(DEBUG) << "region is stale, no need clear, region:" << region->ToString();
     return;
   } else {
-    CHECK(iter != region_by_id_.end());
-    RemoveRegionUnlocked(region->RegionId());
+    if (iter == region_by_id_.end()) {
+      DINGO_LOG(WARNING) << "region not found in map, region:" << region->ToString();
+      return;
+    }
+    // means old_region vesion greater than or equal target region version，need clear the region in map
+    if (NeedClearRegion(region, iter->second)) {
+      DINGO_LOG(DEBUG) << fmt::format("clear region in map, old_region=[{}], target_region:[{}]", region->ToString(),
+                                      iter->second->ToString());
+      RemoveRegionUnlocked(region->RegionId());
+    } else {
+      DINGO_LOG(WARNING) << fmt::format(
+          "old_region version less than target_region version, old_region:[{}], target_region:[{}]",
+          iter->second->ToString(), region->ToString());
+    }
   }
 }
 
@@ -497,6 +509,11 @@ void MetaCache::ProcesssQueryRegion(const pb::common::Region& query_region, std:
 
 bool MetaCache::NeedUpdateRegion(const std::shared_ptr<Region>& old_region, const std::shared_ptr<Region>& new_region) {
   return EpochCompare(old_region->GetEpoch(), new_region->GetEpoch()) > 0;
+}
+
+bool MetaCache::NeedClearRegion(const std::shared_ptr<Region>& old_region,
+                                const std::shared_ptr<Region>& target_region) {
+  return EpochCompare(old_region->GetEpoch(), target_region->GetEpoch()) <= 0;
 }
 
 void MetaCache::RemoveRegionUnlocked(int64_t region_id) {

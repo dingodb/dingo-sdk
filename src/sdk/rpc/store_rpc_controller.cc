@@ -146,7 +146,7 @@ void StoreRpcController::SendStoreRpcCallBack() {
     }
 
   } else if (error.errcode() == pb::error::EREGION_VERSION) {
-    stub_.GetMetaCache()->ClearRange(region_);
+    stub_.GetMetaCache()->ClearRegion(region_);
     if (error.has_store_region_info()) {
       auto region = ProcessStoreRegionInfo(error.store_region_info());
       stub_.GetMetaCache()->MaybeAddRegion(region);
@@ -155,11 +155,11 @@ void StoreRpcController::SendStoreRpcCallBack() {
     status_ = Status::Incomplete(error.errcode(), error.errmsg());
 
   } else if (error.errcode() == pb::error::Errno::EREGION_NOT_FOUND) {
-    stub_.GetMetaCache()->ClearRange(region_);
+    stub_.GetMetaCache()->ClearRegion(region_);
     status_ = Status::Incomplete(error.errcode(), error.errmsg());
 
   } else if (error.errcode() == pb::error::Errno::EKEY_OUT_OF_RANGE) {
-    stub_.GetMetaCache()->ClearRange(region_);
+    stub_.GetMetaCache()->ClearRegion(region_);
     status_ = Status::Incomplete(error.errcode(), error.errmsg());
 
   } else if (error.errcode() == pb::error::Errno::EREQUEST_FULL) {
