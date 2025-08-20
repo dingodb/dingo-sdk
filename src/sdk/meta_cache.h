@@ -65,7 +65,7 @@ class MetaCache {
   Status ScanRegionsBetweenContinuousRange(std::string_view start_key, std::string_view end_key,
                                            std::vector<std::shared_ptr<Region>>& regions);
 
-  void ClearRange(const std::shared_ptr<Region>& region);
+  void ClearRegion(const std::shared_ptr<Region>& region);
 
   void RemoveRegion(int64_t region_id);
 
@@ -119,6 +119,8 @@ class MetaCache {
   void DumpUnlocked();
 
   static bool NeedUpdateRegion(const std::shared_ptr<Region>& old_region, const std::shared_ptr<Region>& new_region);
+
+  static bool NeedClearRegion(const std::shared_ptr<Region>& old_region, const std::shared_ptr<Region>& target_region);
 
   std::shared_ptr<CoordinatorRpcController> coordinator_rpc_controller_;
 
