@@ -149,6 +149,10 @@ DEFINE_int32(wait_for_vector_index_create_ready_s, 10, "wait vector index after 
 
 DEFINE_int32(wait_for_transfer_leader_region_s, 10, "wait  seconds after TransferLeaderRegion . default 10 seconds.");
 
+DEFINE_int32(batch_threads, 100, "default every 100 threads");
+
+DEFINE_int32(batch_threads_sleep_ms, 1000, "default every 1000 ms");
+
 namespace dingodb {
 namespace benchmark {
 
@@ -414,40 +418,51 @@ bool Benchmark::Arrange() {
 
 std::vector<RegionEntryPtr> Benchmark::ArrangeRegion(int num) {
   std::mutex mutex;
+
   std::vector<RegionEntryPtr> region_entries;
 
   bool is_txn_region = IsTransactionBenchmark();
 
   std::vector<std::thread> threads;
   threads.reserve(num);
-  for (int thread_no = 0; thread_no < num; ++thread_no) {
-    threads.emplace_back([this, is_txn_region, thread_no, &region_entries, &mutex]() {
-      auto name = fmt::format("{}_{}_{}", kNamePrefix, dingodb::benchmark::TimestampMs(), thread_no + 1);
-      std::string prefix = fmt::format("{}{:06}", FLAGS_prefix, thread_no);
-      int64_t region_id = 0;
-      if (is_txn_region) {
-        region_id = CreateTxnRegion(name, prefix, PrefixNext(prefix), GetRawEngineType(), FLAGS_replica);
-      } else {
-        region_id = CreateRawRegion(name, prefix, PrefixNext(prefix), GetRawEngineType(), FLAGS_replica);
-      }
-      if (region_id == 0) {
-        LOG(ERROR) << fmt::format("create region failed, name: {}", name);
-        return;
-      }
+  int thread_no = 0;
+  int batch_threads = FLAGS_batch_threads;
+  int batch_count = num / batch_threads;
+  batch_count += (num % batch_threads ? 1 : 0);
 
-      std::cout << fmt::format("create region name({}) id({}) prefix({}) done", name, region_id, prefix) << '\n';
+  for (int i = 0; i < batch_count; ++i) {
+    for (int j = 0; j < batch_threads && thread_no < num; ++thread_no, ++j) {
+      threads.emplace_back([this, is_txn_region, thread_no, &region_entries, &mutex]() {
+        auto name = fmt::format("{}_{}_{}", kNamePrefix, dingodb::benchmark::TimestampMs(), thread_no + 1);
+        std::string prefix = fmt::format("{}{:06}", FLAGS_prefix, thread_no);
+        int64_t region_id = 0;
 
-      auto region_entry = std::make_shared<RegionEntry>();
-      region_entry->prefix = prefix;
-      region_entry->region_id = region_id;
+        if (is_txn_region) {
+          region_id = CreateTxnRegion(name, prefix, PrefixNext(prefix), GetRawEngineType(), FLAGS_replica);
+        } else {
+          region_id = CreateRawRegion(name, prefix, PrefixNext(prefix), GetRawEngineType(), FLAGS_replica);
+        }
 
-      std::lock_guard lock(mutex);
-      region_entries.push_back(region_entry);
-    });
-  }
+        if (region_id == 0) {
+          LOG(ERROR) << fmt::format("create region failed, name: {}", name);
+          return;
+        }
 
-  for (auto& thread : threads) {
-    thread.join();
+        std::cout << fmt::format("create region name({}) id({}) prefix({}) done", name, region_id, prefix) << '\n';
+
+        auto region_entry = std::make_shared<RegionEntry>();
+        region_entry->prefix = prefix;
+        region_entry->region_id = region_id;
+
+        std::lock_guard lock(mutex);
+        region_entries.push_back(region_entry);
+      });
+    }
+    for (auto& thread : threads) {
+      thread.join();
+    }
+    threads.clear();
+    std::this_thread::sleep_for(std::chrono::milliseconds(FLAGS_batch_threads_sleep_ms));
   }
 
   return region_entries;
@@ -650,7 +665,7 @@ int64_t Benchmark::CreateRawRegion(const std::string& name, const std::string& s
   CHECK(status.ok()) << fmt::format("new region creator failed, {}", status.ToString());
   std::shared_ptr<sdk::RegionCreator> creator(tmp);
 
-  int64_t region_id;
+  int64_t region_id = 0;
   status = creator->SetRegionName(name)
                .SetEngineType(engine_type)
                .SetReplicaNum(replicas)
@@ -674,7 +689,7 @@ int64_t Benchmark::CreateTxnRegion(const std::string& name, const std::string& s
   CHECK(status.ok()) << fmt::format("new region creator failed, {}", status.ToString());
   std::shared_ptr<sdk::RegionCreator> creator(tmp);
 
-  int64_t region_id;
+  int64_t region_id = 0;
   status = creator->SetRegionName(name)
                .SetEngineType(engine_type)
                .SetReplicaNum(replicas)
