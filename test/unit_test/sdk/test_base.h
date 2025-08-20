@@ -30,6 +30,7 @@
 #include "sdk/auto_increment_manager.h"
 #include "sdk/client_internal_data.h"
 #include "sdk/meta_cache.h"
+#include "sdk/transaction/tso.h"
 #include "sdk/transaction/txn_impl.h"
 #include "sdk/utils/actuator.h"
 #include "sdk/utils/thread_pool_actuator.h"
@@ -92,6 +93,10 @@ class TestBase : public ::testing::Test {
     ON_CALL(*stub, GetAutoIncrementerManager).WillByDefault(testing::Return(auto_increment_manager));
     EXPECT_CALL(*stub, GetAutoIncrementerManager).Times(testing::AnyNumber());
 
+    tso_provider = std::make_shared<TsoProvider>(*stub);
+    ON_CALL(*stub, GetTsoProvider).WillByDefault(testing::Return(tso_provider));
+    EXPECT_CALL(*stub, GetTsoProvider).Times(testing::AnyNumber());
+
     client = new Client();
     client->data_->stub = std::move(tmp);
   }
@@ -121,6 +126,7 @@ class TestBase : public ::testing::Test {
   std::shared_ptr<Actuator> actuator;
   std::shared_ptr<VectorIndexCache> index_cache;
   std::shared_ptr<AutoIncrementerManager> auto_increment_manager;
+  std::shared_ptr<TsoProvider> tso_provider;
 
   // client own stub
   MockClientStub* stub;

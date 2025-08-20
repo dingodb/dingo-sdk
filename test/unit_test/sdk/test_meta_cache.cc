@@ -56,7 +56,7 @@ TEST_F(SDKMetaCacheTest, LookupRegionByKey) {
   EXPECT_EQ(tmp->GetRange().end_key, region->GetRange().end_key);
 }
 
-TEST_F(SDKMetaCacheTest, ClearRange) {
+TEST_F(SDKMetaCacheTest, ClearRegion) {
   auto region = RegionA2C();
 
   EXPECT_CALL(*coordinator_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
@@ -72,7 +72,7 @@ TEST_F(SDKMetaCacheTest, ClearRange) {
     Status got = meta_cache->LookupRegionByKey("b", tmp);
     EXPECT_TRUE(got.IsOK());
 
-    meta_cache->ClearRange(tmp);
+    meta_cache->ClearRegion(tmp);
     EXPECT_TRUE(tmp->IsStale());
 
     got = meta_cache->TEST_FastLookUpRegionByKey("b", tmp);
@@ -84,7 +84,7 @@ TEST_F(SDKMetaCacheTest, ClearRange) {
     std::shared_ptr<Region> tmp = RegionC2E();
     Status got = meta_cache->TEST_FastLookUpRegionByKey("c", tmp);
     EXPECT_TRUE(got.IsNotFound());
-    meta_cache->ClearRange(tmp);
+    meta_cache->ClearRegion(tmp);
   }
 }
 
