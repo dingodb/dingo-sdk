@@ -70,7 +70,7 @@ TEST_F(SDKRegionTest, TestInit) {
   Status got = region->GetLeader(leader);
   EXPECT_TRUE(got.IsOK());
   EXPECT_EQ(leader, kAddrOne);
-  EXPECT_TRUE(region->IsStale());
+  EXPECT_FALSE(region->IsStale());
 }
 
 TEST_F(SDKRegionTest, TestMark) {
@@ -88,12 +88,13 @@ TEST_F(SDKRegionTest, TestMark) {
 
   {
     // test mark and unmark stale
-    EXPECT_TRUE(region->IsStale());
-    region->TEST_UnMarkStale();
     EXPECT_FALSE(region->IsStale());
 
     region->TEST_MarkStale();
     EXPECT_TRUE(region->IsStale());
+
+    region->TEST_UnMarkStale();
+    EXPECT_FALSE(region->IsStale());
   }
 }
 

@@ -228,7 +228,7 @@ static pb::meta::TsoTimestamp CurrentFakeTso() {
   fake_tso.set_physical(ct);
   fake_tso.set_logical(init_logic);
 
-  init_logic += 10;
+  init_logic += 256;
 
   return fake_tso;
 }

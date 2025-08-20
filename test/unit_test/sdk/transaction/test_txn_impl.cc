@@ -25,6 +25,7 @@
 #include "proto//meta.pb.h"
 #include "proto/store.pb.h"
 #include "sdk/common/common.h"
+#include "sdk/common/param_config.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/transaction/txn_impl.h"
@@ -50,7 +51,7 @@ class SDKTxnImplTest : public TestBase {
     ON_CALL(*meta_rpc_controller, SyncCall).WillByDefault([&](Rpc& rpc) {
       auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
       EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
-      EXPECT_EQ(t_rpc->Request()->count(), 1);
+      t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
       auto* ts = t_rpc->MutableResponse()->mutable_start_timestamp();
       *ts = CurrentFakeTso();
 
@@ -69,7 +70,6 @@ TEST_F(SDKTxnImplTest, BeginFail) {
   ON_CALL(*meta_rpc_controller, SyncCall).WillByDefault([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
-    EXPECT_EQ(t_rpc->Request()->count(), 1);
     return Status::NetworkError("mock error");
   });
 

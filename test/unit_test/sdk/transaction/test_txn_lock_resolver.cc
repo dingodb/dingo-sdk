@@ -17,6 +17,7 @@
 #include "dingosdk/metric.h"
 #include "gtest/gtest.h"
 #include "sdk/common/common.h"
+#include "sdk/common/param_config.h"
 #include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/transaction/txn_lock_resolver.h"
@@ -56,7 +57,7 @@ TEST_F(SDKTxnLockResolverTest, TxnNotFound) {
   EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
-    EXPECT_EQ(t_rpc->Request()->count(), 1);
+    t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
     auto* ts = t_rpc->MutableResponse()->mutable_start_timestamp();
     *ts = fake_tso;
 
@@ -106,7 +107,7 @@ TEST_F(SDKTxnLockResolverTest, Locked) {
   EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
-    EXPECT_EQ(t_rpc->Request()->count(), 1);
+    t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
     auto* ts = t_rpc->MutableResponse()->mutable_start_timestamp();
     *ts = fake_tso;
 
@@ -153,7 +154,7 @@ TEST_F(SDKTxnLockResolverTest, Committed) {
   EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
-    EXPECT_EQ(t_rpc->Request()->count(), 1);
+    t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
     auto* ts = t_rpc->MutableResponse()->mutable_start_timestamp();
     *ts = fake_tso;
 
@@ -226,7 +227,7 @@ TEST_F(SDKTxnLockResolverTest, CommittedResolvePrimaryKeyFail) {
   EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
-    EXPECT_EQ(t_rpc->Request()->count(), 1);
+    t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
     auto* ts = t_rpc->MutableResponse()->mutable_start_timestamp();
     *ts = fake_tso;
 
@@ -302,7 +303,7 @@ TEST_F(SDKTxnLockResolverTest, CommittedResolveConflictKeyFail) {
   EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
-    EXPECT_EQ(t_rpc->Request()->count(), 1);
+    t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
     auto* ts = t_rpc->MutableResponse()->mutable_start_timestamp();
     *ts = fake_tso;
 
@@ -378,7 +379,7 @@ TEST_F(SDKTxnLockResolverTest, Rollbacked) {
   EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
-    EXPECT_EQ(t_rpc->Request()->count(), 1);
+    t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
     auto* ts = t_rpc->MutableResponse()->mutable_start_timestamp();
     *ts = fake_tso;
 
