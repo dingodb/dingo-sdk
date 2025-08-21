@@ -141,6 +141,12 @@ Status MetaCache::LookupRegionBetweenRangeNoPrefetch(std::string_view start_key,
   return s;
 }
 
+// because of thread concurrency,
+// for the same region_id， maybe region_by_id_ contain a larger version region，
+// the region of rpc return value can not added to the map
+// we make special arrangements for this situation.
+// return the region of rpc return value instead of the region of region_by_id
+// because different version may have different ranges， range may affect subsequent judgments and cause program errors
 Status MetaCache::ScanRegionsBetweenRange(std::string_view start_key, std::string_view end_key, int64_t limit,
                                           std::vector<std::shared_ptr<Region>>& regions) {
   DINGO_LOG(DEBUG) << fmt::format("ScanRegionsBetweenRange limit:{}, range: [{}, {}]", limit, StringToHex(start_key),
@@ -254,6 +260,8 @@ void MetaCache::ClearRegion(const std::shared_ptr<Region>& region) {
     return;
   } else {
     if (iter == region_by_id_.end()) {
+      // only one case : region was not added to the map，because region_by_id_ contain a larger version region
+      // but later the region in the map was cleared for some reason.
       DINGO_LOG(WARNING) << "region not found in map, region:" << region->ToString();
       return;
     }
@@ -263,6 +271,8 @@ void MetaCache::ClearRegion(const std::shared_ptr<Region>& region) {
                                       iter->second->ToString());
       RemoveRegionUnlocked(region->RegionId());
     } else {
+      // record this situation
+      // only one case : region was not added to the map，because region_by_id_ contain a larger version region
       DINGO_LOG(WARNING) << fmt::format(
           "old_region version less than target_region version, old_region:[{}], target_region:[{}]",
           iter->second->ToString(), region->ToString());
