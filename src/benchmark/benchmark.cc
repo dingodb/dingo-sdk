@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "benchmark/color.h"
+#include "benchmark/uuid.h"
 #include "dingosdk/client.h"
 #include "dingosdk/metric.h"
 #include "dingosdk/status.h"
@@ -434,7 +435,8 @@ std::vector<RegionEntryPtr> Benchmark::ArrangeRegion(int num) {
     for (int j = 0; j < batch_threads && thread_no < num; ++thread_no, ++j) {
       threads.emplace_back([this, is_txn_region, thread_no, &region_entries, &mutex]() {
         auto name = fmt::format("{}_{}_{}", kNamePrefix, dingodb::benchmark::TimestampMs(), thread_no + 1);
-        std::string prefix = fmt::format("{}{:06}", FLAGS_prefix, thread_no);
+        auto uuid = UUIDGenerator::GenerateUUID();
+        std::string prefix = fmt::format("{}{}", FLAGS_prefix, uuid);
         int64_t region_id = 0;
 
         if (is_txn_region) {
