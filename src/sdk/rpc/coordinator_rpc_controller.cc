@@ -16,10 +16,12 @@
 
 #include <utility>
 
+#include "common/logging.h"
+#include "dingosdk/status.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/common.h"
 #include "sdk/common/param_config.h"
-#include "dingosdk/status.h"
+#include "sdk/meta_member_info.h"
 #include "sdk/utils/async_util.h"
 #include "sdk/utils/net_util.h"
 
@@ -32,6 +34,7 @@ Status CoordinatorRpcController::Open(const std::vector<EndPoint>& endpoints) {
   };
 
   meta_member_info_.SetMembers(endpoints);
+  DINGO_LOG(INFO) << "Open coordinator rpc controller with endpoints: " << meta_member_info_.ToString();
 
   return Status::OK();
 }
@@ -56,11 +59,12 @@ void CoordinatorRpcController::DoAsyncCall(Rpc& rpc) {
   SendCoordinatorRpc(rpc);
 }
 
-static bool NeedPickLeader(Rpc& rpc) { return !rpc.GetStatus().IsRemoteError(); }
+bool CoordinatorRpcController::NeedPickLeader() { return !status_.IsRemoteError(); }
 
 void CoordinatorRpcController::PrepareRpc(Rpc& rpc) {
-  if (NeedPickLeader(rpc)) {
+  if (NeedPickLeader()) {
     EndPoint next_leader = meta_member_info_.PickNextLeader();
+    DINGO_LOG(INFO) << "Pick next leader: " << next_leader.ToString() << ", rpc method: " << rpc.Method();
 
     CHECK(next_leader.IsValid());
     rpc.SetEndPoint(next_leader);
@@ -69,11 +73,13 @@ void CoordinatorRpcController::PrepareRpc(Rpc& rpc) {
   rpc.Reset();
 }
 
-static bool NeedDelay(Rpc& rpc) { return rpc.GetStatus().IsRemoteError(); }
+bool CoordinatorRpcController::NeedDelay() {
+  return status_.IsRemoteError() || status_.IsNoLeader() || status_.IsNetworkError();
+}
 
 void CoordinatorRpcController::SendCoordinatorRpc(Rpc& rpc) {
   // TODO: what error should be delay
-  if (NeedDelay(rpc)) {
+  if (NeedDelay()) {
     DINGO_LOG(INFO) << "try to delay:" << FLAGS_coordinator_interaction_delay_ms << "ms";
     (void)usleep(FLAGS_coordinator_interaction_delay_ms * 1000);
   }
@@ -87,12 +93,12 @@ void CoordinatorRpcController::SendCoordinatorRpcCallBack(Rpc& rpc) {
     meta_member_info_.MarkFollower(rpc.GetEndPoint());
     DINGO_LOG(WARNING) << "Fail connect to meta server: " << rpc.GetEndPoint().ToString()
                        << ", status:" << sent.ToString();
+    status_ = sent;
   } else {
     auto error = GetRpcResponseError(rpc);
     if (error.errcode() == pb::error::Errno::OK) {
       VLOG(kSdkVlogLevel) << "Success connect with meta server leader_addr: " << rpc.GetEndPoint().ToString();
-      Status s = Status::OK();
-      rpc.SetStatus(s);
+      status_ = Status::OK();
     } else {
       DINGO_LOG(INFO) << fmt::format("log_id:{} method:{} endpoint:{}, error_code:{}, error_msg:{}", rpc.LogId(),
                                      rpc.Method(), rpc.GetEndPoint().ToString(),
@@ -109,17 +115,13 @@ void CoordinatorRpcController::SendCoordinatorRpcCallBack(Rpc& rpc) {
           }
         }
 
-        Status s = Status::NotLeader(error.errcode(), error.errmsg());
-        rpc.SetStatus(s);
+        status_ = Status::NotLeader(error.errcode(), error.errmsg());
       } else if (error.errcode() == pb::error::Errno::EREGION_NOT_FOUND) {
-        Status s = Status::NotFound(error.errcode(), error.errmsg());
-        rpc.SetStatus(s);
+        status_ = Status::NotFound(error.errcode(), error.errmsg());
       } else if (error.errcode() == pb::error::Errno::EINDEX_NOT_FOUND) {
-        Status s = Status::NotFound(error.errcode(), error.errmsg());
-        rpc.SetStatus(s);
+        status_ = Status::NotFound(error.errcode(), error.errmsg());
       } else {
-        Status s = Status::Incomplete(error.errcode(), error.errmsg());
-        rpc.SetStatus(s);
+        status_ = Status::Incomplete(error.errcode(), error.errmsg());
       }
     }
   }
@@ -130,18 +132,17 @@ void CoordinatorRpcController::SendCoordinatorRpcCallBack(Rpc& rpc) {
 static bool NeedRetry(Rpc& rpc) { return rpc.GetRetryTimes() < FLAGS_coordinator_interaction_max_retry; }
 
 void CoordinatorRpcController::RetrySendRpcOrFireCallback(Rpc& rpc) {
-  Status status = rpc.GetStatus();
-  if (status.IsOK()) {
+  if (status_.IsOK()) {
     FireCallback(rpc);
     return;
   }
 
-  if (status.IsNetworkError() || status.IsNotLeader()) {
+  if (status_.IsNetworkError() || status_.IsNotLeader()) {
     if (NeedRetry(rpc)) {
       rpc.IncRetryTimes();
       DoAsyncCall(rpc);
     } else {
-      rpc.SetStatus(Status::Aborted("rpc retry times exceed"));
+      status_ = Status::Aborted("rpc retry times exceed");
       FireCallback(rpc);
       return;
     }
@@ -151,10 +152,8 @@ void CoordinatorRpcController::RetrySendRpcOrFireCallback(Rpc& rpc) {
 }
 
 void CoordinatorRpcController::FireCallback(Rpc& rpc) {
-  Status status = rpc.GetStatus();
-
-  if (!status.ok()) {
-    DINGO_LOG(WARNING) << "Fail send rpc: " << rpc.Method() << ", status: " << status.ToString()
+  if (!status_.ok()) {
+    DINGO_LOG(WARNING) << "Fail send rpc: " << rpc.Method() << ", status: " << status_.ToString()
                        << ", retry_times:" << rpc.GetRetryTimes()
                        << ", max_retry_limit:" << FLAGS_coordinator_interaction_max_retry;
   }
@@ -162,7 +161,7 @@ void CoordinatorRpcController::FireCallback(Rpc& rpc) {
   if (rpc.call_back) {
     StatusCallback cb;
     rpc.call_back.swap(cb);
-    cb(rpc.GetStatus());
+    cb(status_);
   }
 }
 

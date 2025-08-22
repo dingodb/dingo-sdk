@@ -22,7 +22,7 @@ DEFINE_int64(actuator_thread_num, 8, "actuator thread num");
 
 // coordinator config
 DEFINE_int64(coordinator_interaction_delay_ms, 500, "coordinator interaction delay ms");
-DEFINE_int64(coordinator_interaction_max_retry, 30, "coordinator interaction max retry");
+DEFINE_int64(coordinator_interaction_max_retry, 600, "coordinator interaction max retry");
 DEFINE_int64(auto_incre_req_count, 1000, "raw kv max retry times");
 
 // ChannelOptions should set "timeout_ms > connect_timeout_ms" for circuit breaker
