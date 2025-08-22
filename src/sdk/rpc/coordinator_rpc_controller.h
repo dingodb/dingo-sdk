@@ -45,10 +45,13 @@ class CoordinatorRpcController {
   void SendCoordinatorRpc(Rpc& rpc);
   void SendCoordinatorRpcCallBack(Rpc& rpc);
   void RetrySendRpcOrFireCallback(Rpc& rpc);
-  static void FireCallback(Rpc& rpc);
+  void FireCallback(Rpc& rpc);
+  bool NeedDelay();
+  bool NeedPickLeader();
 
   const ClientStub& stub_;
   MetaMemberInfo meta_member_info_;
+  Status status_;
 };
 
 }  // namespace sdk
