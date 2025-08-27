@@ -76,7 +76,7 @@ std::string DocumentIndex::ToString(bool verbose) const {
   }
   if (verbose) {
     return fmt::format("DocumentIndex(id={}, schema_id={}, name={}, start_key_to_part_id={}, index_def_with_id={})",
-                       id_, schema_id_, name_, oss.str(), index_def_with_id_.DebugString());
+                       id_, schema_id_, name_, oss.str(), index_def_with_id_.ShortDebugString());
   } else {
     return fmt::format("DocumentIndex(id={}, schema_id={}, name={}, start_key_to_part_id={})", id_, schema_id_, name_,
                        oss.str());

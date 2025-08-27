@@ -96,8 +96,8 @@ class UnaryRpc : public Rpc {
     } else {
       DINGO_LOG(DEBUG) << "Success send rpc: " << Method() << ", log_id:" << controller.log_id()
                        << " endpoint:" << endpoint2str(controller.remote_side()).c_str() << ", request: \n"
-                       << request->DebugString() << ", response:\n"
-                       << response->DebugString();
+                       << request->ShortDebugString() << ", response:\n"
+                       << response->ShortDebugString();
     }
 
     if (FLAGS_enable_trace_rpc_performance) {

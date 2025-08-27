@@ -93,9 +93,9 @@ class UnaryRpc : public Rpc {
     } else {
       DINGO_LOG(DEBUG) << "Success send rpc: " << Method() << " endpoint(peer):" << context->peer() << "\n"
                        << "request: \n"
-                       << request.DebugString() << "\n"
+                       << request.ShortDebugString() << "\n"
                        << "response:\n"
-                       << response.DebugString();
+                       << response.ShortDebugString();
     }
 
     if (FLAGS_enable_trace_rpc_performance) {

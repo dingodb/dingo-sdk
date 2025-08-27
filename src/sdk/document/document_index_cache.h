@@ -75,7 +75,7 @@ bool DocumentIndexCache::CheckIndexResponse(const DocumentIndexResponse& respons
   }
 
   if (!checked) {
-    DINGO_LOG(WARNING) << "Fail checked, response:" << response.DebugString();
+    DINGO_LOG(WARNING) << "Fail checked, response:" << response.ShortDebugString();
   }
 
   return checked;

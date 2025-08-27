@@ -83,8 +83,8 @@ Status AutoIncrementer::UpdateAutoIncrementId(int64_t start_id) {
     UpdateAutoIncrementRpc rpc;
     PrepareUpdateAutoIncrementRequest(*rpc.MutableRequest(), start_id);
     DINGO_RETURN_NOT_OK(stub_.GetMetaRpcController()->SyncCall(rpc));
-    VLOG(kSdkVlogLevel) << "UpdateAutoIncrement request:" << rpc.Request()->DebugString()
-                        << " response:" << rpc.Response()->DebugString();
+    VLOG(kSdkVlogLevel) << "UpdateAutoIncrement request:" << rpc.Request()->ShortDebugString()
+                        << " response:" << rpc.Response()->ShortDebugString();
     id_cache_.clear();
     return Status::OK();
   });
@@ -116,13 +116,13 @@ Status AutoIncrementer::RefillCache() {
   PrepareGenerateAutoIncrementRequest(*rpc.MutableRequest());
 
   DINGO_RETURN_NOT_OK(stub_.GetMetaRpcController()->SyncCall(rpc));
-  VLOG(kSdkVlogLevel) << "GenerateAutoIncrement request:" << rpc.Request()->DebugString()
-                      << " response:" << rpc.Response()->DebugString();
+  VLOG(kSdkVlogLevel) << "GenerateAutoIncrement request:" << rpc.Request()->ShortDebugString()
+                      << " response:" << rpc.Response()->ShortDebugString();
   // TODO: maybe not crash just return error msg
   const auto* response = rpc.Response();
   const auto* request = rpc.Request();
   CHECK_GT(response->end_id(), response->start_id())
-      << " request:" << request->DebugString() << " response: " << response->DebugString();
+      << " request:" << request->ShortDebugString() << " response: " << response->ShortDebugString();
   for (int64_t i = response->start_id(); i < response->end_id(); i++) {
     id_cache_.push_back(i);
   }

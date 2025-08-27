@@ -125,12 +125,12 @@ void RawKvDeleteRangeTask::KvDeleteRangeRpcCallback(Status status, KvDeleteRange
 
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
-                       << " fail: " << status.ToString() << ", rpc req:" << rpc->Request()->DebugString()
-                       << " rpc resp:" << rpc->Response()->DebugString();
+                       << " fail: " << status.ToString() << ", rpc req:" << rpc->Request()->ShortDebugString()
+                       << " rpc resp:" << rpc->Response()->ShortDebugString();
   } else {
     const auto& end_key = rpc->Request()->range().range().end_key();
-    CHECK(!end_key.empty()) << "illegal request:" << rpc->Request()->DebugString()
-                            << ", resp:" << rpc->Response()->DebugString();
+    CHECK(!end_key.empty()) << "illegal request:" << rpc->Request()->ShortDebugString()
+                            << ", resp:" << rpc->Response()->ShortDebugString();
 
     tmp_out_delete_count_.fetch_add(rpc->Response()->delete_count());
     next_start_key_ = end_key;
