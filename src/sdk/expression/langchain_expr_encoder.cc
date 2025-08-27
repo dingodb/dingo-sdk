@@ -53,7 +53,7 @@ pb::common::CoprocessorV2 LangChainExprEncoder::EncodeToCoprocessor(LangchainExp
 
   VLOG(kSdkVlogLevel) << "langchain expr: " << expr->ToString()
                       << " encode hex string: " << sdk::codec::BytesToHexString(coprocessor.rel_expr())
-                      << " coprocessor: " << coprocessor.DebugString();
+                      << " coprocessor: " << coprocessor.ShortDebugString();
   return coprocessor;
 }
 

@@ -638,13 +638,13 @@ Status RegionCreator::Create(int64_t& out_region_id) {
 
   DINGO_RETURN_NOT_OK(data_->stub.GetCoordinatorRpcController()->SyncCall(rpc));
 
-  CHECK(rpc.Response()->region_id() > 0) << "create region internal error, req:" << rpc.Request()->DebugString()
-                                         << ", resp:" << rpc.Response()->DebugString();
+  CHECK(rpc.Response()->region_id() > 0) << "create region internal error, req:" << rpc.Request()->ShortDebugString()
+                                         << ", resp:" << rpc.Response()->ShortDebugString();
 
   if (out_region_id > 0) {
     CHECK(out_region_id == rpc.Response()->region_id())
-        << "create region internal error, req:" << rpc.Request()->DebugString()
-        << ", resp:" << rpc.Response()->DebugString();
+        << "create region internal error, req:" << rpc.Request()->ShortDebugString()
+        << ", resp:" << rpc.Response()->ShortDebugString();
   }
 
   out_region_id = rpc.Response()->region_id();
@@ -678,8 +678,8 @@ Status RegionCreator::CreateRegionId(int64_t count, std::vector<int64_t>& out_re
   rpc.MutableRequest()->set_count(count);
   DINGO_RETURN_NOT_OK(data_->stub.GetCoordinatorRpcController()->SyncCall(rpc));
   CHECK(rpc.Response()->region_ids_size() == count)
-      << "create region id internal error, req:" << rpc.Request()->DebugString()
-      << ", resp:" << rpc.Response()->DebugString();
+      << "create region id internal error, req:" << rpc.Request()->ShortDebugString()
+      << ", resp:" << rpc.Response()->ShortDebugString();
   out_region_ids.resize(rpc.Response()->region_ids_size());
   for (int i = 0; i < rpc.Response()->region_ids_size(); i++) {
     out_region_ids[i] = rpc.Response()->region_ids(i);

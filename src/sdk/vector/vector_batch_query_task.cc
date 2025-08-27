@@ -120,8 +120,8 @@ void VectorBatchQueryTask::DoAsync() {
 }
 
 void VectorBatchQueryTask::VectorBatchQueryRpcCallback(const Status& status, VectorBatchQueryRpc* rpc) {
-  VLOG(kSdkVlogLevel) << "rpc: " << rpc->Method() << " request: " << rpc->Request()->DebugString()
-                      << " response: " << rpc->Response()->DebugString();
+  VLOG(kSdkVlogLevel) << "rpc: " << rpc->Method() << " request: " << rpc->Request()->ShortDebugString()
+                      << " response: " << rpc->Response()->ShortDebugString();
 
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
@@ -136,7 +136,7 @@ void VectorBatchQueryTask::VectorBatchQueryRpcCallback(const Status& status, Vec
     CHECK_EQ(rpc->Response()->vectors_size(), rpc->Request()->vector_ids_size())
         << Name() << ", rpc: " << rpc->Method() << " request vector_ids_size: " << rpc->Request()->vector_ids_size()
         << " response vectors_size: " << rpc->Response()->vectors_size()
-        << " request: " << rpc->Request()->DebugString() << " response: " << rpc->Response()->DebugString();
+        << " request: " << rpc->Request()->ShortDebugString() << " response: " << rpc->Response()->ShortDebugString();
 
     WriteLockGuard guard(rw_lock_);
     for (const auto& vectorid_pb : rpc->Response()->vectors()) {

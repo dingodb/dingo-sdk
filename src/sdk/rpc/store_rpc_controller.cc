@@ -149,7 +149,12 @@ void StoreRpcController::SendStoreRpcCallBack() {
     stub_.GetMetaCache()->ClearRegion(region_);
     if (error.has_store_region_info()) {
       auto region = ProcessStoreRegionInfo(error.store_region_info());
-      stub_.GetMetaCache()->MaybeAddRegion(region);
+      if (region->GetRange().start_key >= region->GetRange().end_key) {
+        DINGO_LOG(WARNING) << "region range is invaild, request:" << rpc_.RawRequest()->ShortDebugString()
+                         << " response:" << rpc_.RawResponse()->ShortDebugString();
+      } else {
+        stub_.GetMetaCache()->MaybeAddRegion(region);
+      }
       msg += fmt::format(", region version({}).", region->DescribeEpoch());
     }
     status_ = Status::Incomplete(error.errcode(), error.errmsg());

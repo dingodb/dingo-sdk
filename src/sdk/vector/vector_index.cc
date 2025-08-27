@@ -83,7 +83,7 @@ std::string VectorIndex::ToString(bool verbose) const {
   }
   if (verbose) {
     return fmt::format("VectorIndex(id={}, schema_id={}, name={}, start_key_to_part_id={}, index_def_with_id={})", id_,
-                       schema_id_, name_, oss.str(), index_def_with_id_.DebugString());
+                       schema_id_, name_, oss.str(), index_def_with_id_.ShortDebugString());
   } else {
     return fmt::format("VectorIndex(id={}, schema_id={}, name={}, start_key_to_part_id={})", id_, schema_id_, name_,
                        oss.str());

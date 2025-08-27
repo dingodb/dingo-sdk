@@ -161,7 +161,7 @@ Status MetaCache::ScanRegionsBetweenRange(std::string_view start_key, std::strin
 
   DINGO_RETURN_NOT_OK(coordinator_rpc_controller_->SyncCall(rpc));
 
-  Status s = ProcessScanRegionsBetweenRangeResponse(*rpc.Response(), regions);
+  Status s = ProcessScanRegionsBetweenRangeResponse(rpc, regions);
 
   if (s.ok()) {
     CHECK(!regions.empty());
@@ -169,7 +169,8 @@ Status MetaCache::ScanRegionsBetweenRange(std::string_view start_key, std::strin
         "end_key is less than or equal to region start_key, range: [{}, {}], region_range: [{}, {}], request:[{}], "
         "response:[{}]",
         StringToHex(start_key), StringToHex(end_key), StringToHex(regions.front()->GetRange().start_key),
-        StringToHex(regions.front()->GetRange().end_key), rpc.Request()->DebugString(), rpc.Response()->DebugString());
+        StringToHex(regions.front()->GetRange().end_key), rpc.Request()->ShortDebugString(),
+        rpc.Response()->ShortDebugString());
     MaybeAddRegions(regions);
   }
   return s;
@@ -238,14 +239,15 @@ Status MetaCache::ScanRegionsBetweenContinuousRange(std::string_view start_key, 
 
   DINGO_RETURN_NOT_OK(coordinator_rpc_controller_->SyncCall(rpc));
 
-  Status s = ProcessScanRegionsBetweenRangeResponse(*rpc.Response(), regions);
+  Status s = ProcessScanRegionsBetweenRangeResponse(rpc, regions);
   if (s.ok()) {
     CHECK(!regions.empty());
     CHECK(end_key > regions.front()->GetRange().start_key) << fmt::format(
         "end_key is less than or equal to region start_key, range: [{}, {}], region_range: [{}, {}], request:[{}], "
         "response:[{}]",
         StringToHex(start_key), StringToHex(end_key), StringToHex(regions.front()->GetRange().start_key),
-        StringToHex(regions.front()->GetRange().end_key), rpc.Request()->DebugString(), rpc.Response()->DebugString());
+        StringToHex(regions.front()->GetRange().end_key), rpc.Request()->ShortDebugString(),
+        rpc.Response()->ShortDebugString());
     MaybeAddRegions(regions);
   }
   return s;
@@ -302,10 +304,10 @@ void MetaCache::ClearCache() {
 }
 
 void MetaCache::MaybeAddRegion(const std::shared_ptr<Region>& new_region) {
-  if (new_region->range_.start_key >= new_region->range_.end_key) {
-    DINGO_LOG(WARNING) << "err : region start_key >= region end_key\n" << new_region->ToString();
-    return;
-  }
+  CHECK(new_region.get() != nullptr);
+  CHECK(new_region->GetRange().start_key < new_region->GetRange().end_key)
+      << "err : region start_key >= region end_key\n"
+      << new_region->ToString();
 
   WriteLockGuard guard(rw_lock_);
 
@@ -315,10 +317,10 @@ void MetaCache::MaybeAddRegion(const std::shared_ptr<Region>& new_region) {
 void MetaCache::MaybeAddRegions(const std::vector<std::shared_ptr<Region>>& new_regions) {
   WriteLockGuard guard(rw_lock_);
   for (const auto& new_region : new_regions) {
-    if (new_region->range_.start_key >= new_region->range_.end_key) {
-      DINGO_LOG(WARNING) << "err : region start_key >= region end_key\n" << new_region->ToString();
-      return;
-    }
+    CHECK(new_region.get() != nullptr);
+    CHECK(new_region->GetRange().start_key < new_region->GetRange().end_key)
+        << "err : region start_key >= region end_key\n"
+        << new_region->ToString();
     MaybeAddRegionUnlocked(new_region);
   }
 }
@@ -378,7 +380,7 @@ Status MetaCache::SlowLookUpRegionByKey(std::string_view key, std::shared_ptr<Re
     return send;
   }
 
-  Status s = ProcessScanRegionsByKeyResponse(*rpc.Response(), region);
+  Status s = ProcessScanRegionsByKeyResponse(rpc, region);
   if (s.ok()) {
     MaybeAddRegion(region);
   }
@@ -403,52 +405,70 @@ Status MetaCache::SlowLookUpRegionByRegionId(int64_t region_id, std::shared_ptr<
   if (!send.IsOK()) {
     return send;
   }
-  Status s = ProcessQueryRegionsByRegionIdResponse(*rpc.Response(), region);
+  Status s = ProcessQueryRegionsByRegionIdResponse(rpc, region);
   if (s.ok()) {
     MaybeAddRegion(region);
   }
   return s;
 }
 
-Status MetaCache::ProcessQueryRegionsByRegionIdResponse(const pb::coordinator::QueryRegionResponse& response,
-                                                        std::shared_ptr<Region>& region) {
-  if (response.has_region()) {
-    const auto& region_pb = response.region();
+Status MetaCache::ProcessQueryRegionsByRegionIdResponse(const QueryRegionRpc& rpc, std::shared_ptr<Region>& region) {
+  const pb::coordinator::QueryRegionResponse* response = rpc.Response();
+  if (response->has_region()) {
+    const auto& region_pb = response->region();
     std::shared_ptr<Region> new_region;
     ProcesssQueryRegion(region_pb, new_region);
+    if (new_region->range_.start_key >= new_region->range_.end_key) {
+      DINGO_LOG(ERROR) << "region range is invaild, request:" << rpc.Request()->ShortDebugString()
+                       << " response:" << response->ShortDebugString();
+      return Status::IllegalState("region range invalid");
+    }
     region = new_region;
 
     return Status::OK();
   } else {
-    DINGO_LOG(WARNING) << "response:" << response.DebugString();
+    DINGO_LOG(WARNING) << "request:" << rpc.Request()->ShortDebugString()
+                       << " response:" << response->ShortDebugString();
     return Status::NotFound("region not found");
   }
 }
-Status MetaCache::ProcessScanRegionsByKeyResponse(const pb::coordinator::ScanRegionsResponse& response,
-                                                  std::shared_ptr<Region>& region) {
-  if (response.regions_size() > 0) {
-    CHECK(response.regions_size() == 1) << "expect ScanRegionsResponse  has one region";
+Status MetaCache::ProcessScanRegionsByKeyResponse(const ScanRegionsRpc& rpc, std::shared_ptr<Region>& region) {
+  const pb::coordinator::ScanRegionsResponse* response = rpc.Response();
+  if (response->regions_size() > 0) {
+    CHECK(response->regions_size() == 1) << "expect ScanRegionsResponse  has one region";
 
-    const auto& scan_region_info = response.regions(0);
+    const auto& scan_region_info = response->regions(0);
     std::shared_ptr<Region> new_region;
     ProcessScanRegionInfo(scan_region_info, new_region);
+    if (new_region->range_.start_key >= new_region->range_.end_key) {
+      DINGO_LOG(ERROR) << "region range is invaild, request:" << rpc.Request()->ShortDebugString()
+                       << " response:" << response->ShortDebugString();
+      return Status::IllegalState("region range invalid");
+    }
     region = new_region;
 
     return Status::OK();
   } else {
-    DINGO_LOG(WARNING) << "response:" << response.DebugString();
+    DINGO_LOG(WARNING) << "request:" << rpc.Request()->ShortDebugString()
+                       << " response:" << response->ShortDebugString();
     return Status::NotFound("region not found");
   }
 }
 
-Status MetaCache::ProcessScanRegionsBetweenRangeResponse(const pb::coordinator::ScanRegionsResponse& response,
+Status MetaCache::ProcessScanRegionsBetweenRangeResponse(const ScanRegionsRpc& rpc,
                                                          std::vector<std::shared_ptr<Region>>& regions) {
-  if (response.regions_size() > 0) {
+  const pb::coordinator::ScanRegionsResponse* response = rpc.Response();
+  if (response->regions_size() > 0) {
     std::vector<std::shared_ptr<Region>> tmp_regions;
 
-    for (const auto& scan_region_info : response.regions()) {
+    for (const auto& scan_region_info : response->regions()) {
       std::shared_ptr<Region> new_region;
       ProcessScanRegionInfo(scan_region_info, new_region);
+      if (new_region->range_.start_key >= new_region->range_.end_key) {
+        DINGO_LOG(ERROR) << "region range is invaild, request:" << rpc.Request()->ShortDebugString()
+                         << " response:" << response->ShortDebugString();
+        return Status::IllegalState("region range invalid");
+      }
       tmp_regions.push_back(new_region);
     }
 
@@ -457,7 +477,8 @@ Status MetaCache::ProcessScanRegionsBetweenRangeResponse(const pb::coordinator::
 
     return Status::OK();
   } else {
-    DINGO_LOG(DEBUG) << "no scan_region_info in ScanRegionsResponse, response:" << response.DebugString();
+    DINGO_LOG(DEBUG) << "no scan_region_info in ScanRegionsResponse, request:" << rpc.Request()->ShortDebugString()
+                     << " response:" << response->ShortDebugString();
     return Status::NotFound("regions not found");
   }
 }

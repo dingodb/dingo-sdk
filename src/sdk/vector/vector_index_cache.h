@@ -74,7 +74,7 @@ bool VectorIndexCache::CheckIndexResponse(const VectorIndexResponse& response) {
   }
 
   if (!checked) {
-    DINGO_LOG(WARNING) << "Fail checked, response:" << response.DebugString();
+    DINGO_LOG(WARNING) << "Fail checked, response:" << response.ShortDebugString();
   }
 
   return checked;

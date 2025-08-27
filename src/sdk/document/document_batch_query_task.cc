@@ -122,8 +122,8 @@ void DocumentBatchQueryTask::DoAsync() {
 }
 
 void DocumentBatchQueryTask::DocumentBatchQueryRpcCallback(const Status& status, DocumentBatchQueryRpc* rpc) {
-  VLOG(kSdkVlogLevel) << "rpc: " << rpc->Method() << " request: " << rpc->Request()->DebugString()
-                      << " response: " << rpc->Response()->DebugString();
+  VLOG(kSdkVlogLevel) << "rpc: " << rpc->Method() << " request: " << rpc->Request()->ShortDebugString()
+                      << " response: " << rpc->Response()->ShortDebugString();
 
   if (!status.ok()) {
     DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
@@ -138,7 +138,7 @@ void DocumentBatchQueryTask::DocumentBatchQueryRpcCallback(const Status& status,
     CHECK_EQ(rpc->Response()->doucments_size(), rpc->Request()->document_ids_size())
         << Name() << ", rpc: " << rpc->Method() << " request doc_ids_size: " << rpc->Request()->document_ids_size()
         << " response vectors_size: " << rpc->Response()->doucments_size()
-        << " request: " << rpc->Request()->DebugString() << " response: " << rpc->Response()->DebugString();
+        << " request: " << rpc->Request()->ShortDebugString() << " response: " << rpc->Response()->ShortDebugString();
 
     WriteLockGuard guard(rw_lock_);
     for (const auto& doc_pb : rpc->Response()->doucments()) {

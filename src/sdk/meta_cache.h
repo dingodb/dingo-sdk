@@ -27,6 +27,7 @@
 #include "proto/common.pb.h"
 #include "proto/coordinator.pb.h"
 #include "sdk/region.h"
+#include "sdk/rpc/coordinator_rpc.h"
 #include "sdk/rpc/coordinator_rpc_controller.h"
 
 namespace dingodb {
@@ -93,16 +94,14 @@ class MetaCache {
 
   Status SlowLookUpRegionByRegionId(int64_t region_id, std::shared_ptr<Region>& region);
 
-  Status ProcessScanRegionsByKeyResponse(const pb::coordinator::ScanRegionsResponse& response,
-                                         std::shared_ptr<Region>& region);
+  static Status ProcessScanRegionsByKeyResponse(const ScanRegionsRpc& rpc, std::shared_ptr<Region>& region);
 
   static void ProcesssQueryRegion(const pb::common::Region& query_region, std::shared_ptr<Region>& new_region);
 
-  Status ProcessQueryRegionsByRegionIdResponse(const pb::coordinator::QueryRegionResponse& response,
-                                               std::shared_ptr<Region>& region);
+  static Status ProcessQueryRegionsByRegionIdResponse(const QueryRegionRpc& rpc, std::shared_ptr<Region>& region);
 
-  Status ProcessScanRegionsBetweenRangeResponse(const pb::coordinator::ScanRegionsResponse& response,
-                                                std::vector<std::shared_ptr<Region>>& regions);
+  static Status ProcessScanRegionsBetweenRangeResponse(const ScanRegionsRpc& rpc,
+                                                       std::vector<std::shared_ptr<Region>>& regions);
 
   static void ProcessScanRegionInfo(const pb::coordinator::ScanRegionInfo& scan_region_info,
                                     std::shared_ptr<Region>& new_region);
