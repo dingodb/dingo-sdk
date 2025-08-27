@@ -424,6 +424,9 @@ std::vector<RegionEntryPtr> Benchmark::ArrangeRegion(int num) {
 
   bool is_txn_region = IsTransactionBenchmark();
 
+  LOG(INFO) << fmt::format("create region batch start, count: {}", num);
+  int64_t time_start = dingodb::benchmark::TimestampMs();
+
   std::vector<std::thread> threads;
   threads.reserve(num);
   int thread_no = 0;
@@ -451,6 +454,7 @@ std::vector<RegionEntryPtr> Benchmark::ArrangeRegion(int num) {
         }
 
         std::cout << fmt::format("create region name({}) id({}) prefix({}) done", name, region_id, prefix) << '\n';
+        LOG(INFO) << fmt::format("create region name({}) id({}) prefix({}) done", name, region_id, prefix);
 
         auto region_entry = std::make_shared<RegionEntry>();
         region_entry->prefix = prefix;
@@ -466,6 +470,17 @@ std::vector<RegionEntryPtr> Benchmark::ArrangeRegion(int num) {
     threads.clear();
     std::this_thread::sleep_for(std::chrono::milliseconds(FLAGS_batch_threads_sleep_ms));
   }
+
+  int64_t time_end = dingodb::benchmark::TimestampMs();
+  int64_t duration = time_end - time_start;
+  int64_t hours = duration / 3600000;
+  duration %= 3600000;
+  int64_t minutes = duration / 60000;
+  duration %= 60000;
+  int64_t seconds = duration / 1000;
+  int64_t milliseconds = duration % 1000;
+
+  LOG(INFO) << fmt::format("create region batch done, count: {} const: {} h {} m {} s {} ms", region_entries.size(), hours, minutes, seconds, milliseconds);
 
   return region_entries;
 }
