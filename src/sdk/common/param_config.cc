@@ -38,8 +38,8 @@ DEFINE_int64(rpc_time_out_ms, 500000, "rpc call timeout ms");
 DEFINE_bool(enable_trace_rpc_performance, true, "enable trance rpc performance, use for debug");
 DEFINE_int64(rpc_elapse_time_threshold_us, 1000, "rpc elapse time us threshold");
 
-DEFINE_int64(store_rpc_retry_delay_ms, 500, "store rpc retry delay ms");
-DEFINE_int64(store_rpc_max_retry, 120, "store rpc max retry times, use case: wrong leader or request range invalid");
+DEFINE_int64(store_rpc_retry_delay_ms, 1000, "store rpc retry delay ms");
+DEFINE_int64(store_rpc_max_retry, 300, "store rpc max retry times, use case: wrong leader or request range invalid");
 
 DEFINE_int64(scan_batch_size, 1000, "scan batch size, use for region scanner");
 
