@@ -67,6 +67,8 @@
 namespace dingodb {
 namespace sdk {
 
+static const uint32_t kScanRegionLimit = 1000;
+
 void ShowSdkVersion() { DingoSdkLogVersion(); }
 std::vector<std::pair<std::string, std::string>> GetSdkVersion() { return DingoSdkVersion(); }
 
@@ -196,6 +198,29 @@ Status Client::IsCreateRegionInProgress(int64_t region_id, bool& out_create_in_p
 Status Client::DropRegion(int64_t region_id) {
   data_->stub->GetMetaCache()->RemoveRegion(region_id);
   return data_->stub->GetAdminTool()->DropRegion(region_id);
+}
+
+Status Client::DropRegion(const std::string& start_key, const std::string& end_key) {
+  do {
+    std::vector<int64_t> region_ids;
+    auto status = ScanRegions(start_key, end_key, kScanRegionLimit, region_ids);
+    if (!status.ok()) {
+      DINGO_LOG(ERROR) << fmt::format("[sdk] scan region fail, status({} {}).", status.Errno(), status.ToString());
+      return status;
+    }
+
+    for (const auto& region_id : region_ids) {
+      status = DropRegion(region_id);
+      if (!status.ok()) {
+        DINGO_LOG(ERROR) << fmt::format("[sdk] drop region fail, status({} {}).", status.Errno(), status.ToString());
+        return status;
+      }
+    }
+
+    if (region_ids.size() < kScanRegionLimit) break;
+  } while (true);
+
+  return Status::OK();
 }
 
 Status Client::NewVectorClient(VectorClient** client) {

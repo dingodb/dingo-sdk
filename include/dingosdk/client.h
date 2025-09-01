@@ -90,6 +90,7 @@ class Client {
   Status IsCreateRegionInProgress(int64_t region_id, bool& out_create_in_progress);
 
   Status DropRegion(int64_t region_id);
+  Status DropRegion(const std::string& start_key, const std::string& end_key);
 
   // NOTE:: Caller must delete *client when it is no longer needed.
   Status NewVectorClient(VectorClient** client);
@@ -278,7 +279,6 @@ class Transaction {
   explicit Transaction(Data* data);
 
   Status Begin();
-
 };
 
 enum EngineType : uint8_t { kLSM, kBTree, kXDPROCKS };
