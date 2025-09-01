@@ -72,7 +72,7 @@ void DefineClientBindings(pybind11::module& m) {
              Status status = client.IsCreateRegionInProgress(region_id, out_create_in_progress);
              return std::make_tuple(status, out_create_in_progress);
            })
-      .def("DropRegion", &Client::DropRegion)
+      .def("DropRegion", [](Client& client, int64_t region_id) { return client.DropRegion(region_id); })
       .def("NewVectorClient",
            [](Client& client) {
              VectorClient* ptr;

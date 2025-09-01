@@ -102,7 +102,7 @@ void StoreRpcController::SendStoreRpc() {
 
 void StoreRpcController::MaybeDelay() {
   if (NeedDelay(status_)) {
-    auto delay_ms = FLAGS_store_rpc_retry_delay_ms * rpc_retry_times_;
+    auto delay_ms = FLAGS_store_rpc_retry_delay_ms;
     SleepUs(delay_ms * 1000);
   }
 }
@@ -151,7 +151,7 @@ void StoreRpcController::SendStoreRpcCallBack() {
       auto region = ProcessStoreRegionInfo(error.store_region_info());
       if (region->GetRange().start_key >= region->GetRange().end_key) {
         DINGO_LOG(WARNING) << "region range is invaild, request:" << rpc_.RawRequest()->ShortDebugString()
-                         << " response:" << rpc_.RawResponse()->ShortDebugString();
+                           << " response:" << rpc_.RawResponse()->ShortDebugString();
       } else {
         stub_.GetMetaCache()->MaybeAddRegion(region);
       }
