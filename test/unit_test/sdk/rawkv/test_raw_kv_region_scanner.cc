@@ -69,7 +69,7 @@ TEST_F(SDKRawKvRegionScannerImplTest, OpenCloseSuccess) {
 
   std::string scan_id = "101";
 
-  EXPECT_CALL(*store_rpc_client, SendRpc)
+  EXPECT_CALL(*rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         auto* kv_rpc = dynamic_cast<KvScanBeginRpc*>(&rpc);
         CHECK_NOTNULL(kv_rpc);
@@ -135,7 +135,7 @@ TEST_F(SDKRawKvRegionScannerImplTest, OpenFail) {
 
   std::string scan_id = "101";
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_rpc = dynamic_cast<KvScanBeginRpc*>(&rpc);
     CHECK_NOTNULL(kv_rpc);
 
@@ -162,7 +162,7 @@ TEST_F(SDKRawKvRegionScannerImplTest, OpenSuccessCloseFail) {
 
   std::string scan_id = "101";
 
-  EXPECT_CALL(*store_rpc_client, SendRpc)
+  EXPECT_CALL(*rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         auto* kv_rpc = dynamic_cast<KvScanBeginRpc*>(&rpc);
         CHECK_NOTNULL(kv_rpc);
@@ -220,7 +220,7 @@ TEST_F(SDKRawKvRegionScannerImplTest, NextBatchFail) {
 
   std::string scan_id = "101";
 
-  EXPECT_CALL(*store_rpc_client, SendRpc)
+  EXPECT_CALL(*rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         auto* kv_rpc = dynamic_cast<KvScanBeginRpc*>(&rpc);
         CHECK_NOTNULL(kv_rpc);
@@ -270,7 +270,7 @@ TEST_F(SDKRawKvRegionScannerImplTest, NextBatchNoData) {
 
   std::string scan_id = "101";
 
-  EXPECT_CALL(*store_rpc_client, SendRpc)
+  EXPECT_CALL(*rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         auto* kv_rpc = dynamic_cast<KvScanBeginRpc*>(&rpc);
         CHECK_NOTNULL(kv_rpc);
@@ -325,7 +325,7 @@ TEST_F(SDKRawKvRegionScannerImplTest, NextBatchWithData) {
   int iter = 0;
   int iter_before = 0;
 
-  EXPECT_CALL(*store_rpc_client, SendRpc)
+  EXPECT_CALL(*rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         auto* kv_rpc = dynamic_cast<KvScanBeginRpc*>(&rpc);
         CHECK_NOTNULL(kv_rpc);

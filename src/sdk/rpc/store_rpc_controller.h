@@ -69,7 +69,7 @@ class StoreRpcController {
   static bool IsTxnNeedRetryError(const Status& status) { return status.IsTxnMemLockConflict(); }
 
   static bool NeedDelay(const Status& status) {
-    return status.IsRemoteError() || status.IsNoLeader() || status.IsTxnMemLockConflict() || status.IsNetworkError();
+    return status.IsRemoteError() || status.IsNoLeader() || status.IsTxnMemLockConflict() || status.IsNetworkError()|| status.IsNotLeader();
   }
   // above funciton only works for store rpc controller
 

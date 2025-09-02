@@ -64,9 +64,9 @@ class TestBase : public ::testing::Test {
     RpcClientOptions options;
     options.connect_timeout_ms = 3000;
     options.timeout_ms = 5000;
-    store_rpc_client = std::make_shared<MockRpcClient>(options);
-    ON_CALL(*stub, GetStoreRpcClient).WillByDefault(testing::Return(store_rpc_client));
-    EXPECT_CALL(*stub, GetStoreRpcClient).Times(testing::AnyNumber());
+    rpc_client = std::make_shared<MockRpcClient>(options);
+    ON_CALL(*stub, GetRpcClient).WillByDefault(testing::Return(rpc_client));
+    EXPECT_CALL(*stub, GetRpcClient).Times(testing::AnyNumber());
 
     region_scanner_factory = std::make_shared<MockRegionScannerFactory>();
     ON_CALL(*stub, GetRawKvRegionScannerFactory).WillByDefault(testing::Return(region_scanner_factory));
@@ -102,7 +102,7 @@ class TestBase : public ::testing::Test {
   }
 
   ~TestBase() override {
-    store_rpc_client.reset();
+    rpc_client.reset();
     meta_cache.reset();
     delete client;
   }
@@ -119,7 +119,7 @@ class TestBase : public ::testing::Test {
   std::shared_ptr<MockCoordinatorRpcController> coordinator_rpc_controller;
   std::shared_ptr<MockCoordinatorRpcController> meta_rpc_controller;
   std::shared_ptr<MetaCache> meta_cache;
-  std::shared_ptr<MockRpcClient> store_rpc_client;
+  std::shared_ptr<MockRpcClient> rpc_client;
   std::shared_ptr<MockRegionScannerFactory> region_scanner_factory;
   std::shared_ptr<AdminTool> admin_tool;
   std::shared_ptr<MockTxnLockResolver> txn_lock_resolver;

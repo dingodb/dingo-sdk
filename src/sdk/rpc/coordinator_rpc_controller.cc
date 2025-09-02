@@ -74,7 +74,7 @@ void CoordinatorRpcController::PrepareRpc(Rpc& rpc) {
 }
 
 bool CoordinatorRpcController::NeedDelay() {
-  return status_.IsRemoteError() || status_.IsNoLeader() || status_.IsNetworkError();
+  return status_.IsRemoteError() || status_.IsNoLeader() || status_.IsNetworkError() || status_.IsNotLeader();
 }
 
 void CoordinatorRpcController::SendCoordinatorRpc(Rpc& rpc) {
@@ -84,7 +84,7 @@ void CoordinatorRpcController::SendCoordinatorRpc(Rpc& rpc) {
     (void)usleep(FLAGS_coordinator_interaction_delay_ms * 1000);
   }
 
-  stub_.GetStoreRpcClient()->SendRpc(rpc, [this, &rpc] { SendCoordinatorRpcCallBack(rpc); });
+  stub_.GetRpcClient()->SendRpc(rpc, [this, &rpc] { SendCoordinatorRpcCallBack(rpc); });
 }
 
 void CoordinatorRpcController::SendCoordinatorRpcCallBack(Rpc& rpc) {

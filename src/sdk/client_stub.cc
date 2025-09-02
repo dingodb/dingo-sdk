@@ -54,7 +54,7 @@ Status ClientStub::Open(const std::vector<EndPoint>& endpoints) {
   options.timeout_ms = FLAGS_rpc_channel_timeout_ms;
   options.connect_timeout_ms = FLAGS_rpc_channel_connect_timeout_ms;
 
-  store_rpc_client_.reset(NewRpcClient(options));
+  rpc_client_.reset(NewRpcClient(options));
 
   meta_cache_ = std::make_shared<MetaCache>(coordinator_rpc_controller_);
 
