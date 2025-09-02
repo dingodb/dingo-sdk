@@ -61,9 +61,9 @@ class ClientStub {
     return meta_cache_;
   }
 
-  virtual std::shared_ptr<RpcClient> GetStoreRpcClient() const {
-    DCHECK_NOTNULL(store_rpc_client_.get());
-    return store_rpc_client_;
+  virtual std::shared_ptr<RpcClient> GetRpcClient() const {
+    DCHECK_NOTNULL(rpc_client_.get());
+    return rpc_client_;
   }
 
   virtual std::shared_ptr<RegionScannerFactory> GetRawKvRegionScannerFactory() const {
@@ -117,7 +117,7 @@ class ClientStub {
   std::shared_ptr<CoordinatorRpcController> meta_rpc_controller_;
   std::shared_ptr<CoordinatorRpcController> version_rpc_controller_;
   std::shared_ptr<MetaCache> meta_cache_;
-  std::shared_ptr<RpcClient> store_rpc_client_;
+  std::shared_ptr<RpcClient> rpc_client_;
   std::shared_ptr<RegionScannerFactory> raw_kv_region_scanner_factory_;
   std::shared_ptr<RegionScannerFactory> txn_region_scanner_factory_;
   std::shared_ptr<AdminTool> admin_tool_;

@@ -63,7 +63,7 @@ TEST_F(SDKRawKVTest, Get) {
   CHECK(meta_cache->LookupRegionByKey(key, region).IsOK());
   CHECK_NOTNULL(region.get());
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_get_rpc = dynamic_cast<KvGetRpc*>(&rpc);
     CHECK_NOTNULL(kv_get_rpc);
 
@@ -91,7 +91,7 @@ TEST_F(SDKRawKVTest, BatchGetSuccess) {
 
   std::vector<KVPair> kvs;
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     auto* batch_get_rpc = dynamic_cast<KvBatchGetRpc*>(&rpc);
     CHECK_NOTNULL(batch_get_rpc);
     CHECK(batch_get_rpc->Request()->has_context());
@@ -132,7 +132,7 @@ TEST_F(SDKRawKVTest, BatchGetPartialFail) {
 
   std::vector<KVPair> kvs;
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     auto* batch_get_rpc = dynamic_cast<KvBatchGetRpc*>(&rpc);
     CHECK_NOTNULL(batch_get_rpc);
     CHECK(batch_get_rpc->Request()->has_context());
@@ -174,7 +174,7 @@ TEST_F(SDKRawKVTest, BatchGetAllFail) {
 
   std::vector<KVPair> kvs;
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     auto* batch_get_rpc = dynamic_cast<KvBatchGetRpc*>(&rpc);
     CHECK_NOTNULL(batch_get_rpc);
     CHECK(batch_get_rpc->Request()->has_context());
@@ -220,7 +220,7 @@ TEST_F(SDKRawKVTest, Put) {
   CHECK(meta_cache->LookupRegionByKey(key, region).IsOK());
   CHECK_NOTNULL(region.get());
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_put_rpc = dynamic_cast<KvPutRpc*>(&rpc);
     CHECK_NOTNULL(kv_put_rpc);
 
@@ -247,7 +247,7 @@ TEST_F(SDKRawKVTest, BatchPutSuccess) {
   kvs.push_back({"d", "d"});
   kvs.push_back({"f", "f"});
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_batch_put_rpc = dynamic_cast<KvBatchPutRpc*>(&rpc);
     CHECK_NOTNULL(kv_batch_put_rpc);
 
@@ -273,7 +273,7 @@ TEST_F(SDKRawKVTest, BatchPutPartialFail) {
   kvs.push_back({"d", "d"});
   kvs.push_back({"f", "f"});
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_batch_put_rpc = dynamic_cast<KvBatchPutRpc*>(&rpc);
     CHECK_NOTNULL(kv_batch_put_rpc);
 
@@ -302,7 +302,7 @@ TEST_F(SDKRawKVTest, PutIfAbsent) {
   std::string key = "d";
   std::string value = "d";
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_rpc = dynamic_cast<KvPutIfAbsentRpc*>(&rpc);
     CHECK_NOTNULL(kv_rpc);
 
@@ -331,7 +331,7 @@ TEST_F(SDKRawKVTest, BatchPutIfAbsentSuccess) {
   kvs.push_back({"d", "d"});
   kvs.push_back({"f", "f"});
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_rpc = dynamic_cast<KvBatchPutIfAbsentRpc*>(&rpc);
     CHECK_NOTNULL(kv_rpc);
 
@@ -363,7 +363,7 @@ TEST_F(SDKRawKVTest, BatchPutIfAbsentPartialFail) {
   kvs.push_back({"d", "d"});
   kvs.push_back({"f", "f"});
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_rpc = dynamic_cast<KvBatchPutIfAbsentRpc*>(&rpc);
     CHECK_NOTNULL(kv_rpc);
 
@@ -401,7 +401,7 @@ TEST_F(SDKRawKVTest, BatchPutIfAbsentPartialFail) {
 TEST_F(SDKRawKVTest, Delete) {
   std::string key = "d";
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_rpc = dynamic_cast<KvBatchDeleteRpc*>(&rpc);
     CHECK_NOTNULL(kv_rpc);
 
@@ -424,7 +424,7 @@ TEST_F(SDKRawKVTest, BatchDeleteSuccess) {
   to_delete.push_back("d");
   to_delete.push_back("f");
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_rpc = dynamic_cast<KvBatchDeleteRpc*>(&rpc);
     CHECK_NOTNULL(kv_rpc);
 
@@ -448,7 +448,7 @@ TEST_F(SDKRawKVTest, BatchDeletePartialFail) {
   to_delete.push_back("d");
   to_delete.push_back("f");
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_rpc = dynamic_cast<KvBatchDeleteRpc*>(&rpc);
     CHECK_NOTNULL(kv_rpc);
 
@@ -486,7 +486,7 @@ TEST_F(SDKRawKVTest, DeleteRangeInOneRegion) {
 
   int64_t count = 100;
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_rpc = dynamic_cast<KvDeleteRangeRpc*>(&rpc);
     CHECK_NOTNULL(kv_rpc);
 
@@ -530,7 +530,7 @@ TEST_F(SDKRawKVTest, DeleteRangeInTwoRegion) {
 
   int64_t count = 100;
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_rpc = dynamic_cast<KvDeleteRangeRpc*>(&rpc);
     CHECK_NOTNULL(kv_rpc);
 
@@ -581,7 +581,7 @@ TEST_F(SDKRawKVTest, DeleteRangeInThressRegion) {
 
   int64_t count = 100;
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_rpc = dynamic_cast<KvDeleteRangeRpc*>(&rpc);
     CHECK_NOTNULL(kv_rpc);
 
@@ -634,7 +634,7 @@ TEST_F(SDKRawKVTest, DeleteRangeInThressRegionWithoutStartKeyWithEndkey) {
 
   int64_t count = 100;
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_rpc = dynamic_cast<KvDeleteRangeRpc*>(&rpc);
     CHECK_NOTNULL(kv_rpc);
 
@@ -721,7 +721,7 @@ TEST_F(SDKRawKVTest, DeleteRangeNonContinuous) {
         return Status::OK();
       });
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_rpc = dynamic_cast<KvDeleteRangeRpc*>(&rpc);
     CHECK_NOTNULL(kv_rpc);
 
@@ -767,7 +767,7 @@ TEST_F(SDKRawKVTest, CompareAndSet) {
   CHECK(meta_cache->LookupRegionByKey(key, region).IsOK());
   CHECK_NOTNULL(region.get());
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_rpc = dynamic_cast<KvCompareAndSetRpc*>(&rpc);
     CHECK_NOTNULL(kv_rpc);
 
@@ -823,7 +823,7 @@ TEST_F(SDKRawKVTest, BatchCompareAndSetSuccess) {
   expect_values.push_back("x");
   expect_values.push_back("w");
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_rpc = dynamic_cast<KvBatchCompareAndSetRpc*>(&rpc);
     CHECK_NOTNULL(kv_rpc);
 
@@ -880,7 +880,7 @@ TEST_F(SDKRawKVTest, BatchCompareAndSetPartialFail) {
   expect_values.push_back("x");
   expect_values.push_back("w");
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     auto* kv_rpc = dynamic_cast<KvBatchCompareAndSetRpc*>(&rpc);
     CHECK_NOTNULL(kv_rpc);
 

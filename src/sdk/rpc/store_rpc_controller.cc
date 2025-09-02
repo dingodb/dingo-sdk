@@ -97,7 +97,7 @@ void StoreRpcController::SendStoreRpc() {
   CHECK(region_.get() != nullptr) << "region should not nullptr.";
 
   MaybeDelay();
-  stub_.GetStoreRpcClient()->SendRpc(rpc_, [this] { SendStoreRpcCallBack(); });
+  stub_.GetRpcClient()->SendRpc(rpc_, [this] { SendStoreRpcCallBack(); });
 }
 
 void StoreRpcController::MaybeDelay() {

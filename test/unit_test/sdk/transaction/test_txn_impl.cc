@@ -94,7 +94,7 @@ TEST_F(SDKTxnImplTest, Get) {
 
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
     auto* txn_rpc = dynamic_cast<TxnGetRpc*>(&rpc);
     CHECK_NOTNULL(txn_rpc);
 
@@ -123,7 +123,7 @@ TEST_F(SDKTxnImplTest, Get) {
 TEST_F(SDKTxnImplTest, SingleOP) {
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
     auto* txn_rpc = dynamic_cast<TxnGetRpc*>(&rpc);
     CHECK_NOTNULL(txn_rpc);
 
@@ -191,7 +191,7 @@ TEST_F(SDKTxnImplTest, BatchGet) {
 
   auto txn = NewTransactionImpl(options);
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     auto* txn_rpc = dynamic_cast<TxnBatchGetRpc*>(&rpc);
     CHECK_NOTNULL(txn_rpc);
 
@@ -235,7 +235,7 @@ TEST_F(SDKTxnImplTest, BatchGetFromBuffer) {
   kvs.push_back({"d", "d"});
   kvs.push_back({"f", "f"});
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).Times(0);
+  EXPECT_CALL(*rpc_client, SendRpc).Times(0);
 
   auto txn = NewTransactionImpl(options);
 
@@ -270,7 +270,7 @@ TEST_F(SDKTxnImplTest, BatchOp) {
     keys.push_back(kv.key);
   }
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).Times(0);
+  EXPECT_CALL(*rpc_client, SendRpc).Times(0);
 
   auto txn = NewTransactionImpl(options);
 
@@ -307,7 +307,7 @@ TEST_F(SDKTxnImplTest, BatchOp) {
 }
 
 TEST_F(SDKTxnImplTest, CommitEmpty) {
-  EXPECT_CALL(*store_rpc_client, SendRpc).Times(0);
+  EXPECT_CALL(*rpc_client, SendRpc).Times(0);
 
   auto txn = NewTransactionImpl(options);
 
@@ -336,7 +336,7 @@ TEST_F(SDKTxnImplTest, CommitWithData) {
     txn->PutIfAbsent("d", "d");
   }
 
-  EXPECT_CALL(*store_rpc_client, SendRpc)
+  EXPECT_CALL(*rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         // precommit primary key
         TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
@@ -433,7 +433,7 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflict) {
   auto mock_lock = PrepareLockInfo();
   mock_lock.set_key(txn->TEST_GetPrimaryKey());
 
-  EXPECT_CALL(*store_rpc_client, SendRpc)
+  EXPECT_CALL(*rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
         // precommit primary key lock confil
@@ -537,7 +537,7 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflictExceed) {
   auto mock_lock = PrepareLockInfo();
   mock_lock.set_key(txn->TEST_GetPrimaryKey());
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
     TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
     // precommit primary key lock conflict
     CHECK_NOTNULL(txn_rpc);
@@ -589,7 +589,7 @@ TEST_F(SDKTxnImplTest, PrimaryKeyWriteLockConfict) {
   conflict.set_start_ts(txn->TEST_GetStartTs() + kStep);
   conflict.set_key(txn->TEST_GetPrimaryKey());
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
     // precommit
     CHECK_NOTNULL(txn_rpc);
@@ -633,7 +633,7 @@ TEST_F(SDKTxnImplTest, PreWriteSecondLockConflict) {
     txn->PutIfAbsent("d", "d");
   }
 
-  EXPECT_CALL(*store_rpc_client, SendRpc)
+  EXPECT_CALL(*rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
         // precommit primary key
@@ -699,7 +699,7 @@ TEST_F(SDKTxnImplTest, PreWriteSecondWriteConflict) {
     txn->PutIfAbsent("d", "d");
   }
 
-  EXPECT_CALL(*store_rpc_client, SendRpc)
+  EXPECT_CALL(*rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
         // precommit
@@ -765,7 +765,7 @@ TEST_F(SDKTxnImplTest, CommitPrimaryKeyMeetRollback) {
     txn->PutIfAbsent("d", "d");
   }
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
     if (nullptr != txn_rpc) {
       // precommit
@@ -824,7 +824,7 @@ TEST_F(SDKTxnImplTest, CommitSencondError) {
     txn->PutIfAbsent("d", "d");
   }
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
     if (nullptr != txn_rpc) {
       // precommit
@@ -876,7 +876,7 @@ TEST_F(SDKTxnImplTest, PreCommitFailThenRollback) {
     txn->PutIfAbsent("d", "d");
   }
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
     if (nullptr != txn_rpc) {
       // precommit
@@ -941,7 +941,7 @@ TEST_F(SDKTxnImplTest, RollbackPrimaryKeyFail) {
     txn->PutIfAbsent("d", "d");
   }
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
     if (nullptr != txn_rpc) {
       // precommit primary key
@@ -1013,7 +1013,7 @@ TEST_F(SDKTxnImplTest, RollbackSecondKeysFail) {
     txn->PutIfAbsent("d", "d");
   }
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
     TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
     if (nullptr != txn_rpc) {
       // precommit primary key
@@ -1088,7 +1088,7 @@ TEST_F(SDKTxnImplTest, LockHeartbeat) {
     txn->PutIfAbsent("d", "d");
   }
 
-  EXPECT_CALL(*store_rpc_client, SendRpc)
+  EXPECT_CALL(*rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
         // precommit primary key
@@ -1167,7 +1167,7 @@ TEST_F(SDKTxnImplTest, LockHeartbeatFail) {
     txn->PutIfAbsent("d", "d");
   }
 
-  EXPECT_CALL(*store_rpc_client, SendRpc)
+  EXPECT_CALL(*rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
         // precommit

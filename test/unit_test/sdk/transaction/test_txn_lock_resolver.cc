@@ -64,7 +64,7 @@ TEST_F(SDKTxnLockResolverTest, TxnNotFound) {
     return Status::OK();
   });
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
     auto* txn_rpc = dynamic_cast<TxnCheckTxnStatusRpc*>(&rpc);
     CHECK_NOTNULL(txn_rpc);
 
@@ -114,7 +114,7 @@ TEST_F(SDKTxnLockResolverTest, Locked) {
     return Status::OK();
   });
 
-  EXPECT_CALL(*store_rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+  EXPECT_CALL(*rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
     auto* txn_rpc = dynamic_cast<TxnCheckTxnStatusRpc*>(&rpc);
     CHECK_NOTNULL(txn_rpc);
 
@@ -161,7 +161,7 @@ TEST_F(SDKTxnLockResolverTest, Committed) {
     return Status::OK();
   });
 
-  EXPECT_CALL(*store_rpc_client, SendRpc)
+  EXPECT_CALL(*rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         auto* txn_rpc = dynamic_cast<TxnCheckTxnStatusRpc*>(&rpc);
         CHECK_NOTNULL(txn_rpc);
@@ -234,7 +234,7 @@ TEST_F(SDKTxnLockResolverTest, CommittedResolvePrimaryKeyFail) {
     return Status::OK();
   });
 
-  EXPECT_CALL(*store_rpc_client, SendRpc)
+  EXPECT_CALL(*rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         auto* txn_rpc = dynamic_cast<TxnCheckTxnStatusRpc*>(&rpc);
         CHECK_NOTNULL(txn_rpc);
@@ -310,7 +310,7 @@ TEST_F(SDKTxnLockResolverTest, CommittedResolveConflictKeyFail) {
     return Status::OK();
   });
 
-  EXPECT_CALL(*store_rpc_client, SendRpc)
+  EXPECT_CALL(*rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         auto* txn_rpc = dynamic_cast<TxnCheckTxnStatusRpc*>(&rpc);
         CHECK_NOTNULL(txn_rpc);
@@ -386,7 +386,7 @@ TEST_F(SDKTxnLockResolverTest, Rollbacked) {
     return Status::OK();
   });
 
-  EXPECT_CALL(*store_rpc_client, SendRpc)
+  EXPECT_CALL(*rpc_client, SendRpc)
       .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         auto* txn_rpc = dynamic_cast<TxnCheckTxnStatusRpc*>(&rpc);
         CHECK_NOTNULL(txn_rpc);

@@ -22,6 +22,7 @@ file(GLOB SDK_UNIT_TEST_VECTOR_SRCS "vector/*.cc")
 set(SDK_UNIT_TEST_SRCS
   test_meta_cache.cc
   test_region.cc
+  test_coordinator_rpc_controller.cc
   test_store_rpc_controller.cc
   test_thread_pool_actuator.cc
   test_auto_increment_manager.cc
