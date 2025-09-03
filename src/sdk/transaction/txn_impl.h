@@ -57,7 +57,7 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
     kInit,
     kActive,
     kRollbacking,
-    kRollbackted,
+    kRollbacked,
     kPreCommitting,
     kPreCommitted,
     kCommitting,
@@ -72,8 +72,8 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
         return "ACTIVE";
       case kRollbacking:
         return "ROLLBACKING";
-      case kRollbackted:
-        return "ROLLBACKTED";
+      case kRollbacked:
+        return "ROLLBACKED";
       case kPreCommitting:
         return "PRECOMMITTING";
       case kPreCommitted:
@@ -127,7 +127,7 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   bool TEST_IsInitState() { return state_ == kInit; }                    // NOLINT
   bool TEST_IsActiveState() { return state_ == kActive; }                // NOLINT
   bool TEST_IsRollbackingState() { return state_ == kRollbacking; }      // NOLINT
-  bool TEST_IsRollbacktedState() { return state_ == kRollbackted; }      // NOLINT
+  bool TEST_IsRollbacktedState() { return state_ == kRollbacked; }       // NOLINT
   bool TEST_IsPreCommittingState() { return state_ == kPreCommitting; }  // NOLINT
   bool TEST_IsPreCommittedState() { return state_ == kPreCommitted; }    // NOLINT
   bool TEST_IsCommittingState() { return state_ == kCommitting; }        // NOLINT
