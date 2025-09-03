@@ -61,6 +61,17 @@ Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& lock_info, int64_
   CHECK(txn_status.IsCommitted() || txn_status.IsRollbacked()) << "unexpected txn_status:" << txn_status.ToString();
 
   // resolve conflict ordinary key
+  if (lock_info.primary_lock() == lock_info.key()) {
+    // if key is primary key, already committed or rollbacked, do nothing
+    if (txn_status.IsCommitted()) {
+      DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] primary key already committed, lock_info({}).", start_ts,
+                                     lock_info.ShortDebugString());
+    } else if (txn_status.IsRollbacked()) {
+      DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] primary key already rollbacked, lock_info({}).", start_ts,
+                                     lock_info.ShortDebugString());
+    }
+    return Status::OK();
+  }
   TxnResolveLockTask task_resolve_lock(stub_, lock_info.lock_ts(), lock_info.key(), txn_status.commit_ts);
   status = task_resolve_lock.Run();
   if (!status.IsOK()) {

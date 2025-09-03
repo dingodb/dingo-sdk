@@ -504,12 +504,21 @@ void TxnImpl::DoHeartBeat(int64_t start_ts, std::string primary_key) {
 
 // TODO: process AlreadyExist if mutaion is PutIfAbsent
 Status TxnImpl::DoPreCommit() {
-  state_.store(kPreCommitting);
+  State state = state_.load();
+  if (state == kPreCommitted) {
+    DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] already precommitted.", ID());
+    return Status::OK();
+  } else if (state != kActive) {
+    return Status::IllegalState("state is not active, state:" + std::string(StateName(state)));
+  }
 
   if (buffer_->IsEmpty()) {
     state_.store(kPreCommitted);
+    DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] precommit success, no mutation.", ID());
     return Status::OK();
   }
+
+  state_.store(kPreCommitting);
 
   CHECK(buffer_->Mutations().find(buffer_->GetPrimaryKey()) != buffer_->Mutations().end())
       << "primary key must in mutations, primary key:" << buffer_->GetPrimaryKey();
@@ -654,6 +663,7 @@ Status TxnImpl::CommitOrdinaryKey() {
 Status TxnImpl::DoCommit() {
   State state = state_.load();
   if (state == kCommitted) {
+    DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] already committed.", ID());
     return Status::OK();
   } else if (state != kPreCommitted) {
     return Status::IllegalState(
@@ -662,6 +672,7 @@ Status TxnImpl::DoCommit() {
 
   if (buffer_->IsEmpty()) {
     state_.store(kCommitted);
+    DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] buffer is empty, commit success.", ID());
     return Status::OK();
   }
 
@@ -676,7 +687,7 @@ Status TxnImpl::DoCommit() {
   Status status = CommitPrimaryKey();
   if (!status.ok()) {
     if (status.IsTxnRolledBack()) {
-      state_.store(kRollbackted);
+      state_.store(kRollbacked);
     } else {
       DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] commit primary key fail, status({}).", ID(), status.ToString());
     }
@@ -687,7 +698,10 @@ Status TxnImpl::DoCommit() {
   state_.store(kCommitted);
 
   // commit ordinary keys
-  CommitOrdinaryKey();
+  status = CommitOrdinaryKey();
+  if (!status.IsOK()) {
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit ordinary keys fail, status({}).", ID(), status.ToString());
+  }
 
   return Status::OK();
 }
@@ -738,13 +752,17 @@ Status TxnImpl::DoRollback() {
     return status;
   }
 
-  state_.store(kRollbackted);
+  state_.store(kRollbacked);
   if (is_one_pc_) {
+    DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] 1pc rollback success.", ID());
     return Status::OK();
   }
 
   // rollback ordinary keys
-  RollbackOrdinaryKey();
+  status = RollbackOrdinaryKey();
+  if (!status.IsOK()) {
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rollback ordinary keys fail, status({}).", ID(), status.ToString());
+  }
 
   return Status::OK();
 }
