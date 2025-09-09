@@ -165,20 +165,30 @@ static std::vector<EndPoint> FileNamingServiceUrlEndpoints(const std::string& na
   return endpoints;
 }
 
-static std::string StringToHex(const std::string& str) {
-  std::stringstream ss;
-  for (const auto& ch : str) {
-    ss << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(static_cast<unsigned char>(ch));
+static std::string StringToHex(const std::string_view& str) {
+  static const char hex_chars[] = "0123456789abcdef";
+  std::string result;
+  result.reserve(str.size() * 2);
+
+  for (unsigned char c : str) {
+    result += hex_chars[c >> 4];
+    result += hex_chars[c & 0x0F];
   }
-  return ss.str();
+
+  return result;
 }
 
-static std::string StringToHex(const std::string_view& str) {
-  std::stringstream ss;
-  for (const auto& ch : str) {
-    ss << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(static_cast<unsigned char>(ch));
+static std::string StringToHex(const std::string& str) {
+  static const char hex_chars[] = "0123456789abcdef";
+  std::string result;
+  result.reserve(str.size() * 2);
+
+  for (unsigned char c : str) {
+    result += hex_chars[c >> 4];
+    result += hex_chars[c & 0x0F];
   }
-  return ss.str();
+
+  return result;
 }
 
 static StoreType PBStoreTypeToStoreType(pb::common::StoreType pb_store_type) {
