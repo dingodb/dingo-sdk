@@ -214,6 +214,19 @@ Operation::Result BaseOperation::KvPut(RegionEntryPtr region_entry, bool is_rand
 
   int random_str_len = FLAGS_key_size - prefix.size();
 
+  if (random_str_len <= 0) {
+    LOG(ERROR) << fmt::format(
+        "key size {} is too small, please set a larger key size, at least : {} size. random_str_len: {} "
+        "region_entry->prefix.size() : {}",
+        FLAGS_key_size, (region_entry->prefix.size() + 1), random_str_len, region_entry->prefix.size());
+    std::cout << fmt::format(
+                     "key size {} is too small, please set a larger key size, at least : {} size. random_str_len: {} "
+                     "region_entry->prefix.size() : {}",
+                     FLAGS_key_size, (region_entry->prefix.size() + 1), random_str_len, region_entry->prefix.size())
+              << std::endl;
+    exit(-1);
+  }
+
   size_t count = counter.fetch_add(1, std::memory_order_relaxed);
   std::string key;
   if (is_random) {
@@ -240,6 +253,19 @@ Operation::Result BaseOperation::KvBatchPut(RegionEntryPtr region_entry, bool is
   auto& counter = region_entry->counter;
 
   int random_str_len = FLAGS_key_size - prefix.size();
+
+  if (random_str_len <= 0) {
+    LOG(ERROR) << fmt::format(
+        "key size {} is too small, please set a larger key size, at least : {} size. random_str_len: {} "
+        "region_entry->prefix.size() : {}",
+        FLAGS_key_size, (region_entry->prefix.size() + 1), random_str_len, region_entry->prefix.size());
+    std::cout << fmt::format(
+                     "key size {} is too small, please set a larger key size, at least : {} size. random_str_len: {} "
+                     "region_entry->prefix.size() : {}",
+                     FLAGS_key_size, (region_entry->prefix.size() + 1), random_str_len, region_entry->prefix.size())
+              << std::endl;
+    exit(-1);
+  }
 
   std::vector<sdk::KVPair> kvs;
   for (int i = 0; i < FLAGS_batch_size; ++i) {
@@ -303,6 +329,19 @@ Operation::Result BaseOperation::KvTxnPut(std::vector<RegionEntryPtr>& region_en
   for (const auto& region_entry : region_entries) {
     int random_str_len = FLAGS_key_size - region_entry->prefix.size();
 
+    if (random_str_len <= 0) {
+      LOG(ERROR) << fmt::format(
+          "key size {} is too small, please set a larger key size, at least : {} size. random_str_len: {} "
+          "region_entry->prefix.size() : {}",
+          FLAGS_key_size, (region_entry->prefix.size() + 1), random_str_len, region_entry->prefix.size());
+      std::cout << fmt::format(
+                       "key size {} is too small, please set a larger key size, at least : {} size. random_str_len: {} "
+                       "region_entry->prefix.size() : {}",
+                       FLAGS_key_size, (region_entry->prefix.size() + 1), random_str_len, region_entry->prefix.size())
+                << std::endl;
+      exit(-1);
+    }
+
     sdk::KVPair kv;
     size_t count = region_entry->counter.fetch_add(1, std::memory_order_relaxed);
     kv.key = is_random ? EncodeTxnKey(region_entry->prefix + GenRandomString(random_str_len))
@@ -365,6 +404,19 @@ Operation::Result BaseOperation::KvTxnBatchPut(std::vector<RegionEntryPtr>& regi
   std::vector<sdk::KVPair> kvs;
   for (const auto& region_entry : region_entries) {
     int random_str_len = FLAGS_key_size - region_entry->prefix.size();
+
+    if (random_str_len <= 0) {
+      LOG(ERROR) << fmt::format(
+          "key size {} is too small, please set a larger key size, at least : {} size. random_str_len: {} "
+          "region_entry->prefix.size() : {}",
+          FLAGS_key_size, (region_entry->prefix.size() + 1), random_str_len, region_entry->prefix.size());
+      std::cout << fmt::format(
+                       "key size {} is too small, please set a larger key size, at least : {} size. random_str_len: {} "
+                       "region_entry->prefix.size() : {}",
+                       FLAGS_key_size, (region_entry->prefix.size() + 1), random_str_len, region_entry->prefix.size())
+                << std::endl;
+      exit(-1);
+    }
 
     for (int i = 0; i < FLAGS_batch_size; ++i) {
       sdk::KVPair kv;
