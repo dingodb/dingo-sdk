@@ -19,6 +19,13 @@
 #include "common/logging.h"
 #include "fmt/format.h"
 
+#if __has_include("dingo_eureka_version.h")
+#include "dingo_eureka_version.h"
+#define DINGO_EUREKA_VERSION_EXIST 1
+#else
+#define DINGO_EUREKA_VERSION_EXIST 0
+#endif
+
 namespace dingodb {
 namespace sdk {
 
@@ -30,6 +37,18 @@ static const std::string kGitCommitTime = GIT_COMMIT_TIME;
 static const std::string kMajorVersion = MAJOR_VERSION;
 static const std::string kMinorVersion = MINOR_VERSION;
 static const std::string kDingoSdkBuildType = DINGO_SDK_BUILD_TYPE;
+
+void DingoEurekaShowVerion() {
+#if DINGO_EUREKA_VERSION_EXIST
+  std::cout << FormatDingoEurekaVersion() << std::endl;
+#endif
+}
+
+void DingoEurekaLogVerion() {
+#if DINGO_EUREKA_VERSION_EXIST
+  DINGO_LOG(INFO) << FormatDingoEurekaVersion();
+#endif
+}
 
 static std::string GetBuildFlag() {
   // TODO
@@ -45,6 +64,7 @@ void DingoSdkShowVersion() {
   std::cout << fmt::format("DINGO_SDK GIT_COMMIT_TIME:[{}]\n", kGitCommitTime.c_str());
   std::cout << fmt::format("DINGO_SDK BUILD_TYPE:[{}]\n", kDingoSdkBuildType.c_str());
   std::cout << GetBuildFlag() << "\n";
+  DingoEurekaShowVerion();
 }
 
 void DingoSdkLogVersion() {
@@ -56,6 +76,7 @@ void DingoSdkLogVersion() {
   DINGO_LOG(INFO) << fmt::format("DINGO_SDK GIT_COMMIT_TIME:[{}]", kGitCommitTime);
   DINGO_LOG(INFO) << fmt::format("DINGO_SDK BUILD_TYPE:[{}]", kDingoSdkBuildType);
   DINGO_LOG(INFO) << GetBuildFlag();
+  DingoEurekaLogVerion();
 }
 
 std::vector<std::pair<std::string, std::string>> DingoSdkVersion() {

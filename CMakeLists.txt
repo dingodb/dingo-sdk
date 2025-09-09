@@ -269,7 +269,7 @@ add_library(SERRIAL_OJBS OBJECT ${DINGO_SERIAL_SOURCES}
 set_target_properties(SERRIAL_OJBS PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 execute_process(
-  COMMAND git describe --always --dirty
+  COMMAND git describe --tags --always --dirty
   OUTPUT_VARIABLE GIT_VERSION
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 
