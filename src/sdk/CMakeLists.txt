@@ -103,6 +103,7 @@ set(SDK_SRCS
   utils/thread_pool_actuator.cc
   utils/thread_pool_impl.cc
   common/param_config.cc
+  common/rand.cc
   expression/coding.cc
   expression/langchain_expr_encoder.cc
   expression/langchain_expr_factory.cc

@@ -14,6 +14,8 @@
 
 #include "sdk/transaction/txn_task/txn_prewrite_task.h"
 
+#include <fmt/format.h>
+
 #include <cstdint>
 
 #include "common/logging.h"
@@ -36,7 +38,7 @@ Status TxnPrewriteTask::Init() {
   for (const auto& [key, mutation] : mutations_) {
     if (next_mutations_.find(mutation->key) != next_mutations_.end()) {
       // duplicate mutation
-      std::string msg = fmt::format("duplicate mutation: {}", mutation->ToString());
+      std::string msg = fmt::format("[sdk.txn.{}] duplicate mutation: {}", txn_impl_->ID(), mutation->ToString());
       DINGO_LOG(ERROR) << msg;
       return Status::InvalidArgument(msg);
     } else {
@@ -156,14 +158,14 @@ void TxnPrewriteTask::DoAsync() {
 }
 
 void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRpc* rpc) {
-  DINGO_LOG(DEBUG) << "rpc : " << rpc->Method() << " request : " << rpc->Request()->ShortDebugString()
-                   << " response : " << rpc->Response()->ShortDebugString();
+  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] rpc: {} request: {} response: {}", txn_impl_->ID(), rpc->Method(),
+                                  rpc->Request()->ShortDebugString(), rpc->Response()->ShortDebugString());
   bool need_retry = false;
   Status s;
   const auto* response = rpc->Response();
   if (!status.ok()) {
-    DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
-                       << " fail: " << status.ToString();
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rpc: {} send to region: {} fail: {}", txn_impl_->ID(),
+                                      rpc->Method(), rpc->Request()->context().region_id(), status.ToString());
 
     s = status;
   } else {
@@ -175,9 +177,9 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
       } else if (s1.IsTxnLockConflict()) {
         s1 = stub.GetTxnLockResolver()->ResolveLock(txn_result.locked(), txn_impl_->GetStartTs());
         if (!s1.ok()) {
-          DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] precommit resolve lock fail, pk({}) status({}) txn_result({}).",
-                                            txn_impl_->ID(), StringToHex(primary_key_), s1.ToString(),
-                                            txn_result.ShortDebugString());
+          DINGO_LOG(WARNING) << fmt::format(
+              "[sdk.txn.{}] precommit resolve lock fail, pk({}) status({}) txn_result({}).", txn_impl_->ID(),
+              StringToHex(primary_key_), s1.ToString(), txn_result.ShortDebugString());
 
           s = s1;
         } else {

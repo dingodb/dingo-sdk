@@ -15,6 +15,7 @@
 #ifndef DINGODB_SDK_GRPC_UNARY_RPC_H_
 #define DINGODB_SDK_GRPC_UNARY_RPC_H_
 
+#include <fmt/format.h>
 #include <sys/stat.h>
 
 #include <cstdint>
@@ -35,6 +36,7 @@
 #include "grpcpp/support/stub_options.h"
 #include "sdk/common/common.h"
 #include "sdk/common/param_config.h"
+#include "sdk/common/rand.h"
 #include "sdk/rpc/rpc.h"
 #include "sdk/utils/net_util.h"
 
@@ -53,7 +55,10 @@ struct GrpcContext : public RpcContext {
 template <class RequestType, class ResponseType, class ServiceType, class StubType>
 class UnaryRpc : public Rpc {
  public:
-  UnaryRpc(const std::string& cmd) : Rpc(cmd) { context = std::make_unique<grpc::ClientContext>(); }
+  UnaryRpc(const std::string& cmd) : Rpc(cmd) {
+    context = std::make_unique<grpc::ClientContext>();
+    log_id = RandHelper::RandUInt64();
+  }
 
   ~UnaryRpc() override = default;
 
@@ -81,28 +86,26 @@ class UnaryRpc : public Rpc {
 
   const grpc::ClientContext* Context() const { return context.get(); }
 
-  uint64_t LogId() const override { return -1; }
+  uint64_t LogId() const override { return log_id; }
 
   void OnRpcDone() override {
     if (!grpc_status.ok()) {
-      DINGO_LOG(WARNING) << "Fail send rpc: " << Method() << " endpoint(peer):" << context->peer()
-                         << " grpc error_code:" << grpc_status.error_code()
-                         << " error_text:" << grpc_status.error_message();
+      DINGO_LOG(WARNING) << fmt::format(
+          "[sdk.rpc.{}] Fail send rpc: {}, endpoint(peer): {}, grpc error_code: {}, error_text: {}", log_id, Method(),
+          context->peer(), grpc_status.error_code(), grpc_status.error_message());
       Status err = Status::NetworkError(grpc_status.error_code(), grpc_status.error_message());
       SetStatus(err);
     } else {
-      DINGO_LOG(DEBUG) << "Success send rpc: " << Method() << " endpoint(peer):" << context->peer() << "\n"
-                       << "request: \n"
-                       << request.ShortDebugString() << "\n"
-                       << "response:\n"
-                       << response.ShortDebugString();
+      DINGO_LOG(DEBUG) << fmt::format(
+          "[sdk.rpc.{}] Success send rpc: {}, endpoint(peer): {}, request: {}, response: {}", log_id, Method(),
+          context->peer(), request.ShortDebugString(), response.ShortDebugString());
     }
 
     if (FLAGS_enable_trace_rpc_performance) {
       int64_t end_time =
           std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
               .count();
-      std::string str = fmt::format("status: {}", status.ToString());
+      std::string str = fmt::format("request_id: {}, status: {}", log_id, status.ToString());
       TraceRpcPerformance(end_time - start_time, Method(), context->peer(), str);
     }
     grpc_ctx->cb();
@@ -156,6 +159,7 @@ class UnaryRpc : public Rpc {
   grpc::Status grpc_status;
   std::unique_ptr<StubType> stub;
   std::unique_ptr<GrpcContext> grpc_ctx;
+  uint64_t log_id{0};
 
   int64_t start_time{0};  // record the start time of the RPC call , use for trace
 

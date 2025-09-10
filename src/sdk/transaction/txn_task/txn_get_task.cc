@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "sdk/transaction/txn_task/txn_get_task.h"
+#include <fmt/format.h>
 
 #include "dingosdk/status.h"
 #include "sdk/common/common.h"
@@ -45,12 +46,12 @@ void TxnGetTask::DoAsync() {
 }
 
 void TxnGetTask::TxnGetRpcCallback(const Status& status) {
-  DINGO_LOG(DEBUG) << "rpc : " << rpc_.Method() << " request : " << rpc_.Request()->ShortDebugString()
-                   << " response : " << rpc_.Response()->ShortDebugString();
+  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] rpc: {} request: {} response: {}", txn_impl_->ID(), rpc_.Method(),
+                                  rpc_.Request()->ShortDebugString(), rpc_.Response()->ShortDebugString());
   const auto* response = rpc_.Response();
   if (!status.ok()) {
-    DINGO_LOG(WARNING) << "rpc: " << rpc_.Method() << " send to region: " << rpc_.Request()->context().region_id()
-                       << " fail: " << status.ToString();
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rpc: {} send to region: {} fail: {}", txn_impl_->ID(),
+                                      rpc_.Method(), rpc_.Request()->context().region_id(), status.ToString());
     status_ = status;
   } else {
     if (response->has_txn_result()) {
