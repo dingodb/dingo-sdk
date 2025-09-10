@@ -15,6 +15,7 @@
 #ifndef DINGODB_SDK_BRPC_UNARY_RPC_H_
 #define DINGODB_SDK_BRPC_UNARY_RPC_H_
 
+#include <fmt/format.h>
 #include <sys/stat.h>
 
 #include <cstdint>
@@ -31,6 +32,7 @@
 #include "google/protobuf/message.h"
 #include "sdk/common/common.h"
 #include "sdk/common/param_config.h"
+#include "sdk/common/rand.h"
 #include "sdk/rpc/rpc.h"
 #include "sdk/utils/callback.h"
 
@@ -50,6 +52,8 @@ class UnaryRpc : public Rpc {
   UnaryRpc(const std::string& cmd) : Rpc(cmd) {
     request = new RequestType;
     response = new ResponseType;
+    log_id = RandHelper::RandUInt64();
+    controller.set_log_id(log_id);
     brpc_ctx = nullptr;
   }
 
@@ -87,17 +91,16 @@ class UnaryRpc : public Rpc {
 
   void OnRpcDone() override {
     if (controller.Failed()) {
-      DINGO_LOG(WARNING) << "Fail send rpc: " << Method() << ", log_id:" << controller.log_id()
-                         << " endpoint:" << endpoint2str(controller.remote_side()).c_str()
-                         << " error_code:" << controller.ErrorCode() << " error_text:" << controller.ErrorText();
+      DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}] Fail send rpc: {}, endpoint: {}, error_code: {}, error_text: {}",
+                                        controller.log_id(), Method(), endpoint2str(controller.remote_side()).c_str(),
+                                        controller.ErrorCode(), controller.ErrorText());
 
       Status err = Status::NetworkError(controller.ErrorCode(), controller.ErrorText());
       SetStatus(err);
     } else {
-      DINGO_LOG(DEBUG) << "Success send rpc: " << Method() << ", log_id:" << controller.log_id()
-                       << " endpoint:" << endpoint2str(controller.remote_side()).c_str() << ", request: \n"
-                       << request->ShortDebugString() << ", response:\n"
-                       << response->ShortDebugString();
+      DINGO_LOG(DEBUG) << fmt::format("[sdk.rpc.{}] Success send rpc: {}, endpoint: {}, request: {}, response: {}",
+                                      controller.log_id(), Method(), endpoint2str(controller.remote_side()).c_str(),
+                                      request->ShortDebugString(), response->ShortDebugString());
     }
 
     if (FLAGS_enable_trace_rpc_performance) {
@@ -113,9 +116,9 @@ class UnaryRpc : public Rpc {
   void Reset() override {
     response->Clear();
     controller.Reset();
-    controller.set_log_id(butil::fast_rand());
     controller.set_timeout_ms(FLAGS_rpc_time_out_ms);
     controller.set_max_retry(FLAGS_rpc_max_retry);
+    controller.set_log_id(log_id);
     status = Status::OK();
   }
 
@@ -143,6 +146,7 @@ class UnaryRpc : public Rpc {
   brpc::Controller controller;
   BrpcContext* brpc_ctx;
   int64_t start_time{0};  // record the start time of the RPC call , use for trace
+  int64_t log_id{0};
 };
 
 #define DECLARE_UNARY_RPC_INNER(NS, SERVICE, METHOD, REQ_RSP_PREFIX)                                                  \

@@ -13,6 +13,8 @@
 // limitations under the License.
 #include "sdk/rpc/store_rpc_controller.h"
 
+#include <fmt/format.h>
+
 #include <string>
 #include <utility>
 
@@ -70,7 +72,8 @@ bool StoreRpcController::PreCheck() {
   if (region_->IsStale()) {
     status_ =
         Status::Incomplete(pb::error::Errno::EREGION_VERSION, fmt::format("region:{} is stale", region_->RegionId()));
-    DINGO_LOG(INFO) << fmt::format("[sdk.rpc.{}] store rpc fail, status({}).", rpc_.Method(), status_.ToString());
+    DINGO_LOG(INFO) << fmt::format("[sdk.rpc.{}]method:{} , store rpc fail, status({}).", rpc_.LogId(), rpc_.Method(),
+                                   status_.ToString());
     return false;
   }
   return true;
@@ -111,8 +114,8 @@ void StoreRpcController::SendStoreRpcCallBack() {
   Status status = rpc_.GetStatus();
   if (!status.ok()) {
     region_->MarkFollower(rpc_.GetEndPoint());
-    DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}] connect to store fail, region({}) status({}).", rpc_.Method(),
-                                      region_->RegionId(), status.ToString());
+    DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}] method:{} ,connect to store fail, region({}) status({}).",
+                                      rpc_.LogId(), rpc_.Method(), region_->RegionId(), status.ToString());
     status_ = status;
     RetrySendRpcOrFireCallback();
     return;
@@ -125,8 +128,8 @@ void StoreRpcController::SendStoreRpcCallBack() {
     return;
   }
 
-  std::string msg = fmt::format("[sdk.rpc.{}] log_id:{} region:{} endpoint:{}, error({} {})", rpc_.Method(),
-                                rpc_.LogId(), region_->RegionId(), rpc_.GetEndPoint().ToString(),
+  std::string msg = fmt::format("[sdk.rpc.{}] method:{} region:{} endpoint:{}, error({} {})", rpc_.LogId(),
+                                rpc_.Method(), region_->RegionId(), rpc_.GetEndPoint().ToString(),
                                 pb::error::Errno_Name(error.errcode()), error.errmsg());
 
   if (error.errcode() == pb::error::Errno::ERAFT_NOTLEADER) {
@@ -150,8 +153,9 @@ void StoreRpcController::SendStoreRpcCallBack() {
     if (error.has_store_region_info()) {
       auto region = ProcessStoreRegionInfo(error.store_region_info());
       if (region->GetRange().start_key >= region->GetRange().end_key) {
-        DINGO_LOG(WARNING) << "region range is invaild, request:" << rpc_.RawRequest()->ShortDebugString()
-                           << " response:" << rpc_.RawResponse()->ShortDebugString();
+        DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}] region range is invaild, request:{} response:{}", rpc_.LogId(),
+                                          rpc_.RawRequest()->ShortDebugString(),
+                                          rpc_.RawResponse()->ShortDebugString());
       } else {
         stub_.GetMetaCache()->MaybeAddRegion(region);
       }
@@ -199,8 +203,9 @@ void StoreRpcController::RetrySendRpcOrFireCallback() {
 
 void StoreRpcController::FireCallback() {
   if (!status_.ok()) {
-    DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}] rpc fail, region({}) retry({}) status({}).", rpc_.Method(),
-                                      region_->RegionId(), rpc_retry_times_, status_.ToString());
+    DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}] method:{} , rpc fail, region({}) retry({}) status({}).",
+                                      rpc_.LogId(), rpc_.Method(), region_->RegionId(), rpc_retry_times_,
+                                      status_.ToString());
   }
 
   if (call_back_) {
@@ -224,16 +229,16 @@ bool StoreRpcController::PickNextLeader(EndPoint& leader) {
   next_replica_index_++;
   leader = endpoint;
 
-  DINGO_LOG(INFO) << fmt::format("[sdk.rpc.{}] get leader fail, region({}) pick new leader({}).", rpc_.Method(),
-                                 region_->RegionId(), endpoint.ToString());
+  DINGO_LOG(INFO) << fmt::format("[sdk.rpc.{}] method:{} get leader fail, region({}) pick new leader({}).",
+                                 rpc_.LogId(), rpc_.Method(), region_->RegionId(), endpoint.ToString());
   return true;
 }
 
 void StoreRpcController::ResetRegion(RegionPtr region) {
   if (region_) {
     if (!(EpochCompare(region_->GetEpoch(), region->GetEpoch()) > 0)) {
-      DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}] reset region fail, epoch not match, {} {}.", rpc_.Method(),
-                                        region->DescribeEpoch(), region_->DescribeEpoch());
+      DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}] method:{} reset region fail, epoch not match, {} {}.",
+                                        rpc_.LogId(), rpc_.Method(), region->DescribeEpoch(), region_->DescribeEpoch());
     }
   }
   region_.reset();
@@ -251,7 +256,8 @@ RegionPtr StoreRpcController::ProcessStoreRegionInfo(const pb::error::StoreRegio
   for (const auto& peer : store_region_info.peers()) {
     CHECK(peer.has_server_location());
     auto endpoint = LocationToEndPoint(peer.server_location());
-    CHECK(endpoint.IsValid()) << "endpoint is invalid, endpoint:" << endpoint.ToString();
+    CHECK(endpoint.IsValid()) << fmt::format("[sdk.rpc.{}]endpoint is invalid, endpoint: {}", rpc_.LogId(),
+                                             endpoint.ToString());
     replicas.push_back({endpoint, kFollower});
   }
 

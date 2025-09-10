@@ -14,6 +14,8 @@
 
 #include "sdk/rpc/coordinator_rpc_controller.h"
 
+#include <fmt/format.h>
+
 #include <utility>
 
 #include "common/logging.h"
@@ -64,7 +66,8 @@ bool CoordinatorRpcController::NeedPickLeader() { return !status_.IsRemoteError(
 void CoordinatorRpcController::PrepareRpc(Rpc& rpc) {
   if (NeedPickLeader()) {
     EndPoint next_leader = meta_member_info_.PickNextLeader();
-    DINGO_LOG(INFO) << "Pick next leader: " << next_leader.ToString() << ", rpc method: " << rpc.Method();
+    DINGO_LOG(INFO) << fmt::format("[sdk.rpc.{}]Pick next leader: {}, rpc method: {}", rpc.LogId(),
+                                   next_leader.ToString(), rpc.Method());
 
     CHECK(next_leader.IsValid());
     rpc.SetEndPoint(next_leader);
@@ -80,7 +83,8 @@ bool CoordinatorRpcController::NeedDelay() {
 void CoordinatorRpcController::SendCoordinatorRpc(Rpc& rpc) {
   // TODO: what error should be delay
   if (NeedDelay()) {
-    DINGO_LOG(INFO) << "try to delay:" << FLAGS_coordinator_interaction_delay_ms << "ms";
+    DINGO_LOG(INFO) << fmt::format("[sdk.rpc.{}]try to delay: {}ms", rpc.LogId(),
+                                   FLAGS_coordinator_interaction_delay_ms);
     (void)usleep(FLAGS_coordinator_interaction_delay_ms * 1000);
   }
 
@@ -91,16 +95,17 @@ void CoordinatorRpcController::SendCoordinatorRpcCallBack(Rpc& rpc) {
   Status sent = rpc.GetStatus();
   if (!sent.ok()) {
     meta_member_info_.MarkFollower(rpc.GetEndPoint());
-    DINGO_LOG(WARNING) << "Fail connect to meta server: " << rpc.GetEndPoint().ToString()
-                       << ", status:" << sent.ToString();
+    DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}]Fail connect to meta server: {}, status: {}", rpc.LogId(),
+                                      rpc.GetEndPoint().ToString(), sent.ToString());
     status_ = sent;
   } else {
     auto error = GetRpcResponseError(rpc);
     if (error.errcode() == pb::error::Errno::OK) {
-      VLOG(kSdkVlogLevel) << "Success connect with meta server leader_addr: " << rpc.GetEndPoint().ToString();
+      VLOG(kSdkVlogLevel) << fmt::format("[sdk.rpc.{}]Success connect with meta server leader_addr: {}", rpc.LogId(),
+                                         rpc.GetEndPoint().ToString());
       status_ = Status::OK();
     } else {
-      DINGO_LOG(INFO) << fmt::format("log_id:{} method:{} endpoint:{}, error_code:{}, error_msg:{}", rpc.LogId(),
+      DINGO_LOG(INFO) << fmt::format("[sdk.rpc.{}]method:{} endpoint:{}, error_code:{}, error_msg:{}", rpc.LogId(),
                                      rpc.Method(), rpc.GetEndPoint().ToString(),
                                      dingodb::pb::error::Errno_Name(error.errcode()), error.errmsg());
 
@@ -109,7 +114,7 @@ void CoordinatorRpcController::SendCoordinatorRpcCallBack(Rpc& rpc) {
         if (error.has_leader_location()) {
           auto endpoint = LocationToEndPoint(error.leader_location());
           if (!endpoint.IsValid()) {
-            DINGO_LOG(WARNING) << "endpoint: " << endpoint.ToString() << " is invalid";
+            DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}]endpoint: {} is invalid", rpc.LogId(), endpoint.ToString());
           } else {
             meta_member_info_.MarkLeader(endpoint);
           }
@@ -153,9 +158,9 @@ void CoordinatorRpcController::RetrySendRpcOrFireCallback(Rpc& rpc) {
 
 void CoordinatorRpcController::FireCallback(Rpc& rpc) {
   if (!status_.ok()) {
-    DINGO_LOG(WARNING) << "Fail send rpc: " << rpc.Method() << ", status: " << status_.ToString()
-                       << ", retry_times:" << rpc.GetRetryTimes()
-                       << ", max_retry_limit:" << FLAGS_coordinator_interaction_max_retry;
+    DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}]Fail send rpc: {}, status: {}, retry_times: {}, max_retry_limit: {}",
+                                      rpc.LogId(), rpc.Method(), status_.ToString(), rpc.GetRetryTimes(),
+                                      FLAGS_coordinator_interaction_max_retry);
   }
 
   if (rpc.call_back) {

@@ -14,6 +14,7 @@
 
 #include "sdk/transaction/txn_task/txn_commit_task.h"
 
+#include <fmt/format.h>
 #include <glog/logging.h>
 
 #include <utility>
@@ -33,13 +34,14 @@ namespace sdk {
 Status TxnCommitTask::Init() {
   WriteLockGuard guard(rw_lock_);
   if (is_primary_) {
-    CHECK(keys_.size() == 1) << fmt::format("commit primary key size should be 1, but got: {}", keys_.size());
+    CHECK(keys_.size() == 1) << fmt::format("[sdk.txn.{}] commit primary key size should be 1, but got: {}",
+                                            txn_impl_->ID(), keys_.size());
   }
   next_keys_.clear();
   for (const auto& str : keys_) {
     if (!next_keys_.insert(str).second) {
       // duplicate key
-      std::string msg = fmt::format("duplicate key: {}", str);
+      std::string msg = fmt::format("[sdk.txn.{}] duplicate key: {}", txn_impl_->ID(), str);
       DINGO_LOG(ERROR) << msg;
       return Status::InvalidArgument(msg);
     }
@@ -131,14 +133,14 @@ void TxnCommitTask::DoAsync() {
 }
 
 void TxnCommitTask::TxnCommitRpcCallback(const Status& status, TxnCommitRpc* rpc) {
-  DINGO_LOG(DEBUG) << "rpc : " << rpc->Method() << " request : " << rpc->Request()->ShortDebugString()
-                   << " response : " << rpc->Response()->ShortDebugString();
+  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] rpc: {} request: {} response: {}", txn_impl_->ID(), rpc->Method(),
+                                  rpc->Request()->ShortDebugString(), rpc->Response()->ShortDebugString());
   Status s;
   bool need_retry = false;
   const auto* response = rpc->Response();
   if (!status.ok()) {
-    DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
-                       << " fail: " << status.ToString();
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rpc: {} send to region: {} fail: {}", txn_impl_->ID(),
+                                      rpc->Method(), rpc->Request()->context().region_id(), status.ToString());
 
     s = status;
   } else {

@@ -14,6 +14,8 @@
 
 #include "sdk/transaction/txn_task/txn_check_status_task.h"
 
+#include <fmt/format.h>
+
 #include <cstdint>
 
 #include "common/logging.h"
@@ -57,12 +59,12 @@ void TxnCheckStatusTask::DoAsync() {
 }
 
 void TxnCheckStatusTask::TxnCheckStatusRpcCallback(const Status& status) {
-  DINGO_LOG(DEBUG) << "rpc : " << rpc_.Method() << " request : " << rpc_.Request()->ShortDebugString()
-                   << " response : " << rpc_.Response()->ShortDebugString();
+  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] rpc: {} request: {} response: {}", start_ts_, rpc_.Method(),
+                                  rpc_.Request()->ShortDebugString(), rpc_.Response()->ShortDebugString());
   const auto* response = rpc_.Response();
   if (!status.ok()) {
-    DINGO_LOG(WARNING) << "rpc: " << rpc_.Method() << " send to region: " << rpc_.Request()->context().region_id()
-                       << " fail: " << status.ToString();
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rpc: {} send to region: {} fail: {}", start_ts_, rpc_.Method(),
+                                      rpc_.Request()->context().region_id(), status.ToString());
     status_ = status;
   } else {
     if (response->has_txn_result()) {
@@ -70,10 +72,10 @@ void TxnCheckStatusTask::TxnCheckStatusRpcCallback(const Status& status) {
       const auto txn_result = response->txn_result();
       if (!status_.ok()) {
         DINGO_LOG(WARNING) << fmt::format(
-            "[sdk.txn] check status fail, primary_key({}), lock_ts({}), start_ts({}),  status({}), "
+            "[sdk.txn.{}] check status fail, primary_key({}), lock_ts({}), start_ts({}),  status({}), "
             "txn_result({}).",
-            StringToHex(primary_key_), rpc_.Request()->lock_ts(), rpc_.Request()->caller_start_ts(), status_.ToString(),
-            txn_result.ShortDebugString());
+            start_ts_, StringToHex(primary_key_), rpc_.Request()->lock_ts(), rpc_.Request()->caller_start_ts(),
+            status_.ToString(), txn_result.ShortDebugString());
       }
     }
   }

@@ -14,6 +14,7 @@
 
 #include "sdk/transaction/txn_task/txn_batch_rollback_task.h"
 
+#include <fmt/format.h>
 #include <glog/logging.h>
 
 #include <memory>
@@ -32,7 +33,7 @@ Status TxnBatchRollbackTask::Init() {
   for (const auto& str : keys_) {
     if (!next_keys_.insert(str).second) {
       // duplicate key
-      std::string msg = fmt::format("duplicate key: {}", str);
+      std::string msg = fmt::format("[sdk.txn.{}] duplicate key: {}", txn_impl_->ID(), str);
       DINGO_LOG(ERROR) << msg;
       return Status::InvalidArgument(msg);
     }
@@ -76,8 +77,8 @@ void TxnBatchRollbackTask::DoAsync() {
 
   if (is_one_pc_) {
     if (region_id_to_region.size() > 1) {
-      std::string msg =
-          fmt::format("one pc rollback only support one region, but got {} regions", region_id_to_region.size());
+      std::string msg = fmt::format("[sdk.txn.{}] one pc rollback only support one region, but got {} regions",
+                                    txn_impl_->ID(), region_id_to_region.size());
       DINGO_LOG(ERROR) << msg;
       DoAsyncDone(Status::InvalidArgument(msg));
       return;
@@ -116,13 +117,13 @@ void TxnBatchRollbackTask::DoAsync() {
 }
 
 void TxnBatchRollbackTask::TxnBatchRollbackRpcCallback(const Status& status, TxnBatchRollbackRpc* rpc) {
-  DINGO_LOG(DEBUG) << "rpc : " << rpc->Method() << " request : " << rpc->Request()->ShortDebugString()
-                   << " response : " << rpc->Response()->ShortDebugString();
+  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] rpc: {} request: {} response: {}", txn_impl_->ID(), rpc->Method(),
+                                  rpc->Request()->ShortDebugString(), rpc->Response()->ShortDebugString());
   Status s;
   const auto* response = rpc->Response();
   if (!status.ok()) {
-    DINGO_LOG(WARNING) << "rpc: " << rpc->Method() << " send to region: " << rpc->Request()->context().region_id()
-                       << " fail: " << status.ToString();
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rpc: {} send to region: {} fail: {}", txn_impl_->ID(),
+                                      rpc->Method(), rpc->Request()->context().region_id(), status.ToString());
 
     s = status;
   } else {
