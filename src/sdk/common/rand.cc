@@ -50,8 +50,8 @@ uint64_t RandHelper::XORShift128() {
   uint64_t s1 = rand_seed.seed[0];
   const uint64_t s0 = rand_seed.seed[1];
   rand_seed.seed[0] = s0;
-  s1 ^= s1 << 23;                                         // a
-  rand_seed.seed[1] = s1 ^ s0 ^ (s1 >> 18) ^ (s0 >> 5);  // b, c
+  s1 ^= s1 << 23;
+  rand_seed.seed[1] = s1 ^ s0 ^ (s1 >> 18) ^ (s0 >> 5); 
   return rand_seed.seed[1] + s0;
 }
 
@@ -65,7 +65,7 @@ uint64_t RandHelper::RandUInt64() {
 std::string RandHelper::RandString(uint64_t length) {
   if (length == 0) return "";
   std::string result;
-  result.reserve(length);
+  result.resize(length);
 
   const uint64_t n = length / 8;
   const uint64_t m = length % 8;
