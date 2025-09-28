@@ -102,6 +102,11 @@ class TestBase : public ::testing::Test {
   }
 
   ~TestBase() override {
+    if (actuator) {
+      actuator->Stop();
+    }
+
+    actuator.reset();
     rpc_client.reset();
     meta_cache.reset();
     delete client;

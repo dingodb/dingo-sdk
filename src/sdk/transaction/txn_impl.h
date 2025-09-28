@@ -169,6 +169,7 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   // txn commit
   Status CommitPrimaryKey();
   Status CommitOrdinaryKey();
+  void DoCommitOrdinaryKey(std::vector<std::string> keys);
   Status DoCommit();
 
   // txn rollback

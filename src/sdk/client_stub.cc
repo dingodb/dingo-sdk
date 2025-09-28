@@ -37,7 +37,7 @@ ClientStub::ClientStub()
       meta_cache_(nullptr),
       admin_tool_(nullptr) {}
 
-ClientStub::~ClientStub() = default;
+ClientStub::~ClientStub() { Stop(); }
 
 Status ClientStub::Open(const std::vector<EndPoint>& endpoints) {
   CHECK(!endpoints.empty());
@@ -78,6 +78,14 @@ Status ClientStub::Open(const std::vector<EndPoint>& endpoints) {
   tso_provider_ = std::make_shared<TsoProvider>(*this);
 
   return Status::OK();
+}
+
+// ensure the task execution in the thread pool is completed first
+void ClientStub::Stop() {
+  if (actuator_) {
+    actuator_->Stop();
+    actuator_.reset();
+  }
 }
 
 }  // namespace sdk
