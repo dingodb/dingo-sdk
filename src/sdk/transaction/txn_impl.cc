@@ -649,15 +649,27 @@ Status TxnImpl::CommitPrimaryKey() {
 
 Status TxnImpl::CommitOrdinaryKey() {
   std::string pk = buffer_->GetPrimaryKey();
-
   std::vector<std::string> keys;
   for (const auto& [key, _] : buffer_->Mutations()) {
     if (key != pk) {
       keys.push_back(key);
     }
   }
-  TxnCommitTask task(stub_, keys, shared_from_this(), false);
-  return task.Run();
+  // async commit ordinary keys
+  stub_.GetActuator()->Schedule(
+      [shared_this = shared_from_this(), ordinary_keys = keys] { shared_this->DoCommitOrdinaryKey(ordinary_keys); }, 0);
+  return Status::OK();
+}
+
+void TxnImpl::DoCommitOrdinaryKey(std::vector<std::string> keys) {
+  CHECK(state_.load() == kCommitted) << "state is not committed, state:" << StateName(state_.load());
+  std::shared_ptr<TxnCommitTask> txn_commit_task =
+      std::make_shared<TxnCommitTask>(stub_, keys, shared_from_this(), false);
+  auto status = txn_commit_task->Run();
+  if (!status.ok()) {
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit ordinary keys fail. status({}).", ID(),
+                                      status.ToString());
+  }
 }
 
 Status TxnImpl::DoCommit() {
@@ -678,7 +690,10 @@ Status TxnImpl::DoCommit() {
 
   state_.store(kCommitting);
 
-  DINGO_RETURN_NOT_OK(stub_.GetTsoProvider()->GenTs(2, commit_ts_));
+  if (commit_ts_ == 0) {
+    // only init once, if commit_ts_ not set, get a new one
+    DINGO_RETURN_NOT_OK(stub_.GetTsoProvider()->GenTs(2, commit_ts_));
+  }
 
   CHECK(commit_ts_ > start_ts_) << fmt::format("commit_ts({}) must greater than start_ts({}).", commit_ts_, start_ts_);
 
@@ -689,7 +704,9 @@ Status TxnImpl::DoCommit() {
     if (status.IsTxnRolledBack()) {
       state_.store(kRollbacked);
     } else {
-      DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] commit primary key fail, status({}).", ID(), status.ToString());
+      DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit primary key fail, status({}).", ID(), status.ToString());
+      // commit primary key fail, maybe network error, so state is uncertain, set to precommitted
+      state_.store(kPreCommitted);
     }
 
     return status;

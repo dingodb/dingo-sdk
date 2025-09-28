@@ -41,6 +41,8 @@ class ClientStub {
 
   Status Open(const std::vector<EndPoint>& endpoints);
 
+  void Stop();
+
   virtual std::shared_ptr<CoordinatorRpcController> GetCoordinatorRpcController() const {
     DCHECK_NOTNULL(coordinator_rpc_controller_.get());
     return coordinator_rpc_controller_;
