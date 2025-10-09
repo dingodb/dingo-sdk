@@ -63,7 +63,7 @@ void TxnGetTask::TxnGetRpcCallback(const Status& status) {
           // need to retry
           DoAsyncRetry();
           return;
-        } else if (status.IsPushMinCommitTs()) {
+        } else if (status1.IsPushMinCommitTs()) {
           resolved_lock_ = response->txn_result().locked().lock_ts();
           DoAsyncRetry();
           return;
