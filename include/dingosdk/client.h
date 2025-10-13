@@ -271,6 +271,7 @@ class Transaction {
   friend class Client;
   friend class TestBase;
   friend class SDKTxnImplTest;
+  friend class TxnManager;
 
   // own
   class Data;

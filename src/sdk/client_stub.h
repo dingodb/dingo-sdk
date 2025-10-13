@@ -33,6 +33,8 @@
 namespace dingodb {
 namespace sdk {
 
+class TxnManager;
+
 class ClientStub {
  public:
   ClientStub();
@@ -113,6 +115,11 @@ class ClientStub {
     return tso_provider_;
   }
 
+  virtual std::shared_ptr<TxnManager> GetTxnManager() const {
+    DCHECK_NOTNULL(txn_manager_.get());
+    return txn_manager_;
+  }
+
  private:
   // TODO: use unique ptr
   std::shared_ptr<CoordinatorRpcController> coordinator_rpc_controller_;
@@ -129,6 +136,7 @@ class ClientStub {
   std::shared_ptr<DocumentIndexCache> document_index_cache_;
   std::shared_ptr<AutoIncrementerManager> auto_increment_manager_;
   TsoProviderSPtr tso_provider_;
+  std::shared_ptr<TxnManager> txn_manager_;
 };
 
 }  // namespace sdk

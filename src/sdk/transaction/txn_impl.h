@@ -30,6 +30,7 @@
 #include "sdk/region.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/transaction/txn_buffer.h"
+#include "sdk/transaction/txn_manager.h"
 
 namespace dingodb {
 namespace sdk {
@@ -47,9 +48,14 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   TxnImpl(const TxnImpl&) = delete;
   const TxnImpl& operator=(const TxnImpl&) = delete;
 
-  explicit TxnImpl(const ClientStub& stub, const TransactionOptions& options);
+  explicit TxnImpl(const ClientStub& stub, const TransactionOptions& options, std::weak_ptr<TxnManager> txn_manager);
 
-  ~TxnImpl() = default;
+  ~TxnImpl() {
+    State state = state_.load();
+    if (state == kActive || state == kInit) {
+      Cleanup();
+    }
+  }
 
   TxnImplSPtr GetSelfPtr();
 
@@ -58,10 +64,12 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
     kActive,
     kRollbacking,
     kRollbacked,
+    kRollbackfailed,
     kPreCommitting,
     kPreCommitted,
     kCommitting,
-    kCommitted
+    kCommitted,
+    kFinshed,
   };
 
   static const char* StateName(State state) {
@@ -74,6 +82,8 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
         return "ROLLBACKING";
       case kRollbacked:
         return "ROLLBACKED";
+      case kRollbackfailed:
+        return "ROLLBACKFAILED";
       case kPreCommitting:
         return "PRECOMMITTING";
       case kPreCommitted:
@@ -82,6 +92,8 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
         return "COMMITTING";
       case kCommitted:
         return "COMMITTED";
+      case kFinshed:
+        return "FINISHED";
       default:
         CHECK(false) << "unknow transaction state";
     }
@@ -124,18 +136,30 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   int64_t GetCommitTs() const { return commit_ts_; }
   TransactionOptions GetOptions() const { return options_; }
 
-  bool TEST_IsInitState() { return state_ == kInit; }                    // NOLINT
-  bool TEST_IsActiveState() { return state_ == kActive; }                // NOLINT
-  bool TEST_IsRollbackingState() { return state_ == kRollbacking; }      // NOLINT
-  bool TEST_IsRollbacktedState() { return state_ == kRollbacked; }       // NOLINT
-  bool TEST_IsPreCommittingState() { return state_ == kPreCommitting; }  // NOLINT
-  bool TEST_IsPreCommittedState() { return state_ == kPreCommitted; }    // NOLINT
-  bool TEST_IsCommittingState() { return state_ == kCommitting; }        // NOLINT
-  bool TEST_IsCommittedState() { return state_ == kCommitted; }          // NOLINT
-  int64_t TEST_GetStartTs() { return start_ts_; }                        // NOLINT
-  int64_t TEST_GetCommitTs() { return commit_ts_; }                      // NOLINT
-  int64_t TEST_MutationsSize() { return buffer_->MutationsSize(); }      // NOLINT
-  std::string TEST_GetPrimaryKey() { return buffer_->GetPrimaryKey(); }  // NOLINT
+  void Cleanup();
+
+  bool CheckFinished() const {
+    State state = state_.load();
+    return state == kFinshed || state == kRollbacked || state == kCommitted || state == kActive;
+  }
+
+  std::string DebugString() const { return fmt::format("Txn: id={}, state={}", ID(), StateName(state_.load())); }
+
+  bool TEST_IsInitState() { return state_.load() == kInit; }                      // NOLINT
+  bool TEST_IsActiveState() { return state_.load() == kActive; }                  // NOLINT
+  bool TEST_IsRollbackingState() { return state_.load() == kRollbacking; }        // NOLINT
+  bool TEST_IsRollbacktedState() { return state_.load() == kRollbacked; }         // NOLINT
+  bool TEST_IsRollbackFailedState() { return state_.load() == kRollbackfailed; }  // NOLINT
+  bool TEST_IsPreCommittingState() { return state_.load() == kPreCommitting; }    // NOLINT
+  bool TEST_IsPreCommittedState() { return state_.load() == kPreCommitted; }      // NOLINT
+  bool TEST_IsCommittingState() { return state_.load() == kCommitting; }          // NOLINT
+  bool TEST_IsCommittedState() { return state_.load() == kCommitted; }            // NOLINT
+  bool TEST_IsFinishedState() { return state_.load() == kFinshed; }               // NOLINT
+  int64_t TEST_GetStartTs() { return start_ts_; }                                 // NOLINT
+  int64_t TEST_GetCommitTs() { return commit_ts_; }                               // NOLINT
+  int64_t TEST_MutationsSize() { return buffer_->MutationsSize(); }               // NOLINT
+  std::string TEST_GetPrimaryKey() { return buffer_->GetPrimaryKey(); }           // NOLINT
+  void TEST_SetStateFinished() { state_.store(kFinshed); }                        // NOLINT
 
  private:
   struct ScanState {
@@ -195,6 +219,8 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   // for stream scan
   // start_key+end_key -> ScanState
   std::map<std::string, ScanState> scan_states_;
+
+  std::weak_ptr<TxnManager> txn_manager_;
 };
 
 }  // namespace sdk

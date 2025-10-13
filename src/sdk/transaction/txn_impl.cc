@@ -44,8 +44,8 @@
 namespace dingodb {
 namespace sdk {
 
-TxnImpl::TxnImpl(const ClientStub& stub, const TransactionOptions& options)
-    : stub_(stub), options_(options), state_(kInit), buffer_(new TxnBuffer()) {}
+TxnImpl::TxnImpl(const ClientStub& stub, const TransactionOptions& options, std::weak_ptr<TxnManager> txn_manager)
+    : stub_(stub), options_(options), txn_manager_(txn_manager), state_(kInit), buffer_(new TxnBuffer()) {}
 
 TxnImplSPtr TxnImpl::GetSelfPtr() { return std::dynamic_pointer_cast<TxnImpl>(shared_from_this()); }
 
@@ -489,7 +489,7 @@ void TxnImpl::ScheduleHeartBeat() {
 
 void TxnImpl::DoHeartBeat(int64_t start_ts, std::string primary_key) {
   State state = state_.load();
-  if (state != kPreCommitted && state != kPreCommitting) {
+  if (state != kPreCommitted && state != kPreCommitting && state != kCommitting) {
     return;
   }
   std::shared_ptr<TxnHeartbeatTask> heartbeat_task = std::make_shared<TxnHeartbeatTask>(stub_, start_ts, primary_key);
@@ -513,7 +513,9 @@ Status TxnImpl::DoPreCommit() {
   }
 
   if (buffer_->IsEmpty()) {
-    state_.store(kPreCommitted);
+    state_.store(kFinshed);
+    is_one_pc_ = true;
+    Cleanup();
     DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] precommit success, no mutation.", ID());
     return Status::OK();
   }
@@ -596,7 +598,12 @@ Status TxnImpl::DoPreCommit() {
     }
   }
 
-  state_.store(is_one_pc_ ? kCommitted : kPreCommitted);
+  if (is_one_pc_) {
+    state_.store(kFinshed);
+    Cleanup();
+  } else {
+    state_.store(kPreCommitted);
+  }
 
   return Status::OK();
 }
@@ -625,7 +632,7 @@ Status TxnImpl::ProcessTxnCommitResponse(const TxnCommitResponse* response, bool
       DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit write conlict, pk({}) response({}).", ID(), StringToHex(pk),
                                       txn_result.write_conflict().ShortDebugString());
     }
-    return Status::TxnRolledBack("txn write conflict");
+    return Status::TxnWriteConflict("txn write conflict");
 
   } else if (txn_result.has_commit_ts_expired()) {
     DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit ts expired, is_primary({}) pk({}) response({}).", ID(),
@@ -665,17 +672,22 @@ void TxnImpl::DoCommitOrdinaryKey(std::vector<std::string> keys) {
   CHECK(state_.load() == kCommitted) << "state is not committed, state:" << StateName(state_.load());
   std::shared_ptr<TxnCommitTask> txn_commit_task =
       std::make_shared<TxnCommitTask>(stub_, keys, shared_from_this(), false);
+
+  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}]commit ordinary keys, size({}).", ID(), keys.size());
+
   auto status = txn_commit_task->Run();
   if (!status.ok()) {
-    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit ordinary keys fail. status({}).", ID(),
-                                      status.ToString());
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit ordinary keys fail. status({}).", ID(), status.ToString());
   }
+  state_.store(kFinshed);
+  Cleanup();
 }
 
 Status TxnImpl::DoCommit() {
   State state = state_.load();
-  if (state == kCommitted) {
+  if (state == kCommitted || state == kFinshed) {
     DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] already committed.", ID());
+    state_.store(kFinshed);
     return Status::OK();
   } else if (state != kPreCommitted) {
     return Status::IllegalState(
@@ -683,7 +695,7 @@ Status TxnImpl::DoCommit() {
   }
 
   if (buffer_->IsEmpty()) {
-    state_.store(kCommitted);
+    state_.store(kFinshed);
     DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] buffer is empty, commit success.", ID());
     return Status::OK();
   }
@@ -701,14 +713,9 @@ Status TxnImpl::DoCommit() {
   // TODO: if commit primary key and find txn is rolled back, should we rollback all the mutation?
   Status status = CommitPrimaryKey();
   if (!status.ok()) {
-    if (status.IsTxnRolledBack()) {
-      state_.store(kRollbacked);
-    } else {
-      DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit primary key fail, status({}).", ID(), status.ToString());
-      // commit primary key fail, maybe network error, so state is uncertain, set to precommitted
-      state_.store(kPreCommitted);
-    }
-
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit primary key fail, status({}).", ID(), status.ToString());
+    // commit primary key fail, maybe network error, so state is uncertain, set to precommitted
+    state_.store(kPreCommitted);
     return status;
   }
 
@@ -757,7 +764,7 @@ Status TxnImpl::DoRollback() {
   // so we should check txn status first and then take action
   // TODO: maybe support rollback when txn is active
   State state = state_.load();
-  if (state != kRollbacking && state != kPreCommitting && state != kPreCommitted) {
+  if (state != kPreCommitting && state != kPreCommitted) {
     return Status::IllegalState(fmt::format("forbid rollback, state {}", StateName(state)));
   }
 
@@ -765,23 +772,39 @@ Status TxnImpl::DoRollback() {
 
   // rollback primary key
   auto status = RollbackPrimaryKey();
+
   if (!status.IsOK()) {
+    state_.store(kRollbackfailed);
+    Cleanup();
     return status;
   }
 
-  state_.store(kRollbacked);
   if (is_one_pc_) {
     DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] 1pc rollback success.", ID());
+    state_.store(kFinshed);
+    Cleanup();
     return Status::OK();
   }
+
+  state_.store(kRollbacked);
 
   // rollback ordinary keys
   status = RollbackOrdinaryKey();
   if (!status.IsOK()) {
     DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rollback ordinary keys fail, status({}).", ID(), status.ToString());
   }
+  state_.store(kFinshed);
+  Cleanup();
 
   return Status::OK();
+}
+
+void TxnImpl::Cleanup() {
+  if (txn_manager_.lock()) {
+    txn_manager_.lock()->UnregisterTxn(ID());
+  } else {
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] txn manager is nullptr.", ID());
+  }
 }
 
 }  // namespace sdk

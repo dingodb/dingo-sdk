@@ -45,6 +45,7 @@ set(SDK_SRCS
   transaction/txn_impl.cc
   transaction/txn_lock_resolver.cc
   transaction/txn_region_scanner_impl.cc
+  transaction/txn_manager.cc
   transaction/txn_task/txn_task.cc
   transaction/txn_task/txn_get_task.cc
   transaction/txn_task/txn_batch_get_task.cc

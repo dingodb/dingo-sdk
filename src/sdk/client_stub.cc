@@ -24,6 +24,7 @@
 #include "sdk/rpc/coordinator_rpc_controller.h"
 #include "sdk/rpc/rpc_client.h"
 #include "sdk/transaction/txn_lock_resolver.h"
+#include "sdk/transaction/txn_manager.h"
 #include "sdk/transaction/txn_region_scanner_impl.h"
 #include "sdk/utils/net_util.h"
 #include "sdk/utils/thread_pool_actuator.h"
@@ -77,14 +78,18 @@ Status ClientStub::Open(const std::vector<EndPoint>& endpoints) {
 
   tso_provider_ = std::make_shared<TsoProvider>(*this);
 
+  txn_manager_ = std::make_shared<TxnManager>();
+
   return Status::OK();
 }
 
 // ensure the task execution in the thread pool is completed first
 void ClientStub::Stop() {
+  if (txn_manager_) {
+    txn_manager_->Stop();
+  }
   if (actuator_) {
     actuator_->Stop();
-    actuator_.reset();
   }
 }
 
