@@ -18,6 +18,7 @@
 #include <memory>
 
 #include "dingosdk/client.h"
+#include "dingosdk/status.h"
 #include "dingosdk/vector.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
@@ -32,6 +33,7 @@
 #include "sdk/meta_cache.h"
 #include "sdk/transaction/tso.h"
 #include "sdk/transaction/txn_impl.h"
+#include "sdk/transaction/txn_manager.h"
 #include "sdk/utils/actuator.h"
 #include "sdk/utils/thread_pool_actuator.h"
 #include "sdk/vector/vector_index_cache.h"
@@ -97,28 +99,41 @@ class TestBase : public ::testing::Test {
     ON_CALL(*stub, GetTsoProvider).WillByDefault(testing::Return(tso_provider));
     EXPECT_CALL(*stub, GetTsoProvider).Times(testing::AnyNumber());
 
+    txn_manager = std::make_shared<TxnManager>();
+    ON_CALL(*stub, GetTxnManager).WillByDefault(testing::Return(txn_manager));
+    EXPECT_CALL(*stub, GetTxnManager).Times(testing::AnyNumber());
+
     client = new Client();
     client->data_->stub = std::move(tmp);
   }
 
   ~TestBase() override {
+    if (txn_manager) {
+      txn_manager->Stop();
+    }
     if (actuator) {
       actuator->Stop();
     }
 
-    actuator.reset();
-    rpc_client.reset();
-    meta_cache.reset();
     delete client;
   }
 
   void SetUp() override { PreFillMetaCache(); }
 
   std::shared_ptr<TxnImpl> NewTransactionImpl(const TransactionOptions& options) const {
-    auto txn = std::make_shared<TxnImpl>(*stub, options);
+    auto txn =
+        std::make_shared<TxnImpl>(*stub, options, std::weak_ptr<TxnManager>(client->data_->stub->GetTxnManager()));
     CHECK_NOTNULL(txn.get());
     CHECK(txn->Begin().ok());
     return std::move(txn);
+  }
+
+  std::unique_ptr<Transaction> NewTransaction(const TransactionOptions& options) const {
+    Transaction* txn = nullptr;
+    Status s = client->NewTransaction(options, &txn);
+    CHECK_NOTNULL(txn);
+    CHECK(s.ok());
+    return std::unique_ptr<Transaction>(txn);
   }
 
   std::shared_ptr<MockCoordinatorRpcController> coordinator_rpc_controller;
@@ -132,6 +147,7 @@ class TestBase : public ::testing::Test {
   std::shared_ptr<VectorIndexCache> index_cache;
   std::shared_ptr<AutoIncrementerManager> auto_increment_manager;
   std::shared_ptr<TsoProvider> tso_provider;
+  std::shared_ptr<TxnManager> txn_manager;
 
   // client own stub
   MockClientStub* stub;

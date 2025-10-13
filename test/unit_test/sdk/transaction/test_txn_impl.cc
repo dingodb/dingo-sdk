@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <gflags/gflags_declare.h>
 #include <unistd.h>
 
+#include <cmath>
 #include <cstdint>
 #include <memory>
 
@@ -78,12 +80,6 @@ TEST_F(SDKTxnImplTest, BeginFail) {
   delete txn;
 }
 
-TEST_F(SDKTxnImplTest, BeginSuccess) {
-  Transaction* txn;
-  EXPECT_TRUE(client->NewTransaction(options, &txn).ok());
-  delete txn;
-}
-
 TEST_F(SDKTxnImplTest, Get) {
   std::string key = "b";
   std::string value;
@@ -118,6 +114,8 @@ TEST_F(SDKTxnImplTest, Get) {
   Status tmp = txn->Get("b", value);
   EXPECT_TRUE(tmp.ok());
   EXPECT_EQ(value, "pong");
+
+  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, SingleOP) {
@@ -181,6 +179,7 @@ TEST_F(SDKTxnImplTest, SingleOP) {
     Status tmp = txn->Get("b", value);
     EXPECT_TRUE(tmp.IsNotFound());
   }
+  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, BatchGet) {
@@ -227,6 +226,8 @@ TEST_F(SDKTxnImplTest, BatchGet) {
   for (const auto& kv : kvs) {
     EXPECT_EQ(kv.key, kv.value);
   }
+
+  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, BatchGetFromBuffer) {
@@ -256,6 +257,8 @@ TEST_F(SDKTxnImplTest, BatchGetFromBuffer) {
   for (const auto& kv : tmp) {
     EXPECT_EQ(kv.key, kv.value);
   }
+
+  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, BatchOp) {
@@ -304,6 +307,8 @@ TEST_F(SDKTxnImplTest, BatchOp) {
     EXPECT_TRUE(s.ok());
     EXPECT_EQ(tmp.size(), 0);
   }
+
+  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, CommitEmpty) {
@@ -315,10 +320,10 @@ TEST_F(SDKTxnImplTest, CommitEmpty) {
 
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
+  EXPECT_EQ(txn->TEST_IsFinishedState(), true);
   s = txn->Commit();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_IsCommittedState(), true);
+  EXPECT_EQ(txn->TEST_IsFinishedState(), true);
 }
 
 TEST_F(SDKTxnImplTest, CommitWithData) {
@@ -412,7 +417,12 @@ TEST_F(SDKTxnImplTest, CommitWithData) {
 
   s = txn->Commit();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_IsCommittedState(), true);
+  while (true) {
+    if (txn->TEST_IsFinishedState()) {
+      break;
+    }
+    usleep(1000);
+  }
 }
 
 TEST_F(SDKTxnImplTest, PrimaryKeyLockConflict) {
@@ -517,7 +527,12 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflict) {
 
   s = txn->Commit();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_IsCommittedState(), true);
+  while (true) {
+    if (txn->TEST_IsFinishedState()) {
+      break;
+    }
+    usleep(1000);
+  }
 }
 
 TEST_F(SDKTxnImplTest, PrimaryKeyLockConflictExceed) {
@@ -569,6 +584,8 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflictExceed) {
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.IsTxnLockConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
+
+  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, PrimaryKeyWriteLockConfict) {
@@ -616,6 +633,8 @@ TEST_F(SDKTxnImplTest, PrimaryKeyWriteLockConfict) {
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.IsTxnWriteConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
+
+  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, PreWriteSecondLockConflict) {
@@ -682,6 +701,8 @@ TEST_F(SDKTxnImplTest, PreWriteSecondLockConflict) {
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.IsTxnLockConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
+
+  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, PreWriteSecondWriteConflict) {
@@ -748,6 +769,8 @@ TEST_F(SDKTxnImplTest, PreWriteSecondWriteConflict) {
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.IsTxnWriteConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
+
+  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, CommitPrimaryKeyMeetRollback) {
@@ -805,8 +828,10 @@ TEST_F(SDKTxnImplTest, CommitPrimaryKeyMeetRollback) {
   EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
 
   s = txn->Commit();
-  EXPECT_TRUE(s.IsTxnRolledBack());
-  EXPECT_EQ(txn->TEST_IsRollbacktedState(), true);
+  EXPECT_TRUE(s.IsTxnWriteConflict());
+  EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
+
+  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, CommitSencondError) {
@@ -858,7 +883,13 @@ TEST_F(SDKTxnImplTest, CommitSencondError) {
 
   s = txn->Commit();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_IsCommittedState(), true);
+
+  while (true) {
+    if (txn->TEST_IsFinishedState()) {
+      break;
+    }
+    usleep(1000);
+  }
 }
 
 TEST_F(SDKTxnImplTest, PreCommitFailThenRollback) {
@@ -923,7 +954,7 @@ TEST_F(SDKTxnImplTest, PreCommitFailThenRollback) {
 
   s = txn->Rollback();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_IsRollbacktedState(), true);
+  EXPECT_EQ(txn->TEST_IsFinishedState(), true);
 }
 
 TEST_F(SDKTxnImplTest, RollbackPrimaryKeyFail) {
@@ -995,7 +1026,7 @@ TEST_F(SDKTxnImplTest, RollbackPrimaryKeyFail) {
 
   s = txn->Rollback();
   EXPECT_TRUE(s.IsTxnLockConflict());
-  EXPECT_EQ(txn->TEST_IsRollbackingState(), true);
+  EXPECT_EQ(txn->TEST_IsRollbackFailedState(), true);
 }
 
 TEST_F(SDKTxnImplTest, RollbackSecondKeysFail) {
@@ -1070,7 +1101,7 @@ TEST_F(SDKTxnImplTest, RollbackSecondKeysFail) {
 
   s = txn->Rollback();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_IsRollbacktedState(), true);
+  EXPECT_EQ(txn->TEST_IsFinishedState(), true);
 }
 
 TEST_F(SDKTxnImplTest, LockHeartbeat) {
@@ -1132,7 +1163,20 @@ TEST_F(SDKTxnImplTest, LockHeartbeat) {
 
         cb();
       })
-      .WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        TxnHeartBeatRpc* txn_rpc = dynamic_cast<TxnHeartBeatRpc*>(&rpc);
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+
+        auto* response = txn_rpc->MutableResponse();
+        response->set_lock_ttl(request->advise_lock_ttl());
+
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
         TxnHeartBeatRpc* txn_rpc = dynamic_cast<TxnHeartBeatRpc*>(&rpc);
         CHECK_NOTNULL(txn_rpc);
         const auto* request = txn_rpc->Request();
@@ -1148,8 +1192,12 @@ TEST_F(SDKTxnImplTest, LockHeartbeat) {
 
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.ok());
+  EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
 
-  sleep(25);
+  // wait for 2 heartbeats finish
+  sleep(12);
+
+  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, LockHeartbeatFail) {
@@ -1227,7 +1275,88 @@ TEST_F(SDKTxnImplTest, LockHeartbeatFail) {
   Status s = txn->PreCommit();
   EXPECT_TRUE(s.ok());
 
-  sleep(25);
+  sleep(15);
+  txn->TEST_SetStateFinished();
+}
+
+TEST_F(SDKTxnImplTest, TransactionManagerEmpty) {
+  auto txn1 = NewTransaction(options);
+  auto txn2 = NewTransaction(options);
+  auto txn3 = NewTransaction(options);
+  EXPECT_NE(txn1->ID(), txn2->ID());
+  EXPECT_NE(txn1->ID(), txn3->ID());
+  EXPECT_NE(txn2->ID(), txn3->ID());
+  EXPECT_GT(txn1->ID(), 0);
+  EXPECT_GT(txn2->ID(), 0);
+  EXPECT_GT(txn3->ID(), 0);
+
+  txn1->PreCommit();
+  txn1->Commit();
+
+  txn2->PreCommit();
+  txn2->Commit();
+
+  txn3->PreCommit();
+  txn3->Commit();
+}
+
+TEST_F(SDKTxnImplTest, TransactionManagerWithData1pc) {
+  EXPECT_CALL(*rpc_client, SendRpc(testing::_, testing::_)).WillRepeatedly([](Rpc& rpc, std::function<void()> cb) {
+    (void)rpc;
+    cb();
+  });
+
+  {
+    auto txn1 = NewTransaction(options);
+    txn1->Put("a", "a");
+    txn1->PreCommit();
+    txn1->Commit();
+  }
+
+  {
+    auto txn2 = NewTransaction(options);
+    txn2->Put("c", "c");
+    txn2->PreCommit();
+    txn2->Commit();
+  }
+
+  {
+    auto txn3 = NewTransaction(options);
+    txn3->PutIfAbsent("d", "d");
+    txn3->PreCommit();
+    txn3->Commit();
+  }
+}
+
+TEST_F(SDKTxnImplTest, TransactionManagerWithData2pc) {
+  EXPECT_CALL(*rpc_client, SendRpc(testing::_, testing::_)).WillRepeatedly([](Rpc& rpc, std::function<void()> cb) {
+    (void)rpc;
+    cb();
+  });
+
+  {
+    auto txn1 = NewTransaction(options);
+    txn1->Put("a", "a");
+    txn1->Put("d", "d");
+    txn1->PreCommit();
+    txn1->Commit();
+  }
+
+  {
+    auto txn2 = NewTransaction(options);
+    txn2->Put("b", "b");
+    txn2->Put("e", "e");
+    txn2->PreCommit();
+    txn2->Commit();
+  }
+
+  {
+    auto txn3 = NewTransaction(options);
+    txn3->PutIfAbsent("a", "newa");
+    txn3->PutIfAbsent("d", "newd");
+    txn3->PreCommit();
+    txn3->Commit();
+  }
 }
 
 }  // namespace sdk

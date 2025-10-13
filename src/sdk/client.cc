@@ -58,6 +58,7 @@
 #include "sdk/sdk_version.h"
 #include "sdk/transaction/txn_impl.h"
 #include "sdk/transaction/txn_internal_data.h"
+#include "sdk/transaction/txn_manager.h"
 #include "sdk/utils/net_util.h"
 #include "sdk/vector/diskann/vector_diskann_status_by_index_task.h"
 #include "sdk/vector/vector_index.h"
@@ -173,16 +174,21 @@ Status Client::NewRawKV(RawKV** raw_kv) {
 }
 
 Status Client::NewTransaction(const TransactionOptions& options, Transaction** txn) {
-  auto txn_impl = std::make_shared<TxnImpl>(*data_->stub, options);
-  Transaction* tmp_txn = new Transaction(new Transaction::Data(*data_->stub, std::move(txn_impl)));
+  auto txn_impl =
+      std::make_shared<TxnImpl>(*data_->stub, options, std::weak_ptr<TxnManager>(data_->stub->GetTxnManager()));
+  Transaction* tmp_txn = new Transaction(new Transaction::Data(*data_->stub, txn_impl));
   Status s = tmp_txn->Begin();
   if (!s.ok()) {
     delete tmp_txn;
     return s;
   }
-
+  s = data_->stub->GetTxnManager()->RegisterTxn(std::move(txn_impl));
+  if (!s.ok()) {
+    delete tmp_txn;
+    return s;
+  }
+  
   *txn = tmp_txn;
-
   return s;
 }
 
