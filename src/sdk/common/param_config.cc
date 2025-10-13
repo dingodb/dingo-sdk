@@ -56,8 +56,8 @@ DEFINE_int64(txn_max_batch_count, 1000, "txn max batch count");
 
 DEFINE_bool(log_rpc_time, false, "log rpc time");
 
-DEFINE_int64(txn_heartbeat_interval_ms, 10000, "txn heartbeat interval time");
-DEFINE_int64(txn_heartbeat_lock_delay_ms, 80000, "txn heartbeat lock delay time");
+DEFINE_int64(txn_heartbeat_interval_ms, 5000, "txn heartbeat interval time");
+DEFINE_int64(txn_heartbeat_lock_delay_ms, 20000, "txn heartbeat lock delay time");
 
 DEFINE_uint32(stale_period_us, 1000, "stale period us default 1000 us, used for tso provider");
 DEFINE_uint32(tso_batch_size, 256, "tso batch size default 256, used for tso provider");
