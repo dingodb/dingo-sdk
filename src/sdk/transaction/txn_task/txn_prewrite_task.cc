@@ -118,6 +118,15 @@ void TxnPrewriteTask::DoAsync() {
     rpc->MutableRequest()->set_lock_ttl(physical_ts + FLAGS_txn_heartbeat_lock_delay_ms);
     rpc->MutableRequest()->set_txn_size(mutations_.size());
     rpc->MutableRequest()->set_try_one_pc(is_one_pc_);
+    if (is_one_pc_) {
+      int64_t commit_ts{0};
+      status = stub.GetTsoProvider()->GenTs(2, commit_ts);
+      if (!status.ok()) {
+        DoAsyncDone(status);
+        return;
+      }
+      rpc->MutableRequest()->set_min_commit_ts(commit_ts);
+    }
 
     for (const auto& mutation : entry.second) {
       if (rpc->MutableRequest()->mutations_size() == FLAGS_txn_max_batch_count) {
