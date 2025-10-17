@@ -50,9 +50,11 @@ TxnImpl::TxnImpl(const ClientStub& stub, const TransactionOptions& options, std:
 TxnImplSPtr TxnImpl::GetSelfPtr() { return std::dynamic_pointer_cast<TxnImpl>(shared_from_this()); }
 
 Status TxnImpl::Begin() {
-  Status status = stub_.GetTsoProvider()->GenTs(2, start_ts_);
+  int64_t start_ts;
+  Status status = stub_.GetTsoProvider()->GenTs(2, start_ts);
   if (status.ok()) {
     state_.store(kActive);
+    start_ts_.store(start_ts);
   }
 
   return status;
@@ -131,8 +133,7 @@ Status TxnImpl::BatchGet(const std::vector<std::string>& keys, std::vector<KVPai
 }
 
 Status TxnImpl::Put(const std::string& key, const std::string& value) {
-  State state = state_.load();
-  CHECK(state == kActive) << "state is not active, state:" << StateName(state);
+  CheckStateActive();
 
   if (key.empty()) {
     return Status::InvalidArgument("param key is empty");
@@ -142,8 +143,7 @@ Status TxnImpl::Put(const std::string& key, const std::string& value) {
 }
 
 Status TxnImpl::BatchPut(const std::vector<KVPair>& kvs) {
-  State state = state_.load();
-  CHECK(state == kActive) << "state is not active, state:" << StateName(state);
+  CheckStateActive();
 
   for (const auto& kv : kvs) {
     if (kv.key.empty()) {
@@ -155,8 +155,7 @@ Status TxnImpl::BatchPut(const std::vector<KVPair>& kvs) {
 }
 
 Status TxnImpl::PutIfAbsent(const std::string& key, const std::string& value) {
-  State state = state_.load();
-  CHECK(state == kActive) << "state is not active, state:" << StateName(state);
+  CheckStateActive();
 
   if (key.empty()) {
     return Status::InvalidArgument("param key is empty");
@@ -166,8 +165,7 @@ Status TxnImpl::PutIfAbsent(const std::string& key, const std::string& value) {
 }
 
 Status TxnImpl::BatchPutIfAbsent(const std::vector<KVPair>& kvs) {
-  State state = state_.load();
-  CHECK(state == kActive) << "state is not active, state:" << StateName(state);
+  CheckStateActive();
 
   for (const auto& kv : kvs) {
     if (kv.key.empty()) {
@@ -179,8 +177,7 @@ Status TxnImpl::BatchPutIfAbsent(const std::vector<KVPair>& kvs) {
 }
 
 Status TxnImpl::Delete(const std::string& key) {
-  State state = state_.load();
-  CHECK(state == kActive) << "state is not active, state:" << StateName(state);
+  CheckStateActive();
 
   if (key.empty()) {
     return Status::InvalidArgument("param key is empty");
@@ -190,8 +187,7 @@ Status TxnImpl::Delete(const std::string& key) {
 }
 
 Status TxnImpl::BatchDelete(const std::vector<std::string>& keys) {
-  State state = state_.load();
-  CHECK(state == kActive) << "state is not active, state:" << StateName(state);
+  CheckStateActive();
 
   for (const auto& key : keys) {
     if (key.empty()) {
@@ -204,8 +200,7 @@ Status TxnImpl::BatchDelete(const std::vector<std::string>& keys) {
 
 Status TxnImpl::Scan(const std::string& start_key, const std::string& end_key, uint64_t limit,
                      std::vector<KVPair>& out_kvs) {
-  State state = state_.load();
-  CHECK(state == kActive) << "state is not active, state:" << StateName(state);
+  CheckStateActive();
 
   if (start_key.empty() || end_key.empty()) {
     return Status::InvalidArgument("start_key and end_key must not empty");
@@ -375,7 +370,7 @@ Status TxnImpl::DoScan(const std::string& start_key, const std::string& end_key,
       DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] scan region({}) range[{}, {}).", ID(), region->RegionId(),
                                       StringToHex(amend_start_key), StringToHex(amend_end_key));
 
-      ScannerOptions scan_options(stub_, region, amend_start_key, amend_end_key, options_, start_ts_);
+      ScannerOptions scan_options(stub_, region, amend_start_key, amend_end_key, options_, start_ts_.load());
       CHECK(stub_.GetTxnRegionScannerFactory()->NewRegionScanner(scan_options, scanner).IsOK());
       CHECK(scanner->Open().ok());
 
@@ -457,7 +452,7 @@ Status TxnImpl::TryResolveTxnPreCommitConflict(const TxnPrewriteResponse* respon
       continue;
 
     } else if (status.IsTxnLockConflict()) {
-      Status local_status = stub_.GetTxnLockResolver()->ResolveLock(txn_result.locked(), start_ts_);
+      Status local_status = stub_.GetTxnLockResolver()->ResolveLock(txn_result.locked(), start_ts_.load());
       if (!local_status.ok()) {
         DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] precommit resolve lock fail, pk() status({}) txn_result({}).",
                                           ID(), StringToHex(pk), local_status.ToString(),
@@ -481,7 +476,7 @@ Status TxnImpl::TryResolveTxnPreCommitConflict(const TxnPrewriteResponse* respon
 
 void TxnImpl::ScheduleHeartBeat() {
   stub_.GetActuator()->Schedule(
-      [shared_this = shared_from_this(), start_ts = start_ts_, primary_key = buffer_->GetPrimaryKey()] {
+      [shared_this = shared_from_this(), start_ts = start_ts_.load(), primary_key = buffer_->GetPrimaryKey()] {
         shared_this->DoHeartBeat(start_ts, primary_key);
       },
       FLAGS_txn_heartbeat_interval_ms);
@@ -638,7 +633,9 @@ Status TxnImpl::ProcessTxnCommitResponse(const TxnCommitResponse* response, bool
     DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit ts expired, is_primary({}) pk({}) response({}).", ID(),
                                       is_primary, StringToHex(pk), txn_result.commit_ts_expired().ShortDebugString());
     if (is_primary) {
-      auto status = stub_.GetTsoProvider()->GenTs(2, commit_ts_);
+      int64_t new_commit_ts;
+      auto status = stub_.GetTsoProvider()->GenTs(2, new_commit_ts);
+      commit_ts_.store(new_commit_ts);
       if (!status.IsOK()) return status;
       return Status::TxnCommitTsExpired("txn commit ts expired");
     }
@@ -702,12 +699,15 @@ Status TxnImpl::DoCommit() {
 
   state_.store(kCommitting);
 
-  if (commit_ts_ == 0) {
+  int64_t commit_ts = commit_ts_.load();
+  if (commit_ts == 0) {
     // only init once, if commit_ts_ not set, get a new one
-    DINGO_RETURN_NOT_OK(stub_.GetTsoProvider()->GenTs(2, commit_ts_));
+    DINGO_RETURN_NOT_OK(stub_.GetTsoProvider()->GenTs(2, commit_ts));
+    commit_ts_.store(commit_ts);
   }
 
-  CHECK(commit_ts_ > start_ts_) << fmt::format("commit_ts({}) must greater than start_ts({}).", commit_ts_, start_ts_);
+  int64_t start_ts = start_ts_.load();
+  CHECK(commit_ts > start_ts) << fmt::format("commit_ts({}) must greater than start_ts({}).", commit_ts, start_ts);
 
   // commit primary key
   // TODO: if commit primary key and find txn is rolled back, should we rollback all the mutation?
@@ -797,6 +797,11 @@ Status TxnImpl::DoRollback() {
   Cleanup();
 
   return Status::OK();
+}
+
+void TxnImpl::CheckStateActive() const {
+  State state = state_.load();
+  CHECK(state == kActive) << "state is not active, state:" << StateName(state);
 }
 
 void TxnImpl::Cleanup() {
