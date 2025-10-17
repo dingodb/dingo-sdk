@@ -134,6 +134,9 @@ std::string Status::ToString() const {
       case kResetFailed:
         type = "ResetFailed";
         break;
+      case kRaftNotConsistentRead:
+        type = "RaftNotConsistentRead";
+        break;
       default:
         CHECK(false) << fmt::format("Unknown code({}):", static_cast<int>(code_));
     }
