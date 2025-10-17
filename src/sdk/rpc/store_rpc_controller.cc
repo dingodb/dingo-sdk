@@ -23,6 +23,7 @@
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
+#include "proto/error.pb.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/common.h"
 #include "sdk/common/helper.h"
@@ -176,6 +177,10 @@ void StoreRpcController::SendStoreRpcCallBack() {
 
   } else if (error.errcode() == pb::error::Errno::ETXN_MEMORY_LOCK_CONFLICT) {
     status_ = Status::TxnMemLockConflict(error.errcode(), error.errmsg());
+  } else if (error.errcode() == pb::error::Errno::ERAFT_NOT_CONSISTENT_READ) {
+    DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}] method:{} , raft not consistent read, region({}) status({}).",
+                                      rpc_.LogId(), rpc_.Method(), region_->RegionId(), error.errmsg());
+    status_ = Status::RaftNotConsistentRead(error.errcode(), error.errmsg());
   } else {
     // NOTE: other error we not clean cache, caller decide how to process
     status_ = Status::Incomplete(error.errcode(), error.errmsg());
