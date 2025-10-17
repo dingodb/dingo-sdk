@@ -99,7 +99,7 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
     }
   }
 
-  int64_t ID() const { return start_ts_; }
+  int64_t ID() const { return start_ts_.load(); }
 
   Status Begin();
 
@@ -132,8 +132,8 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
 
   bool IsOnePc() const { return is_one_pc_; }
 
-  int64_t GetStartTs() const { return start_ts_; }
-  int64_t GetCommitTs() const { return commit_ts_; }
+  int64_t GetStartTs() const { return start_ts_.load(); }
+  int64_t GetCommitTs() const { return commit_ts_.load(); }
   TransactionOptions GetOptions() const { return options_; }
 
   void Cleanup();
@@ -155,8 +155,8 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   bool TEST_IsCommittingState() { return state_.load() == kCommitting; }          // NOLINT
   bool TEST_IsCommittedState() { return state_.load() == kCommitted; }            // NOLINT
   bool TEST_IsFinishedState() { return state_.load() == kFinshed; }               // NOLINT
-  int64_t TEST_GetStartTs() { return start_ts_; }                                 // NOLINT
-  int64_t TEST_GetCommitTs() { return commit_ts_; }                               // NOLINT
+  int64_t TEST_GetStartTs() { return start_ts_.load(); }                          // NOLINT
+  int64_t TEST_GetCommitTs() { return commit_ts_.load(); }                        // NOLINT
   int64_t TEST_MutationsSize() { return buffer_->MutationsSize(); }               // NOLINT
   std::string TEST_GetPrimaryKey() { return buffer_->GetPrimaryKey(); }           // NOLINT
   void TEST_SetStateFinished() { state_.store(kFinshed); }                        // NOLINT
@@ -204,13 +204,15 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   void DoHeartBeat(int64_t start_ts, std::string primary_key);
   void ScheduleHeartBeat();
 
+  void CheckStateActive() const;
+
   const ClientStub& stub_;
   const TransactionOptions options_;
 
   std::atomic<State> state_;
 
-  int64_t start_ts_{0};
-  int64_t commit_ts_{0};
+  std::atomic<int64_t> start_ts_{0};
+  std::atomic<int64_t> commit_ts_{0};
 
   bool is_one_pc_{false};
 
