@@ -181,6 +181,10 @@ void StoreRpcController::SendStoreRpcCallBack() {
     DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}] method:{} , raft not consistent read, region({}) status({}).",
                                       rpc_.LogId(), rpc_.Method(), region_->RegionId(), error.errmsg());
     status_ = Status::RaftNotConsistentRead(error.errcode(), error.errmsg());
+  } else if (error.errcode() == pb::error::Errno::ERAFT_COMMITLOG) {
+    DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}] method:{} , raft commit log error, region({}) status({}).",
+                                      rpc_.LogId(), rpc_.Method(), region_->RegionId(), error.errmsg());
+    status_ = Status::RaftCommitLog(error.errcode(), error.errmsg());
   } else {
     // NOTE: other error we not clean cache, caller decide how to process
     status_ = Status::Incomplete(error.errcode(), error.errmsg());

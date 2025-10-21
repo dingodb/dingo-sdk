@@ -64,7 +64,7 @@ class StoreRpcController {
 
   static bool IsUniversalNeedRetryError(const Status& status) {
     return status.IsNetworkError() || status.IsRemoteError() || status.IsNotLeader() || status.IsNoLeader() ||
-           status.IsRaftNotConsistentRead();
+           status.IsRaftNotConsistentRead() || status.IsRaftCommitLog();
   }
 
   static bool IsTxnNeedRetryError(const Status& status) { return status.IsTxnMemLockConflict(); }
