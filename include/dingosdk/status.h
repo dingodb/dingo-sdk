@@ -84,6 +84,7 @@ class Status {
   DECLARE_ERROR_STATUS(LoadFailed, kLoadFailed);
   DECLARE_ERROR_STATUS(ResetFailed, kResetFailed);
   DECLARE_ERROR_STATUS(RaftNotConsistentRead, kRaftNotConsistentRead);
+  DECLARE_ERROR_STATUS(RaftCommitLog, kRaftCommitLog);
 
   // Return a string representation of this status suitable for printing.
   // Returns the string "OK" for success.
@@ -124,7 +125,8 @@ class Status {
     kBuildFailed = 26,
     kLoadFailed = 27,
     kResetFailed = 28,
-    kRaftNotConsistentRead = 39
+    kRaftNotConsistentRead = 39,
+    kRaftCommitLog = 40
   };
   static const int32_t kNone = 0;
 
