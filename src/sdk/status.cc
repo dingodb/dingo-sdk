@@ -137,6 +137,9 @@ std::string Status::ToString() const {
       case kRaftNotConsistentRead:
         type = "RaftNotConsistentRead";
         break;
+      case kRaftCommitLog:
+        type = "RaftCommitLog";
+        break;
       default:
         CHECK(false) << fmt::format("Unknown code({}):", static_cast<int>(code_));
     }
