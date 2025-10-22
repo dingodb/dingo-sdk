@@ -99,8 +99,8 @@ class TestBase : public ::testing::Test {
     ON_CALL(*stub, GetTsoProvider).WillByDefault(testing::Return(tso_provider));
     EXPECT_CALL(*stub, GetTsoProvider).Times(testing::AnyNumber());
 
-    txn_manager = std::make_shared<TxnManager>();
-    ON_CALL(*stub, GetTxnManager).WillByDefault(testing::Return(txn_manager));
+    txn_manager = std::make_unique<TxnManager>();
+    ON_CALL(*stub, GetTxnManager).WillByDefault(testing::Return(txn_manager.get()));
     EXPECT_CALL(*stub, GetTxnManager).Times(testing::AnyNumber());
 
     client = new Client();
@@ -121,8 +121,7 @@ class TestBase : public ::testing::Test {
   void SetUp() override { PreFillMetaCache(); }
 
   std::shared_ptr<TxnImpl> NewTransactionImpl(const TransactionOptions& options) const {
-    auto txn =
-        std::make_shared<TxnImpl>(*stub, options, std::weak_ptr<TxnManager>(client->data_->stub->GetTxnManager()));
+    auto txn = std::make_shared<TxnImpl>(*stub, options, client->data_->stub->GetTxnManager());
     CHECK_NOTNULL(txn.get());
     CHECK(txn->Begin().ok());
     return std::move(txn);
@@ -147,7 +146,7 @@ class TestBase : public ::testing::Test {
   std::shared_ptr<VectorIndexCache> index_cache;
   std::shared_ptr<AutoIncrementerManager> auto_increment_manager;
   std::shared_ptr<TsoProvider> tso_provider;
-  std::shared_ptr<TxnManager> txn_manager;
+  std::unique_ptr<TxnManager> txn_manager;
 
   // client own stub
   MockClientStub* stub;

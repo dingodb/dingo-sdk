@@ -25,6 +25,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "proto//meta.pb.h"
+#include "proto/error.pb.h"
 #include "proto/store.pb.h"
 #include "sdk/common/common.h"
 #include "sdk/common/param_config.h"
@@ -1357,6 +1358,49 @@ TEST_F(SDKTxnImplTest, TransactionManagerWithData2pc) {
     txn3->PreCommit();
     txn3->Commit();
   }
+}
+
+TEST_F(SDKTxnImplTest, Txn1PCDownGrade2PC) {
+  {
+    stub->GetMetaCache()->ClearCache();
+    stub->GetMetaCache()->MaybeAddRegion(RegionA2Z());
+  }
+
+  auto txn = NewTransactionImpl(options);
+
+  EXPECT_CALL(*rpc_client, SendRpc)
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
+        // precommit
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->txn_size(), 2);
+        EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+        EXPECT_EQ(request->try_one_pc(), true);
+
+        {
+          stub->GetMetaCache()->ClearCache();
+          stub->GetMetaCache()->MaybeAddRegion(RegionA2C());
+          stub->GetMetaCache()->MaybeAddRegion(RegionC2E());
+        }
+        auto* response = txn_rpc->MutableResponse();
+        response->mutable_error()->set_errcode(pb::error::EKEY_OUT_OF_RANGE);
+
+        cb();
+      })
+      .WillRepeatedly([](Rpc& rpc, std::function<void()> cb) {
+        (void)rpc;
+        cb();
+      });
+
+  txn->Put("a", "a");
+  txn->Put("d", "d");
+  auto status = txn->PreCommit();
+  EXPECT_TRUE(status.ok());
+  EXPECT_TRUE(!txn->IsOnePc());
+  txn->TEST_SetStateFinished();
 }
 
 }  // namespace sdk
