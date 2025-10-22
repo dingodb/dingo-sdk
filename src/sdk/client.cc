@@ -175,7 +175,7 @@ Status Client::NewRawKV(RawKV** raw_kv) {
 
 Status Client::NewTransaction(const TransactionOptions& options, Transaction** txn) {
   auto txn_impl =
-      std::make_shared<TxnImpl>(*data_->stub, options, std::weak_ptr<TxnManager>(data_->stub->GetTxnManager()));
+      std::make_shared<TxnImpl>(*data_->stub, options,data_->stub->GetTxnManager());
   Transaction* tmp_txn = new Transaction(new Transaction::Data(*data_->stub, txn_impl));
   Status s = tmp_txn->Begin();
   if (!s.ok()) {

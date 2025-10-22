@@ -48,11 +48,12 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   TxnImpl(const TxnImpl&) = delete;
   const TxnImpl& operator=(const TxnImpl&) = delete;
 
-  explicit TxnImpl(const ClientStub& stub, const TransactionOptions& options, std::weak_ptr<TxnManager> txn_manager);
+  explicit TxnImpl(const ClientStub& stub, const TransactionOptions& options, TxnManager* txn_manager);
 
   ~TxnImpl() {
     State state = state_.load();
-    if (state == kActive || state == kInit) {
+    if (state == kActive) {
+      state_.store(kAborted);
       Cleanup();
     }
   }
@@ -62,6 +63,7 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   enum State : uint8_t {
     kInit,
     kActive,
+    kAborted,
     kRollbacking,
     kRollbacked,
     kRollbackfailed,
@@ -78,6 +80,8 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
         return "INIT";
       case kActive:
         return "ACTIVE";
+      case kAborted:
+        return "ABORTED";
       case kRollbacking:
         return "ROLLBACKING";
       case kRollbacked:
@@ -140,7 +144,7 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
 
   bool CheckFinished() const {
     State state = state_.load();
-    return state == kFinshed || state == kRollbacked || state == kCommitted || state == kActive;
+    return state == kFinshed || state == kRollbacked || state == kCommitted || state == kAborted;
   }
 
   std::string DebugString() const { return fmt::format("Txn: id={}, state={}", ID(), StateName(state_.load())); }
@@ -155,6 +159,8 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   bool TEST_IsCommittingState() { return state_.load() == kCommitting; }          // NOLINT
   bool TEST_IsCommittedState() { return state_.load() == kCommitted; }            // NOLINT
   bool TEST_IsFinishedState() { return state_.load() == kFinshed; }               // NOLINT
+  bool TEST_IsAbortedState() { return state_.load() == kAborted; }                // NOLINT
+  bool TEST_IsOnePc() { return is_one_pc_.load(); }                               // NOLINT
   int64_t TEST_GetStartTs() { return start_ts_.load(); }                          // NOLINT
   int64_t TEST_GetCommitTs() { return commit_ts_.load(); }                        // NOLINT
   int64_t TEST_MutationsSize() { return buffer_->MutationsSize(); }               // NOLINT
@@ -189,6 +195,8 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   void CheckPreCommitResponse(const TxnPrewriteResponse* response) const;
   Status TryResolveTxnPreCommitConflict(const TxnPrewriteResponse* response) const;
   Status DoPreCommit();
+  Status PreCommit1PC();
+  Status PreCommit2PC();
 
   // txn commit
   Status CommitPrimaryKey();
@@ -214,7 +222,7 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   std::atomic<int64_t> start_ts_{0};
   std::atomic<int64_t> commit_ts_{0};
 
-  bool is_one_pc_{false};
+  std::atomic<bool> is_one_pc_{false};
 
   TxnBufferUPtr buffer_;
 
@@ -222,7 +230,7 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   // start_key+end_key -> ScanState
   std::map<std::string, ScanState> scan_states_;
 
-  std::weak_ptr<TxnManager> txn_manager_;
+  TxnManager* txn_manager_;
 };
 
 }  // namespace sdk

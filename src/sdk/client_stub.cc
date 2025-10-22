@@ -78,7 +78,7 @@ Status ClientStub::Open(const std::vector<EndPoint>& endpoints) {
 
   tso_provider_ = std::make_shared<TsoProvider>(*this);
 
-  txn_manager_ = std::make_shared<TxnManager>();
+  txn_manager_ = std::make_unique<TxnManager>();
 
   return Status::OK();
 }

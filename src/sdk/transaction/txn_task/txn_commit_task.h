@@ -34,7 +34,7 @@ namespace sdk {
 
 class TxnCommitTask : public TxnTask {
  public:
-  TxnCommitTask(const ClientStub& stub, const std::vector<std::string>& keys, std::shared_ptr<TxnImpl> txn_impl,
+  TxnCommitTask(const ClientStub& stub, const std::vector<std::string> keys, std::shared_ptr<TxnImpl> txn_impl,
                 bool is_primary)
       : TxnTask(stub), keys_(keys), txn_impl_(txn_impl), is_primary_(is_primary) {}
 
@@ -49,7 +49,7 @@ class TxnCommitTask : public TxnTask {
 
   void TxnCommitRpcCallback(const Status& status, TxnCommitRpc* rpc);
 
-  const std::vector<std::string>& keys_;
+  const std::vector<std::string> keys_;
   bool is_primary_{false};
   std::shared_ptr<TxnImpl> txn_impl_;
 

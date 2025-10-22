@@ -94,6 +94,15 @@ void TxnPrewriteTask::DoAsync() {
       }
     }
   }
+  if (is_one_pc_) {
+    if (region_id_to_region.size() != 1) {
+      DINGO_LOG(ERROR) << fmt::format("[sdk.txn.{}] 1pc but region count({}) > 1.", txn_impl_->ID(),
+                                      region_id_to_region.size());
+      is_one_pc_ = false;
+      DoAsyncDone(Status::InvalidArgument("1pc but region count > 1"));
+      return;
+    }
+  }
 
   int64_t physical_ts{0};
   Status status = stub.GetTsoProvider()->GenPhysicalTs(2, physical_ts);

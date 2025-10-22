@@ -31,7 +31,7 @@ class ClientStub;
 
 class TxnImpl;
 
-class TxnManager : public std::enable_shared_from_this<TxnManager> {
+class TxnManager {
  public:
   TxnManager() = default;
   ~TxnManager();
