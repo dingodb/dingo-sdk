@@ -49,6 +49,10 @@ class TxnPrewriteTask : public TxnTask {
 
   void TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRpc* rpc);
 
+  void BackoffAndRetry() override;
+  bool IsRetryError() override;
+  bool NeedRetry() override;
+
   const std::string primary_key_;
   const std::map<std::string, const TxnMutation*>& mutations_;
   bool& is_one_pc_;
@@ -65,6 +69,7 @@ class TxnPrewriteTask : public TxnTask {
   std::atomic<int> sub_tasks_count_{0};
   RWLock rw_lock_;
   Status status_;
+  int retry_count_{0};
 };
 
 }  // namespace sdk

@@ -250,6 +250,30 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
   }
 }
 
+void TxnPrewriteTask::BackoffAndRetry() {
+  stub.GetActuator()->Schedule([this] { DoAsync(); }, FLAGS_txn_prewrite_delay_ms);
+}
+
+bool TxnPrewriteTask::IsRetryError() {
+  return (status_.IsIncomplete() && IsRetryErrorCode(status_.Errno())) ||
+         StoreRpcController::IsUniversalNeedRetryError(status_) || StoreRpcController::IsTxnNeedRetryError(status_);
+}
+
+bool TxnPrewriteTask::NeedRetry() {
+  if (IsRetryError()) {
+    retry_count_++;
+    if (retry_count_ < FLAGS_txn_prewrite_max_retry) {
+      return true;
+    } else {
+      std::string msg =
+          fmt::format("Fail task:{} retry too times:{}, last err:{}", Name(), retry_count_, status_.ToString());
+      status_ = Status::Aborted(status_.Errno(), msg);
+    }
+  }
+
+  return false;
+}
+
 }  // namespace sdk
 
 }  // namespace dingodb

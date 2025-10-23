@@ -196,6 +196,14 @@ void StoreRpcController::SendStoreRpcCallBack() {
 }
 
 void StoreRpcController::RetrySendRpcOrFireCallback() {
+  if (rpc_.Method() == "StoreService.TxnPrewriteRpc") {
+    DINGO_LOG(DEBUG) << fmt::format("[sdk.rpc.{}]method:{} , store rpc done, region({}) status({}).", rpc_.LogId(),
+                                    rpc_.Method(), region_->RegionId(), status_.ToString());
+    // prewrite task execute retry
+    FireCallback();
+    return;
+  }
+
   if (!status_.IsOK() && (IsUniversalNeedRetryError(status_) || IsTxnNeedRetryError(status_))) {
     if (rpc_retry_times_ < FLAGS_store_rpc_max_retry) {
       rpc_retry_times_++;

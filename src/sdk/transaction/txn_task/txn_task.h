@@ -45,10 +45,13 @@ class TxnTask {
 
   const ClientStub& stub;
 
+  // prewrite requires special processing
+  virtual void BackoffAndRetry();
+  virtual bool IsRetryError();
+  virtual bool NeedRetry();
+
  private:
   void FailOrRetry();
-  bool NeedRetry();
-  void BackoffAndRetry();
   void FireCallback();
 
   Status status_;
