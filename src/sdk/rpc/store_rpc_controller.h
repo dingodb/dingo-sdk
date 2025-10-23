@@ -40,6 +40,18 @@ class StoreRpcController {
 
   void ResetRegion(RegionPtr region);
 
+  static bool IsUniversalNeedRetryError(const Status& status) {
+    return status.IsNetworkError() || status.IsRemoteError() || status.IsNotLeader() || status.IsNoLeader() ||
+           status.IsRaftNotConsistentRead() || status.IsRaftCommitLog();
+  }
+
+  static bool IsTxnNeedRetryError(const Status& status) { return status.IsTxnMemLockConflict(); }
+
+  static bool NeedDelay(const Status& status) {
+    return status.IsRemoteError() || status.IsNoLeader() || status.IsTxnMemLockConflict() || status.IsNetworkError() ||
+           status.IsNotLeader();
+  }
+
  private:
   void DoAsyncCall();
 
@@ -62,17 +74,6 @@ class StoreRpcController {
     return !rpc_.GetEndPoint().IsValid() || status_.IsNetworkError() || status_.IsNotLeader() || status_.IsNoLeader();
   }
 
-  static bool IsUniversalNeedRetryError(const Status& status) {
-    return status.IsNetworkError() || status.IsRemoteError() || status.IsNotLeader() || status.IsNoLeader() ||
-           status.IsRaftNotConsistentRead() || status.IsRaftCommitLog();
-  }
-
-  static bool IsTxnNeedRetryError(const Status& status) { return status.IsTxnMemLockConflict(); }
-
-  static bool NeedDelay(const Status& status) {
-    return status.IsRemoteError() || status.IsNoLeader() || status.IsTxnMemLockConflict() || status.IsNetworkError() ||
-           status.IsNotLeader();
-  }
   // above funciton only works for store rpc controller
 
   static const pb::error::Error& GetResponseError(Rpc& rpc);
