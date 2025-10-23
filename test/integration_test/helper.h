@@ -22,20 +22,22 @@
 #include <string>
 #include <utility>
 
+#include "dingosdk/client.h"
 #include "environment.h"
 #include "fmt/core.h"
 #include "glog/logging.h"
-#include "dingosdk/client.h"
 
 namespace dingodb {
 
 namespace integration_test {
 
 static const std::string kClientRaw = "w";
+static const std::string kClientTxn = "x";
 
 class Helper {
  public:
   static std::string EncodeRawKey(const std::string& str) { return kClientRaw + str; }
+  static std::string EncodeTxnKey(const std::string& str) { return kClientTxn + str; }
 
   static std::string PrefixNext(const std::string& input) {
     std::string ret(input.size(), 0);
@@ -52,6 +54,32 @@ class Helper {
     return (carry == 0) ? ret : input;
   }
 
+  static int64_t CreateTxnRegion(const std::string& name, const std::string& start_key, const std::string& end_key,
+                                 sdk::EngineType engine_type = sdk::kLSM, int replicas = 3) {
+    CHECK(!name.empty()) << "name should not empty";
+    CHECK(!start_key.empty()) << "start_key should not empty";
+    CHECK(!end_key.empty()) << "end_key should not empty";
+    CHECK(start_key < end_key) << "start_key must < end_key";
+    CHECK(replicas > 0) << "replicas must > 0";
+
+    auto client = Environment::GetInstance().GetClient();
+
+    sdk::RegionCreator* tmp;
+    auto status = client->NewRegionCreator(&tmp);
+    CHECK(status.ok()) << fmt::format("new region creator failed, {}", status.ToString());
+    std::shared_ptr<sdk::RegionCreator> creator(tmp);
+    int64_t region_id = -1;
+    status = creator->SetRegionName(name)
+                 .SetEngineType(engine_type)
+                 .SetReplicaNum(replicas)
+                 .SetRange(EncodeTxnKey(start_key), EncodeTxnKey(end_key))
+                 .Create(region_id);
+
+    CHECK(status.IsOK()) << fmt::format("Create region failed, {}", status.ToString());
+    CHECK(region_id != 0) << "region_id is invalid";
+    return region_id;
+  }
+
   static int64_t CreateRawRegion(const std::string& name, const std::string& start_key, const std::string& end_key,
                                  sdk::EngineType engine_type = sdk::kLSM, int replicas = 3) {
     CHECK(!name.empty()) << "name should not empty";
@@ -66,7 +94,7 @@ class Helper {
     auto status = client->NewRegionCreator(&tmp);
     CHECK(status.ok()) << fmt::format("new region creator failed, {}", status.ToString());
     std::shared_ptr<sdk::RegionCreator> creator(tmp);
-    int64_t region_id;
+    int64_t region_id = -1;
     status = creator->SetRegionName(name)
                  .SetEngineType(engine_type)
                  .SetReplicaNum(replicas)
