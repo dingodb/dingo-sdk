@@ -25,6 +25,11 @@
 DEFINE_string(coordinator_addrs, "127.0.0.1:22001,127.0.0.1:22002,127.0.0.1:22003", "coordinator addrs");
 DEFINE_int32(create_region_wait_time_s, 3, "create region wait time");
 
+DEFINE_int32(thread_count, 2, "thread count");
+DEFINE_int32(txn_test_frequency, 1000, "txn test frequency");
+DEFINE_string(txn_region_name,"TxnRegion", "txn region name");
+DEFINE_string(txn_key_prefix,"Txn0000", "txn key prefix");
+
 DEFINE_string(allure_report, "", "allure report directory");
 DEFINE_string(allure_url, "", "jenkins allure url");
 DEFINE_string(web_report, "", "web report directory");
