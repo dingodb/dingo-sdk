@@ -66,18 +66,17 @@ void TxnTask::FailOrRetry() {
   }
 }
 
+bool TxnTask::IsRetryError() { return (status_.IsIncomplete() && IsRetryErrorCode(status_.Errno())); }
+
 bool TxnTask::NeedRetry() {
-  if (status_.IsIncomplete()) {
-    auto error_code = status_.Errno();
-    if (IsRetryErrorCode(error_code)) {
-      retry_count_++;
-      if (retry_count_ < FLAGS_txn_op_max_retry) {
-        return true;
-      } else {
-        std::string msg =
-            fmt::format("Fail task:{} retry too times:{}, last err:{}", Name(), retry_count_, status_.ToString());
-        status_ = Status::Aborted(status_.Errno(), msg);
-      }
+  if (IsRetryError()) {
+    retry_count_++;
+    if (retry_count_ < FLAGS_txn_op_max_retry) {
+      return true;
+    } else {
+      std::string msg =
+          fmt::format("Fail task:{} retry too times:{}, last err:{}", Name(), retry_count_, status_.ToString());
+      status_ = Status::Aborted(status_.Errno(), msg);
     }
   }
 
