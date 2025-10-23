@@ -38,7 +38,7 @@ namespace dingodb {
 namespace integration_test {
 
 const std::string kRegionName = "Region_for_KvPut";
-const std::string kKeyPrefix = "KVPUT000";
+const std::string kKeyPrefix = "wKVPUT000";
 
 template <class T>
 class KvPutTest : public testing::Test {
