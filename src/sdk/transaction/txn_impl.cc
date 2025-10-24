@@ -425,55 +425,6 @@ Status TxnImpl::DoScan(const std::string& start_key, const std::string& end_key,
   return Status::OK();
 }
 
-void TxnImpl::CheckPreCommitResponse(const TxnPrewriteResponse* response) const {
-  std::string pk = buffer_->GetPrimaryKey();
-  auto txn_result_size = response->txn_result_size();
-  if (0 == txn_result_size) {
-    DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] precommit pk({}) success.", ID(), StringToHex(pk));
-
-  } else if (1 == txn_result_size) {
-    const auto& txn_result = response->txn_result(0);
-    DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] precommit pk({}) lock or confict, txn_result({}).", ID(),
-                                   StringToHex(pk), txn_result.ShortDebugString());
-
-  } else {
-    DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] precommit unexpected response, size({}) response().", ID(),
-                                    txn_result_size, response->ShortDebugString());
-  }
-}
-
-Status TxnImpl::TryResolveTxnPreCommitConflict(const TxnPrewriteResponse* response) const {
-  Status status;
-  const std::string& pk = buffer_->GetPrimaryKey();
-  for (const auto& txn_result : response->txn_result()) {
-    status = CheckTxnResultInfo(txn_result);
-
-    if (status.ok()) {
-      continue;
-
-    } else if (status.IsTxnLockConflict()) {
-      Status local_status = stub_.GetTxnLockResolver()->ResolveLock(txn_result.locked(), start_ts_.load());
-      if (!local_status.ok()) {
-        DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] precommit resolve lock fail, pk() status({}) txn_result({}).",
-                                          ID(), StringToHex(pk), local_status.ToString(),
-                                          txn_result.ShortDebugString());
-        status = local_status;
-      }
-
-    } else if (status.IsTxnWriteConflict()) {
-      DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] precommit write conflict, pk({}) status({}) txn_result({}).",
-                                        ID(), StringToHex(pk), status.ToString(), txn_result.ShortDebugString());
-      return status;
-
-    } else {
-      DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] precommit unexpect response, status({}) response({}).", ID(),
-                                        status.ToString(), response->ShortDebugString());
-    }
-  }
-
-  return status;
-}
-
 void TxnImpl::ScheduleHeartBeat() {
   stub_.GetActuator()->Schedule(
       [shared_this = shared_from_this(), start_ts = start_ts_.load(), primary_key = buffer_->GetPrimaryKey()] {
