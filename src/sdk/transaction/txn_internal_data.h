@@ -29,7 +29,7 @@ class Transaction::Data {
 
   explicit Data(const ClientStub& stub, TxnImplSPtr impl) : stub(stub), impl(impl) {}
 
-  ~Data() = default;
+  ~Data() { impl->Clean(); }
 
   const ClientStub& stub;
 
