@@ -31,27 +31,28 @@ namespace dingodb {
 namespace sdk {
 
 TxnManager::~TxnManager() {
-  DINGO_LOG(INFO) << "TxnManager destructor start";
+  DINGO_LOG(INFO) << "[sdk.txnmanager]TxnManager destructor start";
   // stop, forbid add new txns
   Stop();
 
-  DINGO_LOG(INFO) << "TxnManager destructor end";
+  DINGO_LOG(INFO) << "[sdk.txnmanager]TxnManager destructor end";
 }
 
 Status TxnManager::RegisterTxn(std::shared_ptr<TxnImpl> txn_impl) {
   if (IsStopped()) {
-    DINGO_LOG(WARNING) << fmt::format("TxnManager is stopped, refuse new txn");
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txnmanager]TxnManager is stopped, refuse new txn");
     return Status::Aborted("TxnManager is stopped");
   }
 
   int64_t txn_id = txn_impl->ID();
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    CHECK(active_txns_.find(txn_id) == active_txns_.end()) << "txn already exists, txn id: " << txn_id;
-    CHECK(active_txns_.emplace(txn_id, std::move(txn_impl)).second) << "failed to emplace txn, txn id: " << txn_id;
+    CHECK(active_txns_.find(txn_id) == active_txns_.end()) << "[sdk.txnmanager]txn already exists, txn id: " << txn_id;
+    CHECK(active_txns_.emplace(txn_id, std::move(txn_impl)).second)
+        << "[sdk.txnmanager]failed to emplace txn, txn id: " << txn_id;
   }
 
-  DINGO_LOG(DEBUG) << fmt::format("Register txn: {}, active txns: {}", txn_id, active_txns_.size());
+  DINGO_LOG(DEBUG) << fmt::format("[sdk.txnmanager]Register txn: {}, active txns: {}", txn_id, active_txns_.size());
   return Status::OK();
 }
 
@@ -60,10 +61,11 @@ void TxnManager::UnregisterTxn(int64_t txn_id) {
 
   auto it = active_txns_.find(txn_id);
   if (it != active_txns_.end()) {
+    CHECK(it->second->CheckFinished()) << "[sdk.txnmanager]txn state is not finished, " << it->second->DebugString();
     active_txns_.erase(it);
-    DINGO_LOG(DEBUG) << fmt::format("Unregister txn: {}, active txns: {}", txn_id, active_txns_.size());
+    DINGO_LOG(DEBUG) << fmt::format("[sdk.txnmanager]Unregister txn: {}, active txns: {}", txn_id, active_txns_.size());
   } else {
-    DINGO_LOG(WARNING) << fmt::format("Txn not found for unregister: {}", txn_id);
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txnmanager]Txn not found for unregister: {}", txn_id);
   }
 
   if (active_txns_.empty()) {
@@ -75,15 +77,15 @@ void TxnManager::WaitAllTxnsComplete() {
   std::unique_lock<std::mutex> lock(mutex_);
 
   if (active_txns_.empty()) {
-    DINGO_LOG(INFO) << "No active txns, return immediately";
+    DINGO_LOG(INFO) << "[sdk.txnmanager]No active txns, return immediately";
     return;
   }
 
-  DINGO_LOG(INFO) << "Waiting for all txns to complete, active txns: " << active_txns_.size();
+  DINGO_LOG(INFO) << "[sdk.txnmanager]Waiting for all txns to complete, active txns: " << active_txns_.size();
 
   cv_.wait(lock, [this] { return active_txns_.empty(); });
 
-  DINGO_LOG(INFO) << "All txns completed";
+  DINGO_LOG(INFO) << "[sdk.txnmanager]All txns completed";
 }
 
 void TxnManager::CheckTxnState() {
@@ -91,8 +93,8 @@ void TxnManager::CheckTxnState() {
 
   for (auto it = active_txns_.begin(); it != active_txns_.end();) {
     auto txn = it->second;
-    CHECK(txn != nullptr) << "txn is nullptr";
-    CHECK(txn->CheckFinished()) << "txn state is not finished, " << txn->DebugString();
+    CHECK(txn != nullptr) << "[sdk.txnmanager]txn is nullptr";
+    CHECK(txn->CheckFrontTaskCompleted()) << "[sdk.txnmanager]txn front task is not completed, " << txn->DebugString();
     ++it;
   }
 }
@@ -100,7 +102,7 @@ void TxnManager::CheckTxnState() {
 void TxnManager::Stop() {
   bool expected = false;
   if (stopped_.compare_exchange_strong(expected, true)) {
-    DINGO_LOG(INFO) << "TxnManager stopped, no more txns will be accepted";
+    DINGO_LOG(INFO) << "[sdk.txnmanager]TxnManager stopped, no more txns will be accepted";
   }
   CheckTxnState();
   WaitAllTxnsComplete();

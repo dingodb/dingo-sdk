@@ -22,6 +22,7 @@
 #include <string_view>
 #include <vector>
 
+#include "common/logging.h"
 #include "dingosdk/client.h"
 #include "dingosdk/status.h"
 #include "proto/meta.pb.h"
@@ -50,13 +51,7 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
 
   explicit TxnImpl(const ClientStub& stub, const TransactionOptions& options, TxnManager* txn_manager);
 
-  ~TxnImpl() {
-    State state = state_.load();
-    if (state == kActive) {
-      state_.store(kAborted);
-      Cleanup();
-    }
-  }
+  ~TxnImpl() = default;
 
   TxnImplSPtr GetSelfPtr();
 
@@ -140,11 +135,24 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   int64_t GetCommitTs() const { return commit_ts_.load(); }
   TransactionOptions GetOptions() const { return options_; }
 
-  void Cleanup();
-
   bool CheckFinished() const {
     State state = state_.load();
-    return state == kFinshed || state == kRollbacked || state == kCommitted || state == kAborted;
+    return state == kFinshed || state == kRollbackfailed || state == kAborted;
+  }
+
+  bool CheckFrontTaskCompleted() const {
+    State state = state_.load();
+    return state == kFinshed || state == kRollbackfailed || state == kAborted || state == kRollbacked ||
+           state == kCommitted;
+  }
+
+  void Clean() {
+    State state = state_.load();
+    if (state == kActive) {
+      DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}]clean active txn", ID());
+      state_.store(kAborted);
+      Cleanup();
+    }
   }
 
   std::string DebugString() const { return fmt::format("Txn: id={}, state={}", ID(), StateName(state_.load())); }
@@ -192,8 +200,6 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   Status DoScan(const std::string& start_key, const std::string& end_key, uint64_t limit, std::vector<KVPair>& out_kvs);
 
   // txn precommit
-  void CheckPreCommitResponse(const TxnPrewriteResponse* response) const;
-  Status TryResolveTxnPreCommitConflict(const TxnPrewriteResponse* response) const;
   Status DoPreCommit();
   Status PreCommit1PC();
   Status PreCommit2PC();
@@ -213,6 +219,8 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   void ScheduleHeartBeat();
 
   void CheckStateActive() const;
+
+  void Cleanup();
 
   const ClientStub& stub_;
   const TransactionOptions options_;
