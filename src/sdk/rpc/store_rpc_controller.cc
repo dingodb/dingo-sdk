@@ -34,10 +34,10 @@ namespace dingodb {
 namespace sdk {
 
 StoreRpcController::StoreRpcController(const ClientStub& stub, Rpc& rpc, RegionPtr region)
-    : stub_(stub), rpc_(rpc), region_(std::move(region)), rpc_retry_times_(0), next_replica_index_(0) {}
+    : stub_(stub), rpc_(rpc), region_(std::move(region)), rpc_retry_times_(0) {}
 
 StoreRpcController::StoreRpcController(const ClientStub& stub, Rpc& rpc)
-    : stub_(stub), rpc_(rpc), region_(nullptr), rpc_retry_times_(0), next_replica_index_(0) {}
+    : stub_(stub), rpc_(rpc), region_(nullptr), rpc_retry_times_(0) {}
 
 StoreRpcController::~StoreRpcController() = default;
 
@@ -121,6 +121,9 @@ void StoreRpcController::SendStoreRpcCallBack() {
     RetrySendRpcOrFireCallback();
     return;
   }
+  
+  auto end_point = rpc_.GetEndPoint();
+  region_->MarkLeader(end_point);
 
   auto error = GetRpcResponseError(rpc_);
   if (error.errcode() == pb::error::Errno::OK) {
@@ -234,20 +237,8 @@ void StoreRpcController::FireCallback() {
 
 bool StoreRpcController::PickNextLeader(EndPoint& leader) {
   EndPoint tmp_leader;
-  Status got = region_->GetLeader(tmp_leader);
-  if (got.IsOK()) {
-    leader = tmp_leader;
-    return true;
-  }
-
-  // TODO: filter old leader
-  auto endpoints = region_->ReplicaEndPoint();
-  const auto& endpoint = endpoints[next_replica_index_ % endpoints.size()];
-  next_replica_index_++;
-  leader = endpoint;
-
-  DINGO_LOG(INFO) << fmt::format("[sdk.rpc.{}] method:{} get leader fail, region({}) pick new leader({}).",
-                                 rpc_.LogId(), rpc_.Method(), region_->RegionId(), endpoint.ToString());
+  region_->GetLeader(tmp_leader);
+  leader = tmp_leader;
   return true;
 }
 

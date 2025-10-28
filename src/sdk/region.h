@@ -15,6 +15,7 @@
 #ifndef DINGODB_SDK_REGION_H_
 #define DINGODB_SDK_REGION_H_
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -24,9 +25,9 @@
 #include "fmt/core.h"
 #include "glog/logging.h"
 #include "proto/common.pb.h"
+#include "sdk/common/common.h"
 #include "sdk/utils/net_util.h"
 #include "sdk/utils/rw_lock.h"
-#include "sdk/common/common.h"
 
 namespace dingodb {
 namespace sdk {
@@ -93,6 +94,8 @@ class Region {
 
   std::string ReplicasAsStringUnlocked() const;
 
+  bool IsLeader(const EndPoint& end_point);
+
   const int64_t region_id_;
   Range range_;
   RegionEpoch epoch_;
@@ -101,6 +104,7 @@ class Region {
   RWLock rw_lock_;
   EndPoint leader_addr_;
   std::vector<Replica> replicas_;
+  std::atomic<int64_t> next_replica_index_;
 
   std::atomic<bool> stale_;
 };

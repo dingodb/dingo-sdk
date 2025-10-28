@@ -14,8 +14,11 @@
 
 #include "sdk/region.h"
 
+#include <atomic>
+
 #include "common/logging.h"
 #include "sdk/common/helper.h"
+#include "sdk/utils/rw_lock.h"
 
 namespace dingodb {
 namespace sdk {
@@ -53,7 +56,23 @@ std::vector<EndPoint> Region::ReplicaEndPoint() {
   return end_points;
 }
 
+bool Region::IsLeader(const EndPoint& end_point) {
+  ReadLockGuard guard(rw_lock_);
+
+  for (const auto& r : replicas_) {
+    if (r.end_point == end_point) {
+      return r.role == kLeader;
+    }
+  }
+
+  return false;
+}
+
 void Region::MarkLeader(const EndPoint& end_point) {
+  if (IsLeader(end_point)) {
+    return;
+  }
+
   WriteLockGuard guard(rw_lock_);
 
   for (auto& r : replicas_) {
@@ -93,10 +112,11 @@ Status Region::GetLeader(EndPoint& leader) {
     leader = leader_addr_;
     return Status::OK();
   }
-
-  std::string msg = fmt::format("region:{} not found leader", region_id_);
-  DINGO_LOG(WARNING) << msg << " replicas:" << ReplicasAsStringUnlocked();
-  return Status::NotFound(msg);
+  // pick next replica as leader
+  DINGO_LOG(INFO) << fmt::format("region:{} not found leader, pick next replica as leader", region_id_);
+  int64_t next_replica_index = next_replica_index_.fetch_add(1, std::memory_order_relaxed);
+  leader = replicas_[next_replica_index % replicas_.size()].end_point;
+  return Status::OK();
 }
 
 std::string Region::ReplicasAsString() {
