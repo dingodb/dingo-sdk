@@ -121,8 +121,17 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   bool IsOnePc() const { return is_one_pc_; }
 
   int64_t GetStartTs() const { return start_ts_; }
-  int64_t GetCommitTs() const { return commit_ts_; }
+  int64_t GetCommitTs() const { return commit_ts_.load(); }
   TransactionOptions GetOptions() const { return options_; }
+
+  Status GenCommitTs() {
+    int64_t commit_ts;
+    Status s = stub_.GetTsoProvider()->GenTs(2, commit_ts);
+    if (s.ok()) {
+      commit_ts_.store(commit_ts);
+    }
+    return s;
+  }
 
   bool TEST_IsInitState() { return state_ == kInit; }                    // NOLINT
   bool TEST_IsActiveState() { return state_ == kActive; }                // NOLINT
@@ -133,7 +142,7 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   bool TEST_IsCommittingState() { return state_ == kCommitting; }        // NOLINT
   bool TEST_IsCommittedState() { return state_ == kCommitted; }          // NOLINT
   int64_t TEST_GetStartTs() { return start_ts_; }                        // NOLINT
-  int64_t TEST_GetCommitTs() { return commit_ts_; }                      // NOLINT
+  int64_t TEST_GetCommitTs() { return commit_ts_.load(); }               // NOLINT
   int64_t TEST_MutationsSize() { return buffer_->MutationsSize(); }      // NOLINT
   std::string TEST_GetPrimaryKey() { return buffer_->GetPrimaryKey(); }  // NOLINT
 
@@ -185,7 +194,7 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   std::atomic<State> state_;
 
   int64_t start_ts_{0};
-  int64_t commit_ts_{0};
+  std::atomic<int64_t> commit_ts_{0};
 
   bool is_one_pc_{false};
 

@@ -55,7 +55,6 @@ void TxnCommitTask::DoAsync() {
   {
     WriteLockGuard guard(rw_lock_);
     next_batch = next_keys_;
-    need_retry_ = false;
     status_ = Status::OK();
   }
 
@@ -64,8 +63,17 @@ void TxnCommitTask::DoAsync() {
     return;
   }
 
+  if (need_retry_ && is_primary_) {
+    Status status = txn_impl_->GenCommitTs();
+    if (!status.ok()) {
+      DoAsyncDone(status);
+      return;
+    }
+  }
+
   rpcs_.clear();
   controllers_.clear();
+  need_retry_ = false;
 
   std::unordered_map<int64_t, std::shared_ptr<Region>> region_id_to_region;
   std::unordered_map<int64_t, std::vector<std::string_view>> region_id_to_keys;

@@ -631,8 +631,6 @@ Status TxnImpl::ProcessTxnCommitResponse(const TxnCommitResponse* response, bool
     DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit ts expired, is_primary({}) pk({}) response({}).", ID(),
                                       is_primary, StringToHex(pk), txn_result.commit_ts_expired().ShortDebugString());
     if (is_primary) {
-      auto status = stub_.GetTsoProvider()->GenTs(2, commit_ts_);
-      if (!status.IsOK()) return status;
       return Status::TxnCommitTsExpired("txn commit ts expired");
     }
   }
@@ -678,9 +676,10 @@ Status TxnImpl::DoCommit() {
 
   state_.store(kCommitting);
 
-  DINGO_RETURN_NOT_OK(stub_.GetTsoProvider()->GenTs(2, commit_ts_));
+  DINGO_RETURN_NOT_OK(GenCommitTs());
 
-  CHECK(commit_ts_ > start_ts_) << fmt::format("commit_ts({}) must greater than start_ts({}).", commit_ts_, start_ts_);
+  int64_t commit_ts = commit_ts_.load();
+  CHECK(commit_ts > start_ts_) << fmt::format("commit_ts({}) must greater than start_ts({}).", commit_ts, start_ts_);
 
   // commit primary key
   // TODO: if commit primary key and find txn is rolled back, should we rollback all the mutation?
