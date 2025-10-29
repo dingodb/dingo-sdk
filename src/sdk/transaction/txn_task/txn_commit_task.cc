@@ -17,11 +17,13 @@
 #include <fmt/format.h>
 #include <glog/logging.h>
 
+#include <cstdint>
 #include <utility>
 
 #include "common/logging.h"
 #include "dingosdk/status.h"
 #include "sdk/common/common.h"
+#include "sdk/common/helper.h"
 #include "sdk/rpc/store_rpc_controller.h"
 #include "sdk/transaction/txn_common.h"
 #include "sdk/utils/rw_lock.h"
@@ -55,7 +57,6 @@ void TxnCommitTask::DoAsync() {
   {
     WriteLockGuard guard(rw_lock_);
     next_batch = next_keys_;
-    need_retry_ = false;
     status_ = Status::OK();
   }
 
@@ -136,7 +137,6 @@ void TxnCommitTask::TxnCommitRpcCallback(const Status& status, TxnCommitRpc* rpc
   DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] rpc: {} request: {} response: {}", txn_impl_->ID(), rpc->Method(),
                                   rpc->Request()->ShortDebugString(), rpc->Response()->ShortDebugString());
   Status s;
-  bool need_retry = false;
   const auto* response = rpc->Response();
   if (!status.ok()) {
     DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rpc: {} send to region: {} fail: {}", txn_impl_->ID(),
@@ -144,29 +144,20 @@ void TxnCommitTask::TxnCommitRpcCallback(const Status& status, TxnCommitRpc* rpc
 
     s = status;
   } else {
-    s = txn_impl_->ProcessTxnCommitResponse(response, is_primary_);
+    s = ProcessTxnCommitResponse(response, is_primary_);
     if (!s.ok()) {
       DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit fail, region({}) response({}) status({}).",
                                         txn_impl_->ID(), rpc->Request()->context().region_id(),
                                         response->ShortDebugString(), s.ToString());
-      if (s.IsTxnCommitTsExpired() && is_primary_) {
-        need_retry = true;
-        s = Status::OK();
-      }
     }
   }
 
   {
     WriteLockGuard guard(rw_lock_);
     if (s.ok()) {
-      if (!need_retry) {
-        for (const auto& key : rpc->Request()->keys()) {
-          next_keys_.erase(key);
-        }
-      } else {
-        need_retry_ = true;
+      for (const auto& key : rpc->Request()->keys()) {
+        next_keys_.erase(key);
       }
-
     } else {
       if (status_.ok()) {
         // only return first fail status
@@ -181,14 +172,50 @@ void TxnCommitTask::TxnCommitRpcCallback(const Status& status, TxnCommitRpc* rpc
     {
       ReadLockGuard guard(rw_lock_);
       tmp = status_;
-      tmp_need_retry = need_retry_;
-    }
-    if (tmp.ok() && tmp_need_retry) {
-      DoAsyncRetry();
-      return;
     }
     DoAsyncDone(tmp);
   }
+}
+
+Status TxnCommitTask::ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary) {
+  std::string pk = txn_impl_->GetPrimaryKey();
+  int64_t txn_id = txn_impl_->ID();
+  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] commit response, pk({}) response({}).", txn_id, pk,
+                                  response->ShortDebugString());
+
+  if (!response->has_txn_result()) {
+    return Status::OK();
+  }
+
+  const auto& txn_result = response->txn_result();
+  if (txn_result.has_locked()) {
+    const auto& lock_info = txn_result.locked();
+    DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit lock conflict, is_primary({}) pk({}) response({}).", txn_id,
+                                    is_primary, StringToHex(pk), response->ShortDebugString());
+
+  } else if (txn_result.has_txn_not_found()) {
+    DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit not found, is_primary({}) pk({}) response({}).", txn_id,
+                                    is_primary, StringToHex(pk), response->ShortDebugString());
+
+  } else if (txn_result.has_write_conflict()) {
+    if (!is_primary) {
+      DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit write conlict, pk({}) response({}).", txn_id,
+                                      StringToHex(pk), txn_result.write_conflict().ShortDebugString());
+    }
+    return Status::TxnWriteConflict("txn write conflict");
+
+  } else if (txn_result.has_commit_ts_expired()) {
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit ts expired, is_primary({}) pk({}) response({}).", txn_id,
+                                      is_primary, StringToHex(pk), txn_result.commit_ts_expired().ShortDebugString());
+    if (is_primary) {
+      return Status::TxnCommitTsExpired("txn commit ts expired");
+    }
+  } else {
+    DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit unknown txn result, is_primary({}) pk({}) response({}).",
+                                    txn_id, is_primary, StringToHex(pk), response->ShortDebugString());
+  }
+
+  return Status::OK();
 }
 
 }  // namespace sdk

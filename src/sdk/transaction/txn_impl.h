@@ -127,12 +127,11 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
 
   Status Rollback();
 
-  Status ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary);
-
   bool IsOnePc() const { return is_one_pc_; }
 
   int64_t GetStartTs() const { return start_ts_.load(); }
   int64_t GetCommitTs() const { return commit_ts_.load(); }
+  std::string GetPrimaryKey() const { return buffer_->GetPrimaryKey(); }
   TransactionOptions GetOptions() const { return options_; }
 
   bool CheckFinished() const {

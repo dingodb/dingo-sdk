@@ -49,6 +49,8 @@ class TxnCommitTask : public TxnTask {
 
   void TxnCommitRpcCallback(const Status& status, TxnCommitRpc* rpc);
 
+  Status ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary);
+
   const std::vector<std::string> keys_;
   bool is_primary_{false};
   std::shared_ptr<TxnImpl> txn_impl_;
@@ -56,7 +58,6 @@ class TxnCommitTask : public TxnTask {
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<TxnCommitRpc>> rpcs_;
   std::set<std::string_view> next_keys_;
-  bool need_retry_{false};
 
   std::atomic<int> sub_tasks_count_{0};
   RWLock rw_lock_;
