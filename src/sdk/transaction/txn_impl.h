@@ -121,9 +121,7 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   // maybe multiple invoke, when out_kvs.size < limit is over.
   Status Scan(const std::string& start_key, const std::string& end_key, uint64_t limit, std::vector<KVPair>& out_kvs);
 
-  Status PreCommit();
-
-  Status Commit();
+  Status PreWriteAndCommit();
 
   Status Rollback();
 
@@ -173,6 +171,8 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   int64_t TEST_MutationsSize() { return buffer_->MutationsSize(); }               // NOLINT
   std::string TEST_GetPrimaryKey() { return buffer_->GetPrimaryKey(); }           // NOLINT
   void TEST_SetStateFinished() { state_.store(kFinshed); }                        // NOLINT
+  Status TEST_PreCommit() { return DoPreCommit(); }                               // NOLINT
+  Status TEST_Commit() { return DoCommit(); }                                     // NOLINT
 
  private:
   struct ScanState {

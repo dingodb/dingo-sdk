@@ -174,8 +174,7 @@ Status Client::NewRawKV(RawKV** raw_kv) {
 }
 
 Status Client::NewTransaction(const TransactionOptions& options, Transaction** txn) {
-  auto txn_impl =
-      std::make_shared<TxnImpl>(*data_->stub, options,data_->stub->GetTxnManager());
+  auto txn_impl = std::make_shared<TxnImpl>(*data_->stub, options, data_->stub->GetTxnManager());
   Transaction* tmp_txn = new Transaction(new Transaction::Data(*data_->stub, txn_impl));
   Status s = tmp_txn->Begin();
   if (!s.ok()) {
@@ -187,7 +186,7 @@ Status Client::NewTransaction(const TransactionOptions& options, Transaction** t
     delete tmp_txn;
     return s;
   }
-  
+
   *txn = tmp_txn;
   return s;
 }
@@ -594,9 +593,7 @@ Status Transaction::Scan(const std::string& start_key, const std::string& end_ke
   return data_->impl->Scan(start_key, end_key, limit, kvs);
 }
 
-Status Transaction::PreCommit() { return data_->impl->PreCommit(); }
-
-Status Transaction::Commit() { return data_->impl->Commit(); }
+Status Transaction::Commit() { return data_->impl->PreWriteAndCommit(); }
 
 Status Transaction::Rollback() { return data_->impl->Rollback(); }
 

@@ -78,13 +78,10 @@ TEST_F(SDKTxnManagerTest, TransactionManagerEmpty) {
   EXPECT_GT(txn2->ID(), 0);
   EXPECT_GT(txn3->ID(), 0);
 
-  txn1->PreCommit();
   txn1->Commit();
 
-  txn2->PreCommit();
   txn2->Commit();
 
-  txn3->PreCommit();
   txn3->Commit();
 }
 
@@ -97,21 +94,18 @@ TEST_F(SDKTxnManagerTest, TransactionManagerWithData1pc) {
   {
     auto txn1 = NewTransaction(options);
     txn1->Put("a", "a");
-    txn1->PreCommit();
     txn1->Commit();
   }
 
   {
     auto txn2 = NewTransaction(options);
     txn2->Put("c", "c");
-    txn2->PreCommit();
     txn2->Commit();
   }
 
   {
     auto txn3 = NewTransaction(options);
     txn3->PutIfAbsent("d", "d");
-    txn3->PreCommit();
     txn3->Commit();
   }
 }
@@ -126,7 +120,6 @@ TEST_F(SDKTxnManagerTest, TransactionManagerWithData2pc) {
     auto txn1 = NewTransaction(options);
     txn1->Put("a", "a");
     txn1->Put("d", "d");
-    txn1->PreCommit();
     txn1->Commit();
   }
 
@@ -134,7 +127,6 @@ TEST_F(SDKTxnManagerTest, TransactionManagerWithData2pc) {
     auto txn2 = NewTransaction(options);
     txn2->Put("b", "b");
     txn2->Put("e", "e");
-    txn2->PreCommit();
     txn2->Commit();
   }
 
@@ -142,7 +134,6 @@ TEST_F(SDKTxnManagerTest, TransactionManagerWithData2pc) {
     auto txn3 = NewTransaction(options);
     txn3->PutIfAbsent("a", "newa");
     txn3->PutIfAbsent("d", "newd");
-    txn3->PreCommit();
     txn3->Commit();
   }
 }

@@ -382,12 +382,6 @@ Operation::Result BaseOperation::KvTxnPut(const std::vector<sdk::KVPair>& kvs) {
     }
   }
 
-  result.status = txn->PreCommit();
-  if (!result.status.IsOK()) {
-    LOG(ERROR) << fmt::format("pre commit transaction failed, error: {}", result.status.ToString());
-    goto end;
-  }
-
   result.status = txn->Commit();
   if (!result.status.IsOK()) {
     LOG(ERROR) << fmt::format("commit transaction failed, error: {}", result.status.ToString());
@@ -458,12 +452,6 @@ Operation::Result BaseOperation::KvTxnBatchPut(const std::vector<sdk::KVPair>& k
     goto end;
   }
 
-  result.status = txn->PreCommit();
-  if (!result.status.IsOK()) {
-    LOG(ERROR) << fmt::format("pre commit transaction failed, error: {}", result.status.ToString());
-    goto end;
-  }
-
   result.status = txn->Commit();
   if (!result.status.IsOK()) {
     LOG(ERROR) << fmt::format("commit transaction failed, error: {}", result.status.ToString());
@@ -501,12 +489,6 @@ Operation::Result BaseOperation::KvTxnGet(const std::vector<std::string>& keys) 
     }
   }
 
-  result.status = txn->PreCommit();
-  if (!result.status.IsOK()) {
-    LOG(ERROR) << fmt::format("pre commit transaction failed, error: {}", result.status.ToString());
-    goto end;
-  }
-
   result.status = txn->Commit();
   if (!result.status.IsOK()) {
     LOG(ERROR) << fmt::format("commit transaction failed, error: {}", result.status.ToString());
@@ -542,12 +524,6 @@ Operation::Result BaseOperation::KvTxnBatchGet(const std::vector<std::vector<std
       LOG(ERROR) << fmt::format("transaction batch get failed, error: {}", result.status.ToString());
       goto end;
     }
-  }
-
-  result.status = txn->PreCommit();
-  if (!result.status.IsOK()) {
-    LOG(ERROR) << fmt::format("pre commit transaction failed, error: {}", result.status.ToString());
-    goto end;
   }
 
   result.status = txn->Commit();
