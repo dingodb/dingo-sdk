@@ -82,7 +82,6 @@ class StoreRpcController {
   Rpc& rpc_;
   RegionPtr region_;
   int rpc_retry_times_;
-  int next_replica_index_;
   Status status_;
   StatusCallback call_back_;
 };

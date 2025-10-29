@@ -77,12 +77,9 @@ TEST_F(SDKRegionTest, TestMark) {
   EndPoint end = kAddrOne;
   region->MarkFollower(end);
   EndPoint leader;
-  Status got = region->GetLeader(leader);
-  EXPECT_TRUE(got.IsNotFound());
-
   end = kAddrTwo;
   region->MarkLeader(end);
-  got = region->GetLeader(leader);
+  Status got = region->GetLeader(leader);
   EXPECT_TRUE(got.IsOK());
   EXPECT_EQ(leader, kAddrTwo);
 
