@@ -1105,6 +1105,75 @@ TEST_F(SDKTxnImplTest, RollbackSecondKeysFail) {
   EXPECT_EQ(txn->TEST_IsFinishedState(), true);
 }
 
+TEST_F(SDKTxnImplTest, CommitTsExpired) {
+  auto txn = NewTransactionImpl(options);
+
+  EXPECT_EQ(txn->TEST_IsActiveState(), true);
+
+  {
+    txn->Put("a", "a");
+    txn->Delete("a");
+
+    txn->PutIfAbsent("d", "d");
+  }
+  int64_t original_commit_ts;
+
+  EXPECT_CALL(*rpc_client, SendRpc)
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
+        // precommit
+
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
+        // precommit
+
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        TxnCommitRpc* txn_rpc = dynamic_cast<TxnCommitRpc*>(&rpc);
+        // commit primary key
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->commit_ts(), txn->TEST_GetCommitTs());
+        original_commit_ts = request->commit_ts();
+
+        auto* response = txn_rpc->MutableResponse();
+        auto* commit_ts_expired = response->mutable_txn_result()->mutable_commit_ts_expired();
+        commit_ts_expired->mutable_key()->assign(txn->TEST_GetPrimaryKey());
+
+        cb();
+      })
+      .WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+        TxnCommitRpc* txn_rpc = dynamic_cast<TxnCommitRpc*>(&rpc);
+        // commit ordinary key
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->commit_ts(), txn->TEST_GetCommitTs());
+        EXPECT_NE(original_commit_ts, request->commit_ts());
+
+        cb();
+      });
+
+  Status s = txn->PreCommit();
+  EXPECT_TRUE(s.ok());
+  EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
+
+  s = txn->Commit();
+  EXPECT_TRUE(s.ok());
+  while (true) {
+    if (txn->TEST_IsFinishedState()) {
+      break;
+    }
+    usleep(1000);
+  }
+}
+
 TEST_F(SDKTxnImplTest, LockHeartbeat) {
   auto txn = NewTransactionImpl(options);
 

@@ -568,52 +568,27 @@ Status TxnImpl::PreCommit2PC() {
   return Status::OK();
 }
 
-Status TxnImpl::ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary) {
-  std::string pk = buffer_->GetPrimaryKey();
-  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] commit response, pk({}) response({}).", ID(), pk,
-                                  response->ShortDebugString());
-
-  if (!response->has_txn_result()) {
-    return Status::OK();
-  }
-
-  const auto& txn_result = response->txn_result();
-  if (txn_result.has_locked()) {
-    const auto& lock_info = txn_result.locked();
-    DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit lock conflict, is_primary({}) pk({}) response({}).", ID(),
-                                    is_primary, StringToHex(pk), response->ShortDebugString());
-
-  } else if (txn_result.has_txn_not_found()) {
-    DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit not found, is_primary({}) pk({}) response({}).", ID(),
-                                    is_primary, StringToHex(pk), response->ShortDebugString());
-
-  } else if (txn_result.has_write_conflict()) {
-    if (!is_primary) {
-      DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit write conlict, pk({}) response({}).", ID(), StringToHex(pk),
-                                      txn_result.write_conflict().ShortDebugString());
-    }
-    return Status::TxnWriteConflict("txn write conflict");
-
-  } else if (txn_result.has_commit_ts_expired()) {
-    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit ts expired, is_primary({}) pk({}) response({}).", ID(),
-                                      is_primary, StringToHex(pk), txn_result.commit_ts_expired().ShortDebugString());
-    if (is_primary) {
-      int64_t new_commit_ts;
-      auto status = stub_.GetTsoProvider()->GenTs(2, new_commit_ts);
-      commit_ts_.store(new_commit_ts);
-      if (!status.IsOK()) return status;
-      return Status::TxnCommitTsExpired("txn commit ts expired");
-    }
-  }
-
-  return Status::OK();
-}
-
 Status TxnImpl::CommitPrimaryKey() {
   std::vector<std::string> keys = {buffer_->GetPrimaryKey()};
+  Status status;
+  int64_t retry_count = 0;
+  do {
+    TxnCommitTask task(stub_, keys, shared_from_this(), true);
+    status = task.Run();
+    if (status.IsTxnCommitTsExpired()) {
+      int64_t commit_ts;
+      Status s = stub_.GetTsoProvider()->GenTs(2, commit_ts);
+      if (!s.ok()) {
+        DINGO_LOG(ERROR) << fmt::format("[sdk.txn.{}] commit primary key regen ts fail, status({}).", ID(),
+                                        s.ToString());
+        return s;
+      }
+      commit_ts_.store(commit_ts);
+    }
+    retry_count++;
+  } while (status.IsTxnCommitTsExpired() && retry_count < FLAGS_txn_op_max_retry);
 
-  TxnCommitTask task(stub_, keys, shared_from_this(), true);
-  return task.Run();
+  return status;
 }
 
 Status TxnImpl::CommitOrdinaryKey() {
