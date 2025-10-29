@@ -212,6 +212,7 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   // txn rollback
   Status RollbackPrimaryKey();
   Status RollbackOrdinaryKey();
+  void DoRollbackOrdinaryKey(std::vector<std::string> keys);
   Status DoRollback();
 
   void DoHeartBeat(int64_t start_ts, std::string primary_key);

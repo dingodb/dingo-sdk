@@ -95,7 +95,7 @@ void TxnTask::DoAsyncRetry() {
 }
 
 void TxnTask::BackoffAndRetry() {
-  stub.GetActuator()->Schedule([this] { DoAsync(); }, FLAGS_txn_op_delay_ms);
+  stub.GetTxnActuator()->Schedule([this] { DoAsync(); }, FLAGS_txn_op_delay_ms);
 }
 
 void TxnTask::FireCallback() {

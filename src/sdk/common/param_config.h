@@ -26,6 +26,7 @@
 // sdk config
 const int64_t kSdkVlogLevel = 60;
 DECLARE_int64(actuator_thread_num);
+DECLARE_int64(txn_actuator_thread_num);
 
 // coordinator config
 const int64_t kPrefetchRegionCount = 3;
@@ -70,6 +71,7 @@ DECLARE_int64(vector_op_delay_ms);
 DECLARE_int64(vector_op_max_retry);
 
 DECLARE_int64(txn_max_batch_count);
+DECLARE_int64(txn_max_async_commit_count);
 DECLARE_bool(log_rpc_time);
 
 DECLARE_int64(txn_heartbeat_interval_ms);

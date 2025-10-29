@@ -70,6 +70,9 @@ Status ClientStub::Open(const std::vector<EndPoint>& endpoints) {
   actuator_ = std::make_shared<ThreadPoolActuator>();
   actuator_->Start(FLAGS_actuator_thread_num);
 
+  txn_actuator_ = std::make_shared<ThreadPoolActuator>();
+  txn_actuator_->Start(FLAGS_txn_actuator_thread_num);
+
   vector_index_cache_ = std::make_shared<VectorIndexCache>(*this);
 
   document_index_cache_ = std::make_shared<DocumentIndexCache>(*this);
@@ -90,6 +93,9 @@ void ClientStub::Stop() {
   }
   if (actuator_) {
     actuator_->Stop();
+  }
+  if (txn_actuator_) {
+    txn_actuator_->Stop();
   }
 }
 

@@ -75,16 +75,6 @@ void TxnBatchRollbackTask::DoAsync() {
     region_id_to_keys[tmp->RegionId()].push_back(key);
   }
 
-  if (is_one_pc_) {
-    if (region_id_to_region.size() > 1) {
-      std::string msg = fmt::format("[sdk.txn.{}] one pc rollback only support one region, but got {} regions",
-                                    txn_impl_->ID(), region_id_to_region.size());
-      DINGO_LOG(ERROR) << msg;
-      DoAsyncDone(Status::InvalidArgument(msg));
-      return;
-    }
-  }
-
   for (const auto& entry : region_id_to_keys) {
     auto region_id = entry.first;
     auto iter = region_id_to_region.find(region_id);

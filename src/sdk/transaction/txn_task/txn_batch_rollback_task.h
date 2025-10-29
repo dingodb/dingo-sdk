@@ -33,9 +33,8 @@ namespace sdk {
 
 class TxnBatchRollbackTask : public TxnTask {
  public:
-  TxnBatchRollbackTask(const ClientStub& stub, const std::vector<std::string>& keys, std::shared_ptr<TxnImpl> txn_impl,
-                       bool is_one_pc = false)
-      : TxnTask(stub), keys_(keys), txn_impl_(txn_impl), is_one_pc_(is_one_pc) {}
+  TxnBatchRollbackTask(const ClientStub& stub, const std::vector<std::string> keys, std::shared_ptr<TxnImpl> txn_impl)
+      : TxnTask(stub), keys_(keys), txn_impl_(txn_impl){}
 
   ~TxnBatchRollbackTask() override = default;
 
@@ -48,15 +47,14 @@ class TxnBatchRollbackTask : public TxnTask {
 
   void TxnBatchRollbackRpcCallback(const Status& status, TxnBatchRollbackRpc* rpc);
 
-  const std::vector<std::string>& keys_;
+  const std::vector<std::string> keys_;
   std::shared_ptr<TxnImpl> txn_impl_;
-  bool is_one_pc_;
 
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<TxnBatchRollbackRpc>> rpcs_;
   std::set<std::string_view> next_keys_;
   std::atomic<int> sub_tasks_count_{0};
-  
+
   RWLock rw_lock_;
   Status status_;
 };

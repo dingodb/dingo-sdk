@@ -418,10 +418,12 @@ TEST_F(SDKTxnImplTest, CommitWithData) {
 
   s = txn->TEST_Commit();
   EXPECT_TRUE(s.ok());
+  int retry_count = 0;
   while (true) {
     if (txn->TEST_IsFinishedState()) {
       break;
     }
+    CHECK(retry_count++ < 300);
     usleep(1000);
   }
 }
@@ -528,10 +530,12 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflict) {
 
   s = txn->TEST_Commit();
   EXPECT_TRUE(s.ok());
+  int retry_count = 0;
   while (true) {
     if (txn->TEST_IsFinishedState()) {
       break;
     }
+    CHECK(retry_count++ < 300);
     usleep(1000);
   }
 }
@@ -885,10 +889,12 @@ TEST_F(SDKTxnImplTest, CommitSencondError) {
   s = txn->TEST_Commit();
   EXPECT_TRUE(s.ok());
 
+  int retry_count = 0;
   while (true) {
     if (txn->TEST_IsFinishedState()) {
       break;
     }
+    CHECK(retry_count++ < 300);
     usleep(1000);
   }
 }
@@ -955,7 +961,14 @@ TEST_F(SDKTxnImplTest, PreCommitFailThenRollback) {
 
   s = txn->Rollback();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_IsFinishedState(), true);
+  int retry_count = 0;
+  while (true) {
+    if (txn->TEST_IsFinishedState()) {
+      break;
+    }
+    CHECK(retry_count++ < 300);
+    usleep(1000);
+  }
 }
 
 TEST_F(SDKTxnImplTest, RollbackPrimaryKeyFail) {
@@ -1102,7 +1115,14 @@ TEST_F(SDKTxnImplTest, RollbackSecondKeysFail) {
 
   s = txn->Rollback();
   EXPECT_TRUE(s.ok());
-  EXPECT_EQ(txn->TEST_IsFinishedState(), true);
+  int retry_count = 0;
+  while (true) {
+    if (txn->TEST_IsFinishedState()) {
+      break;
+    }
+    CHECK(retry_count++ < 300);
+    usleep(1000);
+  }
 }
 
 TEST_F(SDKTxnImplTest, CommitTsExpired) {
@@ -1166,10 +1186,12 @@ TEST_F(SDKTxnImplTest, CommitTsExpired) {
 
   s = txn->TEST_Commit();
   EXPECT_TRUE(s.ok());
+  int retry_count = 0;
   while (true) {
     if (txn->TEST_IsFinishedState()) {
       break;
     }
+    CHECK(retry_count++ < 300);
     usleep(1000);
   }
 }

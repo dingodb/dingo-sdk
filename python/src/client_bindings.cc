@@ -247,7 +247,6 @@ void DefineClientBindings(pybind11::module& m) {
              Status status = transaction.Scan(start_key, end_key, limit, kvs);
              return std::make_tuple(status, kvs);
            })
-      .def("PreCommit", &Transaction::PreCommit)
       .def("Commit", &Transaction::Commit)
       .def("Rollback", &Transaction::Rollback);
 

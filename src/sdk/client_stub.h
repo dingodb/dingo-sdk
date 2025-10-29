@@ -95,6 +95,11 @@ class ClientStub {
     return actuator_;
   }
 
+  virtual std::shared_ptr<Actuator> GetTxnActuator() const {
+    DCHECK_NOTNULL(txn_actuator_.get());
+    return txn_actuator_;
+  }
+
   virtual std::shared_ptr<VectorIndexCache> GetVectorIndexCache() const {
     DCHECK_NOTNULL(vector_index_cache_.get());
     return vector_index_cache_;
@@ -132,6 +137,7 @@ class ClientStub {
   std::shared_ptr<AdminTool> admin_tool_;
   std::shared_ptr<TxnLockResolver> txn_lock_resolver_;
   std::shared_ptr<Actuator> actuator_;
+  std::shared_ptr<Actuator> txn_actuator_;
   std::shared_ptr<VectorIndexCache> vector_index_cache_;
   std::shared_ptr<DocumentIndexCache> document_index_cache_;
   std::shared_ptr<AutoIncrementerManager> auto_increment_manager_;
