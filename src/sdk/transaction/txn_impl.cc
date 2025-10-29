@@ -40,6 +40,7 @@
 #include "sdk/transaction/txn_task/txn_get_task.h"
 #include "sdk/transaction/txn_task/txn_heartbeat_task.h"
 #include "sdk/transaction/txn_task/txn_prewrite_task.h"
+#include "sdk/utils/callback.h"
 
 namespace dingodb {
 namespace sdk {
@@ -433,7 +434,7 @@ Status TxnImpl::PreWriteAndCommit() {
 }
 
 void TxnImpl::ScheduleHeartBeat() {
-  stub_.GetActuator()->Schedule(
+  stub_.GetTxnActuator()->Schedule(
       [shared_this = shared_from_this(), start_ts = start_ts_.load(), primary_key = buffer_->GetPrimaryKey()] {
         shared_this->DoHeartBeat(start_ts, primary_key);
       },
@@ -446,13 +447,12 @@ void TxnImpl::DoHeartBeat(int64_t start_ts, std::string primary_key) {
     return;
   }
   std::shared_ptr<TxnHeartbeatTask> heartbeat_task = std::make_shared<TxnHeartbeatTask>(stub_, start_ts, primary_key);
-  auto status = heartbeat_task->Run();
-  if (status.ok()) {
-    ScheduleHeartBeat();
-  } else {
-    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] heartbeat stoped , because last run status({}).", ID(),
-                                      status.ToString());
-  }
+  StatusCallback callback = [shared_this = shared_from_this(), task = heartbeat_task](const Status& status) {
+    if (status.ok()) {
+      shared_this->ScheduleHeartBeat();
+    }
+  };
+  heartbeat_task->AsyncRun(callback);
 }
 
 Status TxnImpl::DoPreCommit() {
@@ -608,9 +608,11 @@ Status TxnImpl::CommitOrdinaryKey() {
     }
   }
   // async commit ordinary keys
-  stub_.GetActuator()->Schedule([shared_this = shared_from_this(),
-                                 ordinary_keys = std::move(keys)] { shared_this->DoCommitOrdinaryKey(ordinary_keys); },
-                                0);
+  stub_.GetTxnActuator()->Schedule(
+      [shared_this = shared_from_this(), ordinary_keys = std::move(keys)] {
+        shared_this->DoCommitOrdinaryKey(ordinary_keys);
+      },
+      0);
   return Status::OK();
 }
 
@@ -621,12 +623,11 @@ void TxnImpl::DoCommitOrdinaryKey(std::vector<std::string> keys) {
 
   DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}]commit ordinary keys, size({}).", ID(), keys.size());
 
-  auto status = txn_commit_task->Run();
-  if (!status.ok()) {
-    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit ordinary keys fail. status({}).", ID(), status.ToString());
-  }
-  state_.store(kFinshed);
-  Cleanup();
+  StatusCallback callback = [shared_this = shared_from_this(), task = txn_commit_task](const Status& /*status*/) {
+    shared_this->state_.store(kFinshed);
+    shared_this->Cleanup();
+  };
+  txn_commit_task->AsyncRun(callback);
 }
 
 Status TxnImpl::DoCommit() {
@@ -683,15 +684,12 @@ Status TxnImpl::RollbackPrimaryKey() {
   std::vector<std::string> keys;
   std::string pk = buffer_->GetPrimaryKey();
   keys.push_back(pk);
-  if (is_one_pc_) {
-    for (const auto& [key, _] : buffer_->Mutations()) {
-      if (key != pk) {
-        keys.push_back(key);
-      }
-    }
+  TxnBatchRollbackTask task(stub_, std::move(keys), shared_from_this());
+  Status status = task.Run();
+  if (!status.ok()) {
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] 1pc rollback key fail, status({}).", ID(), status.ToString());
   }
-  TxnBatchRollbackTask task(stub_, keys, shared_from_this());
-  return task.Run();
+  return status;
 }
 
 Status TxnImpl::RollbackOrdinaryKey() {
@@ -704,8 +702,27 @@ Status TxnImpl::RollbackOrdinaryKey() {
     }
     keys.push_back(key);
   }
-  TxnBatchRollbackTask task(stub_, keys, shared_from_this());
-  return task.Run();
+  // async rollback ordinary keys
+  stub_.GetTxnActuator()->Schedule(
+      [shared_this = shared_from_this(), ordinary_keys = std::move(keys)] {
+        shared_this->DoRollbackOrdinaryKey(ordinary_keys);
+      },
+      0);
+  return Status::OK();
+}
+
+void TxnImpl::DoRollbackOrdinaryKey(std::vector<std::string> keys) {
+  CHECK(state_.load() == kRollbacked) << "state is not rollbacked, state:" << StateName(state_.load());
+  std::shared_ptr<TxnBatchRollbackTask> txn_rollback_task =
+      std::make_shared<TxnBatchRollbackTask>(stub_, keys, shared_from_this());
+
+  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}]rollback ordinary keys, size({}).", ID(), keys.size());
+
+  StatusCallback callback = [shared_this = shared_from_this(), task = txn_rollback_task](const Status& /*status*/) {
+    shared_this->state_.store(kFinshed);
+    shared_this->Cleanup();
+  };
+  txn_rollback_task->AsyncRun(callback);
 }
 
 Status TxnImpl::DoRollback() {
@@ -715,6 +732,14 @@ Status TxnImpl::DoRollback() {
   State state = state_.load();
   if (state != kPreCommitting && state != kPreCommitted) {
     return Status::IllegalState(fmt::format("forbid rollback, state {}", StateName(state)));
+  }
+
+  if (is_one_pc_) {
+    // 1pc txn, no need rollback
+    DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] 1pc txn, no need rollback.", ID());
+    state_.store(kFinshed);
+    Cleanup();
+    return Status::OK();
   }
 
   state_.store(kRollbacking);
@@ -728,13 +753,6 @@ Status TxnImpl::DoRollback() {
     return status;
   }
 
-  if (is_one_pc_) {
-    DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] 1pc rollback success.", ID());
-    state_.store(kFinshed);
-    Cleanup();
-    return Status::OK();
-  }
-
   state_.store(kRollbacked);
 
   // rollback ordinary keys
@@ -742,8 +760,6 @@ Status TxnImpl::DoRollback() {
   if (!status.IsOK()) {
     DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rollback ordinary keys fail, status({}).", ID(), status.ToString());
   }
-  state_.store(kFinshed);
-  Cleanup();
 
   return Status::OK();
 }

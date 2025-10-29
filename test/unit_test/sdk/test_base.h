@@ -87,6 +87,11 @@ class TestBase : public ::testing::Test {
     ON_CALL(*stub, GetActuator).WillByDefault(testing::Return(actuator));
     EXPECT_CALL(*stub, GetActuator).Times(testing::AnyNumber());
 
+    txn_actuator = std::make_shared<ThreadPoolActuator>();
+    txn_actuator->Start(FLAGS_txn_actuator_thread_num);
+    ON_CALL(*stub, GetTxnActuator).WillByDefault(testing::Return(txn_actuator));
+    EXPECT_CALL(*stub, GetTxnActuator).Times(testing::AnyNumber());
+
     index_cache = std::make_shared<VectorIndexCache>(*stub);
     ON_CALL(*stub, GetVectorIndexCache).WillByDefault(testing::Return(index_cache));
     EXPECT_CALL(*stub, GetVectorIndexCache).Times(testing::AnyNumber());
@@ -114,7 +119,10 @@ class TestBase : public ::testing::Test {
     if (actuator) {
       actuator->Stop();
     }
-
+    if (txn_actuator) {
+      txn_actuator->Stop();
+    }
+    
     delete client;
   }
 
@@ -143,6 +151,7 @@ class TestBase : public ::testing::Test {
   std::shared_ptr<AdminTool> admin_tool;
   std::shared_ptr<MockTxnLockResolver> txn_lock_resolver;
   std::shared_ptr<Actuator> actuator;
+  std::shared_ptr<Actuator> txn_actuator;
   std::shared_ptr<VectorIndexCache> index_cache;
   std::shared_ptr<AutoIncrementerManager> auto_increment_manager;
   std::shared_ptr<TsoProvider> tso_provider;

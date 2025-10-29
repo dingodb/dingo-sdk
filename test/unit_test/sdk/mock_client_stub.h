@@ -35,6 +35,7 @@ class MockClientStub final : public ClientStub {
   MOCK_METHOD(std::shared_ptr<AdminTool>, GetAdminTool, (), (const, override));
   MOCK_METHOD(std::shared_ptr<TxnLockResolver>, GetTxnLockResolver, (), (const, override));
   MOCK_METHOD(std::shared_ptr<Actuator>, GetActuator, (), (const, override));
+  MOCK_METHOD(std::shared_ptr<Actuator>, GetTxnActuator, (), (const, override));
   MOCK_METHOD(std::shared_ptr<VectorIndexCache>, GetVectorIndexCache, (), (const, override));
   MOCK_METHOD(std::shared_ptr<AutoIncrementerManager>, GetAutoIncrementerManager, (), (const, override));
   MOCK_METHOD(std::shared_ptr<TsoProvider>, GetTsoProvider, (), (const, override));

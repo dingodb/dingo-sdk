@@ -19,6 +19,7 @@
 
 // sdk config
 DEFINE_int64(actuator_thread_num, 8, "actuator thread num");
+DEFINE_int64(txn_actuator_thread_num, 16, "txn actuator thread num");
 
 // coordinator config
 DEFINE_int64(coordinator_interaction_delay_ms, 500, "coordinator interaction delay ms");
@@ -56,6 +57,7 @@ DEFINE_int64(vector_op_delay_ms, 500, "vector task base backoff delay ms");
 DEFINE_int64(vector_op_max_retry, 30, "vector task max retry times");
 
 DEFINE_int64(txn_max_batch_count, 1000, "txn max batch count");
+DEFINE_int64(txn_max_async_commit_count, 256, "txn max async commit count");
 
 DEFINE_bool(log_rpc_time, false, "log rpc time");
 
