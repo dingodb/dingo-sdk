@@ -70,7 +70,7 @@ TYPED_TEST(TxnTest, TxnMultiThread1PC) {
     std::string key = Helper::EncodeTxnKey(FLAGS_txn_key_prefix);
     std::string value = "0";
     txn->Put(key, value);
-    status = txn->PreCommit();
+    status = txn->Commit();
     EXPECT_EQ(true, status.IsOK()) << status.ToString();
     delete txn;
   }
@@ -103,10 +103,11 @@ TYPED_TEST(TxnTest, TxnMultiThread1PC) {
         LOG(INFO) << fmt::format("before_commit txn_id {}, value: {}, success count {}", txn->ID(), value,
                                  success_count.load());
         txn->Put(key, value);
-        status = txn->PreCommit();
+        status = txn->Commit();
         if (!status.IsOK()) {
           LOG(WARNING) << fmt::format("Failed to pre-commit transaction id {} in thread {}: {}", txn->ID(), i,
                                       status.ToString());
+          txn->Rollback();
           delete txn;
           continue;
         }

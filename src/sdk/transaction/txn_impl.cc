@@ -213,10 +213,6 @@ Status TxnImpl::Scan(const std::string& start_key, const std::string& end_key, u
   return DoScan(start_key, end_key, limit, out_kvs);
 }
 
-Status TxnImpl::PreCommit() { return DoPreCommit(); }
-
-Status TxnImpl::Commit() { return DoCommit(); }
-
 Status TxnImpl::Rollback() { return DoRollback(); }
 
 bool TxnImpl::IsNeedRetry(int& times) {
@@ -425,6 +421,17 @@ Status TxnImpl::DoScan(const std::string& start_key, const std::string& end_key,
   return Status::OK();
 }
 
+Status TxnImpl::PreWriteAndCommit() {
+  Status s = DoPreCommit();
+  if (!s.ok()) {
+    return s;
+  } else if (s.ok() && is_one_pc_.load()) {
+    return Status::OK();
+  }
+  s = DoCommit();
+  return s;
+}
+
 void TxnImpl::ScheduleHeartBeat() {
   stub_.GetActuator()->Schedule(
       [shared_this = shared_from_this(), start_ts = start_ts_.load(), primary_key = buffer_->GetPrimaryKey()] {
@@ -527,6 +534,7 @@ Status TxnImpl::PreCommit1PC() {
   }
   return status;
 }
+
 Status TxnImpl::PreCommit2PC() {
   DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] precommit primary key, pk({}).", ID(),
                                   StringToHex(buffer_->GetPrimaryKey()));

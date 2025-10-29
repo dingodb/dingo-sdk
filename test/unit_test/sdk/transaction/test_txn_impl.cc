@@ -319,10 +319,10 @@ TEST_F(SDKTxnImplTest, CommitEmpty) {
 
   EXPECT_EQ(txn->TEST_IsActiveState(), true);
 
-  Status s = txn->PreCommit();
+  Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.ok());
   EXPECT_EQ(txn->TEST_IsFinishedState(), true);
-  s = txn->Commit();
+  s = txn->TEST_Commit();
   EXPECT_TRUE(s.ok());
   EXPECT_EQ(txn->TEST_IsFinishedState(), true);
 }
@@ -412,11 +412,11 @@ TEST_F(SDKTxnImplTest, CommitWithData) {
         }
       });
 
-  Status s = txn->PreCommit();
+  Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.ok());
   EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
 
-  s = txn->Commit();
+  s = txn->TEST_Commit();
   EXPECT_TRUE(s.ok());
   while (true) {
     if (txn->TEST_IsFinishedState()) {
@@ -522,11 +522,11 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflict) {
         return Status::OK();
       });
 
-  Status s = txn->PreCommit();
+  Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.ok());
   EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
 
-  s = txn->Commit();
+  s = txn->TEST_Commit();
   EXPECT_TRUE(s.ok());
   while (true) {
     if (txn->TEST_IsFinishedState()) {
@@ -582,7 +582,7 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflictExceed) {
         return Status::TxnLockConflict("");
       });
 
-  Status s = txn->PreCommit();
+  Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.IsTxnLockConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
 
@@ -631,7 +631,7 @@ TEST_F(SDKTxnImplTest, PrimaryKeyWriteLockConfict) {
 
   EXPECT_CALL(*txn_lock_resolver, ResolveLock).Times(0);
 
-  Status s = txn->PreCommit();
+  Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.IsTxnWriteConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
 
@@ -699,7 +699,7 @@ TEST_F(SDKTxnImplTest, PreWriteSecondLockConflict) {
         return Status::TxnLockConflict("");
       });
 
-  Status s = txn->PreCommit();
+  Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.IsTxnLockConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
 
@@ -767,7 +767,7 @@ TEST_F(SDKTxnImplTest, PreWriteSecondWriteConflict) {
 
   EXPECT_CALL(*txn_lock_resolver, ResolveLock).Times(0);
 
-  Status s = txn->PreCommit();
+  Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.IsTxnWriteConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
 
@@ -824,11 +824,11 @@ TEST_F(SDKTxnImplTest, CommitPrimaryKeyMeetRollback) {
 
   EXPECT_CALL(*txn_lock_resolver, ResolveLock).Times(0);
 
-  Status s = txn->PreCommit();
+  Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.ok());
   EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
 
-  s = txn->Commit();
+  s = txn->TEST_Commit();
   EXPECT_TRUE(s.IsTxnWriteConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
 
@@ -878,11 +878,11 @@ TEST_F(SDKTxnImplTest, CommitSencondError) {
 
   EXPECT_CALL(*txn_lock_resolver, ResolveLock).Times(0);
 
-  Status s = txn->PreCommit();
+  Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.ok());
   EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
 
-  s = txn->Commit();
+  s = txn->TEST_Commit();
   EXPECT_TRUE(s.ok());
 
   while (true) {
@@ -949,7 +949,7 @@ TEST_F(SDKTxnImplTest, PreCommitFailThenRollback) {
 
   EXPECT_CALL(*txn_lock_resolver, ResolveLock).Times(0);
 
-  Status s = txn->PreCommit();
+  Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.IsTxnWriteConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
 
@@ -1021,7 +1021,7 @@ TEST_F(SDKTxnImplTest, RollbackPrimaryKeyFail) {
 
   EXPECT_CALL(*txn_lock_resolver, ResolveLock).Times(0);
 
-  Status s = txn->PreCommit();
+  Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.IsTxnWriteConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
 
@@ -1096,7 +1096,7 @@ TEST_F(SDKTxnImplTest, RollbackSecondKeysFail) {
 
   EXPECT_CALL(*txn_lock_resolver, ResolveLock).Times(0);
 
-  Status s = txn->PreCommit();
+  Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.IsTxnWriteConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
 
@@ -1160,11 +1160,11 @@ TEST_F(SDKTxnImplTest, CommitTsExpired) {
         cb();
       });
 
-  Status s = txn->PreCommit();
+  Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.ok());
   EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
 
-  s = txn->Commit();
+  s = txn->TEST_Commit();
   EXPECT_TRUE(s.ok());
   while (true) {
     if (txn->TEST_IsFinishedState()) {
@@ -1260,7 +1260,7 @@ TEST_F(SDKTxnImplTest, LockHeartbeat) {
         cb();
       });
 
-  Status s = txn->PreCommit();
+  Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.ok());
   EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
 
@@ -1342,7 +1342,7 @@ TEST_F(SDKTxnImplTest, LockHeartbeatFail) {
         cb();
       });
 
-  Status s = txn->PreCommit();
+  Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.ok());
 
   sleep(15);
@@ -1386,7 +1386,7 @@ TEST_F(SDKTxnImplTest, Txn1PCDownGrade2PC) {
 
   txn->Put("a", "a");
   txn->Put("d", "d");
-  auto status = txn->PreCommit();
+  auto status = txn->TEST_PreCommit();
   EXPECT_TRUE(status.ok());
   EXPECT_TRUE(!txn->IsOnePc());
   txn->TEST_SetStateFinished();
