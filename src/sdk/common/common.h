@@ -39,7 +39,7 @@ static const int64_t kLogicalMask = (1 << kPhysicalShiftBits) - 1;
 namespace dingodb {
 namespace sdk {
 
-enum LogLevel { kDEBUG = 0, kINFO = 1, kWARNING = 2, kERROR = 3, kFATAL = 4 };
+enum LogLevel : std::uint8_t { kDEBUG = 0, kINFO = 1, kWARNING = 2, kERROR = 3, kFATAL = 4 };
 
 struct Range {
   std::string start_key;

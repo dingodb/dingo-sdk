@@ -19,7 +19,7 @@
 #include <string>
 
 #include "sdk/client_stub.h"
-#include "sdk/rpc/brpc/store_rpc.h"
+#include "sdk/rpc/store_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
 #include "sdk/transaction/txn_task/txn_task.h"
 #include "sdk/utils/rw_lock.h"

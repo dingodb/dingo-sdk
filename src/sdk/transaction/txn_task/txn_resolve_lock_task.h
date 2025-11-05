@@ -17,10 +17,14 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
+#include <unordered_set>
+#include <vector>
 
+#include "dingosdk/status.h"
 #include "sdk/client_stub.h"
-#include "sdk/rpc/brpc/store_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
+#include "sdk/rpc/store_rpc.h"
 #include "sdk/transaction/txn_lock_resolver.h"
 #include "sdk/transaction/txn_task/txn_task.h"
 #include "sdk/utils/rw_lock.h"
@@ -30,25 +34,28 @@ namespace sdk {
 
 class TxnResolveLockTask : public TxnTask {
  public:
-  TxnResolveLockTask(const ClientStub& stub, int64_t lock_ts, const std::string& key, int64_t commit_ts)
-      : TxnTask(stub), lock_ts_(lock_ts), key_(key), commit_ts_(commit_ts), store_rpc_controller_(stub, rpc_) {}
+  TxnResolveLockTask(const ClientStub& stub, int64_t lock_ts, const std::vector<std::string>& keys, int64_t commit_ts)
+      : TxnTask(stub), lock_ts_(lock_ts), keys_(keys), commit_ts_(commit_ts) {}
 
   ~TxnResolveLockTask() override = default;
 
  private:
+  Status Init() override;
+
   void DoAsync() override;
 
   std::string Name() const override { return "TxnResolveLockTask"; }
 
-  void TxnResolveLockRpcCallback(const Status& status);
+  void TxnResolveLockRpcCallback(const Status& status, TxnResolveLockRpc* rpc);
 
   int64_t lock_ts_{0};
-  const std::string& key_;
+  const std::vector<std::string>& keys_;
   int64_t commit_ts_{0};
 
-  StoreRpcController store_rpc_controller_;
-  TxnResolveLockRpc rpc_;
-  uint64_t resolved_lock_{0};
+  std::vector<StoreRpcController> controllers_;
+  std::vector<std::unique_ptr<TxnResolveLockRpc>> rpcs_;
+  std::atomic<int> sub_tasks_count_{0};
+  std::unordered_set<std::string_view> next_keys_;
 
   RWLock rw_lock_;
   Status status_;

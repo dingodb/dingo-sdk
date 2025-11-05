@@ -125,7 +125,9 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
 
   Status Rollback();
 
-  bool IsOnePc() const { return is_one_pc_; }
+  bool IsOnePc() const { return is_one_pc_.load(); }
+
+  bool IsAsyncCommit() const { return !is_one_pc_.load() && use_async_commit_.load(); }
 
   int64_t GetStartTs() const { return start_ts_.load(); }
   int64_t GetCommitTs() const { return commit_ts_.load(); }
@@ -206,7 +208,8 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   // txn commit
   Status CommitPrimaryKey();
   Status CommitOrdinaryKey();
-  void DoCommitOrdinaryKey(std::vector<std::string> keys);
+  Status AsyncCommitKeys();
+  void DoCommitKeys(std::vector<std::string> keys);
   Status DoCommit();
 
   // txn rollback
@@ -228,9 +231,10 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   std::atomic<State> state_;
 
   std::atomic<int64_t> start_ts_{0};
-  std::atomic<int64_t> commit_ts_{0};
+  std::atomic<uint64_t> commit_ts_{0};
 
   std::atomic<bool> is_one_pc_{false};
+  std::atomic<bool> use_async_commit_{false};
 
   TxnBufferUPtr buffer_;
 

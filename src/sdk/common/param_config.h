@@ -72,6 +72,8 @@ DECLARE_int64(vector_op_max_retry);
 
 DECLARE_int64(txn_max_batch_count);
 DECLARE_int64(txn_max_async_commit_count);
+DECLARE_bool(enable_txn_async_commit);
+
 DECLARE_bool(log_rpc_time);
 
 DECLARE_int64(txn_heartbeat_interval_ms);

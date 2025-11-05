@@ -15,6 +15,7 @@
 #include "sdk/transaction/txn_task/txn_prewrite_task.h"
 
 #include <fmt/format.h>
+#include <glog/logging.h>
 
 #include <cstdint>
 
@@ -158,6 +159,12 @@ void TxnPrewriteTask::DoAsync() {
       }
 
       TxnMutation2MutationPB(*mutation, rpc->MutableRequest()->add_mutations());
+      if (!is_one_pc_ && use_async_commit_) {
+        rpc->MutableRequest()->set_use_async_commit(true);
+        for (const auto& [_, m] : mutations_ordinarykeys_for_async_commit_) {
+          rpc->MutableRequest()->add_secondaries(m->key);
+        }
+      }
     }
 
     StoreRpcController controller(stub, *rpc, region);
@@ -232,6 +239,26 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
         for (const auto& mutation : rpc->Request()->mutations()) {
           next_mutations_.erase(mutation.key());
         }
+        if (is_one_pc_) {
+          if (response->one_pc_commit_ts() == 0) {
+            // repeat rpc to disable 1PC downgrade to 2pc
+            is_one_pc_ = false;
+            use_async_commit_ = false;
+            DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] precommit key, region({}) disable 1PC. response({})",
+                                           txn_impl_->ID(), rpc->Request()->context().region_id(),
+                                           response->ShortDebugString());
+          }
+        } else if (use_async_commit_) {
+          if (response->min_commit_ts() == 0) {
+            // repeat rpc to disable async commit downgrade to 2pc
+            use_async_commit_ = false;
+            DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] precommit key, region({}) disable async commit. response({})",
+                                           txn_impl_->ID(), rpc->Request()->context().region_id(),
+                                           response->ShortDebugString());
+          } else {
+            min_commit_ts_ = std::max(min_commit_ts_, response->min_commit_ts());
+          }
+        }
       } else {
         need_retry_ = true;
       }
@@ -260,7 +287,7 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
 }
 
 void TxnPrewriteTask::BackoffAndRetry() {
-  stub.GetActuator()->Schedule([this] { DoAsync(); }, FLAGS_txn_prewrite_delay_ms);
+  stub.GetTxnActuator()->Schedule([this] { DoAsync(); }, FLAGS_txn_prewrite_delay_ms);
 }
 
 bool TxnPrewriteTask::IsRetryError() {
