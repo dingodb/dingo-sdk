@@ -599,6 +599,8 @@ Status Transaction::Rollback() { return data_->impl->Rollback(); }
 
 bool Transaction::IsOnePc() const { return data_->impl->IsOnePc(); }
 
+bool Transaction::IsAsyncCommit() const { return data_->impl->IsAsyncCommit(); }
+
 RegionCreator::RegionCreator(Data* data) : data_(data) {}
 
 RegionCreator::~RegionCreator() { delete data_; }

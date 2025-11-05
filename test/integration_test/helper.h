@@ -21,6 +21,7 @@
 #include <ostream>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "dingosdk/client.h"
 #include "environment.h"
@@ -111,6 +112,15 @@ class Helper {
     auto client = Environment::GetInstance().GetClient();
     auto status = client->DropRegion(region_id);
     CHECK(status.IsOK()) << fmt::format("Drop region failed, {}", status.ToString());
+  }
+
+  static void DropRawRegions(std::vector<int64_t> region_ids) {
+    auto client = Environment::GetInstance().GetClient();
+    for (auto region_id : region_ids) {
+      CHECK(region_id != 0) << "region_id is invalid";
+      auto status = client->DropRegion(region_id);
+      CHECK(status.IsOK()) << fmt::format("Drop region failed, {}", status.ToString());
+    }
   }
 
   static bool IsContain(const std::vector<sdk::KVPair>& kvs, const std::string& key) {

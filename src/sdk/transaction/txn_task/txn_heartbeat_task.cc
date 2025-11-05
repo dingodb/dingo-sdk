@@ -68,14 +68,14 @@ void TxnHeartbeatTask::TxnHeartbeatRpcCallback(const Status& status) {
     if (response->has_txn_result()) {
       status_ = CheckTxnResultInfo(response->txn_result());
       if (!status_.ok()) {
-        DINGO_LOG(WARNING) << fmt::format(
-            "[sdk.txn] txn_heartbeat fail, lock_ts: {},  primary_key: {}, response: {}, status: {}.", lock_ts_,
-            StringToHex(primary_key_), response->ShortDebugString(), status_.ToString());
+        DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] txn_heartbeat fail, primary_key: {}, response: {}, status: {}.",
+                                          lock_ts_, StringToHex(primary_key_), response->ShortDebugString(),
+                                          status_.ToString());
       }
     }
     DINGO_LOG(INFO) << fmt::format(
-        "[sdk.txn] txn_heartbeat, lock_ts: {}, primary_key: {}, advice_lock_ttl: {}, actually_lock_ttl: {}  ",
-        StringToHex(primary_key_), lock_ts_, physical_ts_ + FLAGS_txn_heartbeat_lock_delay_ms, response->lock_ttl());
+        "[sdk.txn.{}] txn_heartbeat, primary_key: {}, advice_lock_ttl: {}, actually_lock_ttl: {}  ", lock_ts_,
+        StringToHex(primary_key_), physical_ts_ + FLAGS_txn_heartbeat_lock_delay_ms, response->lock_ttl());
   }
 
   DoAsyncDone(status_);
