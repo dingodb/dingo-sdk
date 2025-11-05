@@ -47,6 +47,8 @@ class SDKTxnImplTest : public TestBase {
 
   // TODO: test readcommited isolation
   void SetUp() override {
+    // default disable async commit
+    FLAGS_enable_txn_async_commit = false;
     TestBase::SetUp();
     options.kind = kOptimistic;
     options.isolation = kSnapshotIsolation;
@@ -115,8 +117,6 @@ TEST_F(SDKTxnImplTest, Get) {
   Status tmp = txn->Get("b", value);
   EXPECT_TRUE(tmp.ok());
   EXPECT_EQ(value, "pong");
-
-  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, SingleOP) {
@@ -180,7 +180,6 @@ TEST_F(SDKTxnImplTest, SingleOP) {
     Status tmp = txn->Get("b", value);
     EXPECT_TRUE(tmp.IsNotFound());
   }
-  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, BatchGet) {
@@ -227,8 +226,6 @@ TEST_F(SDKTxnImplTest, BatchGet) {
   for (const auto& kv : kvs) {
     EXPECT_EQ(kv.key, kv.value);
   }
-
-  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, BatchGetFromBuffer) {
@@ -258,8 +255,6 @@ TEST_F(SDKTxnImplTest, BatchGetFromBuffer) {
   for (const auto& kv : tmp) {
     EXPECT_EQ(kv.key, kv.value);
   }
-
-  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, BatchOp) {
@@ -308,8 +303,6 @@ TEST_F(SDKTxnImplTest, BatchOp) {
     EXPECT_TRUE(s.ok());
     EXPECT_EQ(tmp.size(), 0);
   }
-
-  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, CommitEmpty) {
@@ -518,7 +511,7 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflict) {
       });
 
   EXPECT_CALL(*txn_lock_resolver, ResolveLock)
-      .WillOnce([&](const pb::store::LockInfo& lock_info, int64_t caller_start_ts) {
+      .WillOnce([&](const pb::store::LockInfo& lock_info, int64_t caller_start_ts, bool /*force_sync_commit*/) {
         EXPECT_TRUE(LockInfoEqual(lock_info, mock_lock));
         EXPECT_EQ(caller_start_ts, txn->TEST_GetStartTs());
         return Status::OK();
@@ -580,7 +573,7 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflictExceed) {
   });
 
   EXPECT_CALL(*txn_lock_resolver, ResolveLock)
-      .WillRepeatedly([&](const pb::store::LockInfo& lock_info, int64_t caller_start_ts) {
+      .WillRepeatedly([&](const pb::store::LockInfo& lock_info, int64_t caller_start_ts, bool /*force_sync_commit*/) {
         EXPECT_TRUE(LockInfoEqual(lock_info, mock_lock));
         EXPECT_EQ(caller_start_ts, txn->TEST_GetStartTs());
         return Status::TxnLockConflict("");
@@ -589,8 +582,6 @@ TEST_F(SDKTxnImplTest, PrimaryKeyLockConflictExceed) {
   Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.IsTxnLockConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
-
-  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, PrimaryKeyWriteLockConfict) {
@@ -638,8 +629,6 @@ TEST_F(SDKTxnImplTest, PrimaryKeyWriteLockConfict) {
   Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.IsTxnWriteConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
-
-  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, PreWriteSecondLockConflict) {
@@ -698,16 +687,15 @@ TEST_F(SDKTxnImplTest, PreWriteSecondLockConflict) {
       });
 
   EXPECT_CALL(*txn_lock_resolver, ResolveLock)
-      .WillRepeatedly([&](const pb::store::LockInfo& /*lock_info*/, int64_t caller_start_ts) {
-        EXPECT_EQ(caller_start_ts, txn->TEST_GetStartTs());
-        return Status::TxnLockConflict("");
-      });
+      .WillRepeatedly(
+          [&](const pb::store::LockInfo& /*lock_info*/, int64_t caller_start_ts, bool /*force_sync_commit*/) {
+            EXPECT_EQ(caller_start_ts, txn->TEST_GetStartTs());
+            return Status::TxnLockConflict("");
+          });
 
   Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.IsTxnLockConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
-
-  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, PreWriteSecondWriteConflict) {
@@ -774,8 +762,6 @@ TEST_F(SDKTxnImplTest, PreWriteSecondWriteConflict) {
   Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.IsTxnWriteConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittingState(), true);
-
-  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, CommitPrimaryKeyMeetRollback) {
@@ -835,8 +821,6 @@ TEST_F(SDKTxnImplTest, CommitPrimaryKeyMeetRollback) {
   s = txn->TEST_Commit();
   EXPECT_TRUE(s.IsTxnWriteConflict());
   EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
-
-  txn->TEST_SetStateFinished();
 }
 
 TEST_F(SDKTxnImplTest, CommitSencondError) {
@@ -1287,9 +1271,7 @@ TEST_F(SDKTxnImplTest, LockHeartbeat) {
   EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
 
   // wait for 2 heartbeats finish
-  sleep(12);
-
-  txn->TEST_SetStateFinished();
+  sleep((FLAGS_txn_heartbeat_interval_ms * 2 / 1000) + 1);
 }
 
 TEST_F(SDKTxnImplTest, LockHeartbeatFail) {
@@ -1367,8 +1349,7 @@ TEST_F(SDKTxnImplTest, LockHeartbeatFail) {
   Status s = txn->TEST_PreCommit();
   EXPECT_TRUE(s.ok());
 
-  sleep(15);
-  txn->TEST_SetStateFinished();
+  sleep((FLAGS_txn_heartbeat_interval_ms * 3 / 1000));
 }
 
 TEST_F(SDKTxnImplTest, Txn1PCDownGrade2PC) {
@@ -1411,7 +1392,67 @@ TEST_F(SDKTxnImplTest, Txn1PCDownGrade2PC) {
   auto status = txn->TEST_PreCommit();
   EXPECT_TRUE(status.ok());
   EXPECT_TRUE(!txn->IsOnePc());
-  txn->TEST_SetStateFinished();
+}
+
+TEST_F(SDKTxnImplTest, TxnPrewrite1PCDownGrade2PC) {
+  auto txn = NewTransactionImpl(options);
+  EXPECT_CALL(*rpc_client, SendRpc)
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
+        // precommit
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->txn_size(), 2);
+        EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+        EXPECT_EQ(request->try_one_pc(), true);
+
+        txn_rpc->MutableResponse()->set_min_commit_ts(0);
+
+        cb();
+      })
+      .WillRepeatedly([](Rpc& rpc, std::function<void()> cb) {
+        (void)rpc;
+        cb();
+      });
+
+  txn->Put("a", "a");
+  txn->Put("b", "b");
+  auto status = txn->TEST_PreCommit();
+  EXPECT_TRUE(status.ok());
+  EXPECT_TRUE(!txn->IsOnePc());
+}
+
+TEST_F(SDKTxnImplTest, TxnPrewriteAsyncCommitDownGrade2PC) {
+  FLAGS_enable_txn_async_commit = true;
+  auto txn = NewTransactionImpl(options);
+  EXPECT_CALL(*rpc_client, SendRpc)
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        TxnPrewriteRpc* txn_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
+        // precommit
+        CHECK_NOTNULL(txn_rpc);
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        EXPECT_EQ(request->start_ts(), txn->TEST_GetStartTs());
+        EXPECT_EQ(request->txn_size(), 1);
+        EXPECT_EQ(request->primary_lock(), txn->TEST_GetPrimaryKey());
+        EXPECT_EQ(request->use_async_commit(), true);
+
+        txn_rpc->MutableResponse()->set_min_commit_ts(0);
+
+        cb();
+      })
+      .WillRepeatedly([](Rpc& rpc, std::function<void()> cb) {
+        (void)rpc;
+        cb();
+      });
+
+  txn->Put("a", "a");
+  txn->Put("d", "d");
+  auto status = txn->TEST_PreCommit();
+  EXPECT_TRUE(status.ok());
+  EXPECT_TRUE(!txn->IsAsyncCommit());
 }
 
 }  // namespace sdk

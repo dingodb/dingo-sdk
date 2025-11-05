@@ -262,6 +262,8 @@ class Transaction {
 
   bool IsOnePc() const;
 
+  bool IsAsyncCommit() const;
+
  private:
   friend class Client;
   friend class TestBase;

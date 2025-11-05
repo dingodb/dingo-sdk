@@ -12,29 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "sdk/transaction/txn_task/txn_resolve_lock_task.h"
+#include "sdk/transaction/txn_task/txn_check_secondary_locks_task.h"
 
 #include <fmt/format.h>
+#include <glog/logging.h>
+
+#include <algorithm>
+#include <cstdint>
+#include <utility>
 
 #include "common/logging.h"
 #include "dingosdk/status.h"
 #include "sdk/common/common.h"
-#include "sdk/common/helper.h"
-#include "sdk/region.h"
 #include "sdk/rpc/store_rpc_controller.h"
 #include "sdk/transaction/txn_common.h"
-#include "sdk/transaction/txn_lock_resolver.h"
-#include "sdk/utils/callback.h"
+#include "sdk/utils/rw_lock.h"
 
 namespace dingodb {
 namespace sdk {
-
-Status TxnResolveLockTask::Init() {
+Status TxnCheckSecondaryLocksTask::Init() {
   next_keys_.clear();
-  for (const auto& str : keys_) {
+  for (const auto& str : secondary_keys_) {
     if (!next_keys_.insert(str).second) {
       // duplicate key
-      std::string msg = fmt::format("[sdk.txn] lock_ts: {}, duplicate key: {}", lock_ts_, str);
+      std::string msg = fmt::format("[sdk.txn.{}] duplicate key: {}", primary_lock_start_ts_, str);
       DINGO_LOG(ERROR) << msg;
       return Status::InvalidArgument(msg);
     }
@@ -42,8 +43,8 @@ Status TxnResolveLockTask::Init() {
   return Status::OK();
 }
 
-void TxnResolveLockTask::DoAsync() {
-  std::unordered_set<std::string_view> next_batch;
+void TxnCheckSecondaryLocksTask::DoAsync() {
+  std::set<std::string_view> next_batch;
   {
     WriteLockGuard guard(rw_lock_);
     next_batch = next_keys_;
@@ -82,11 +83,13 @@ void TxnResolveLockTask::DoAsync() {
     CHECK(iter != region_id_to_region.end());
     auto region = iter->second;
 
-    auto rpc = std::make_unique<TxnResolveLockRpc>();
+    uint64_t resolved_lock = 0;
+
+    auto rpc = std::make_unique<TxnCheckSecondaryLocksRpc>();
+    rpc->MutableRequest()->Clear();
+    rpc->MutableRequest()->set_start_ts(primary_lock_start_ts_);
     FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch(),
                    pb::store::IsolationLevel::SnapshotIsolation);
-    rpc->MutableRequest()->set_start_ts(lock_ts_);
-    rpc->MutableRequest()->set_commit_ts(commit_ts_);
     for (const auto& key : entry.second) {
       *rpc->MutableRequest()->add_keys() = key;
     }
@@ -99,29 +102,56 @@ void TxnResolveLockTask::DoAsync() {
 
   for (int i = 0; i < rpcs_.size(); ++i) {
     auto& controller = controllers_[i];
-    controller.AsyncCall([this, rpc = rpcs_[i].get()](const Status& s) { TxnResolveLockRpcCallback(s, rpc); });
+    controller.AsyncCall([this, rpc = rpcs_[i].get()](const Status& s) { TxnCheckSecondaryLocksRpcCallback(s, rpc); });
   }
 }
 
-void TxnResolveLockTask::TxnResolveLockRpcCallback(const Status& status, TxnResolveLockRpc* rpc) {
-  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] rpc: {} request: {} response: {}", lock_ts_, rpc->Method(),
-                                  rpc->Request()->ShortDebugString(), rpc->Response()->ShortDebugString());
-  const auto* response = rpc->Response();
+void TxnCheckSecondaryLocksTask::TxnCheckSecondaryLocksRpcCallback(const Status& status,
+                                                                   TxnCheckSecondaryLocksRpc* rpc) {
+  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] rpc: {} request: {} response: {}", primary_lock_start_ts_,
+                                  rpc->Method(), rpc->Request()->ShortDebugString(),
+                                  rpc->Response()->ShortDebugString());
   Status s;
+  const auto* response = rpc->Response();
   if (!status.ok()) {
-    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rpc: {} send to region: {} fail: {}", lock_ts_, rpc->Method(),
-                                      rpc->Request()->context().region_id(), status.ToString());
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rpc: {} send to region: {} fail: {}", primary_lock_start_ts_,
+                                      rpc->Method(), rpc->Request()->context().region_id(), status.ToString());
     s = status;
   } else {
     if (response->has_txn_result()) {
-      s = CheckTxnResultInfo(response->txn_result());
-      if (!s.ok()) {
-        DINGO_LOG(WARNING) << fmt::format("[sdk.txn] txn_resolve_lock fail, lock_ts: {},  response: {}, status: {}.",
-                                          lock_ts_, response->ShortDebugString(), status_.ToString());
+      Status s1 = CheckTxnResultInfo(response->txn_result());
+      if (s1.IsTxnNotFound()) {
+        WriteLockGuard guard(rw_lock_);
+        txn_check_secondary_status_.is_txn_not_found = true;
+      } else if (!s1.ok()) {
+        s = s1;
+        DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] txn check secondary keys fail, status({}) , txn_result({}).",
+                                          primary_lock_start_ts_, s.ToString(),
+                                          response->txn_result().ShortDebugString());
+      }
+    }
+    if (s.ok()) {
+      if (response->locks_size() > 0) {
+        WriteLockGuard guard(rw_lock_);
+        txn_check_secondary_status_.locked_keys.insert(txn_check_secondary_status_.locked_keys.end(),
+                                                       response->locks().begin(), response->locks().end());
+      }
+      if (response->commit_ts() > 0) {
+        WriteLockGuard guard(rw_lock_);
+        if (txn_check_secondary_status_.commit_ts > 0) {
+          CHECK(response->commit_ts() == txn_check_secondary_status_.commit_ts)
+              << fmt::format("[sdk.txn.{}] inconsistent commit_ts, existing({}) new({})", primary_lock_start_ts_,
+                             txn_check_secondary_status_.commit_ts, response->commit_ts());
+        }
+        txn_check_secondary_status_.commit_ts = response->commit_ts();
+      }
+      if (!response->txn_result().has_txn_not_found() && response->locks_size() == 0 && response->commit_ts() == 0) {
+        WriteLockGuard guard(rw_lock_);
+        txn_check_secondary_status_.is_rollbacked = true;
       }
     }
   }
-  
+
   {
     WriteLockGuard guard(rw_lock_);
     if (s.ok()) {
@@ -134,6 +164,9 @@ void TxnResolveLockTask::TxnResolveLockRpcCallback(const Status& status, TxnReso
         // only return first fail status
         status_ = s;
       }
+      DINGO_LOG(WARNING) << fmt::format(
+          "[sdk.txn.{}] txn check secondary keys fail, region({}) status({}) txn_result({}).", primary_lock_start_ts_,
+          rpc->Request()->context().region_id(), s.ToString(), response->ShortDebugString());
     }
   }
 
@@ -148,5 +181,4 @@ void TxnResolveLockTask::TxnResolveLockRpcCallback(const Status& status, TxnReso
 }
 
 }  // namespace sdk
-
 }  // namespace dingodb

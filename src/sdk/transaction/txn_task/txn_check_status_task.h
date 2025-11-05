@@ -19,7 +19,7 @@
 #include <string>
 
 #include "sdk/client_stub.h"
-#include "sdk/rpc/brpc/store_rpc.h"
+#include "sdk/rpc/store_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
 #include "sdk/transaction/txn_lock_resolver.h"
 #include "sdk/transaction/txn_task/txn_task.h"
@@ -31,12 +31,13 @@ namespace sdk {
 class TxnCheckStatusTask : public TxnTask {
  public:
   TxnCheckStatusTask(const ClientStub& stub, int64_t lock_ts, const std::string& primary_key, int64_t start_ts,
-                     TxnStatus& txn_status)
+                     TxnStatus& txn_status, bool force_sync_commit = false)
       : TxnTask(stub),
         lock_ts_(lock_ts),
         primary_key_(primary_key),
         start_ts_(start_ts),
         txn_status_(txn_status),
+        force_sync_commit_(force_sync_commit),
         store_rpc_controller_(stub, rpc_) {}
 
   ~TxnCheckStatusTask() override = default;
@@ -54,6 +55,7 @@ class TxnCheckStatusTask : public TxnTask {
   TxnStatus& txn_status_;
   StoreRpcController store_rpc_controller_;
   TxnCheckTxnStatusRpc rpc_;
+  bool force_sync_commit_{false};
   uint64_t resolved_lock_{0};
 
   RWLock rw_lock_;

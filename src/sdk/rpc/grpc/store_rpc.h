@@ -48,6 +48,7 @@ DECLARE_STORE_RPC(TxnScan);
 DECLARE_STORE_RPC(TxnHeartBeat);
 DECLARE_STORE_RPC(TxnCheckTxnStatus);
 DECLARE_STORE_RPC(TxnResolveLock);
+DECLARE_STORE_RPC(TxnCheckSecondaryLocks);
 
 }  // namespace sdk
 }  // namespace dingodb

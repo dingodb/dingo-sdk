@@ -194,6 +194,23 @@ static pb::store::LockInfo PrepareLockInfo() {
   return lock_info;
 }
 
+static pb::store::LockInfo PrepareAsyncCommitOrdinaryLockInfo() {
+  pb::store::LockInfo lock_info;
+  lock_info.set_key("b0000000");
+  lock_info.set_primary_lock("a0000000");
+  lock_info.set_lock_ts(1);
+  lock_info.set_lock_ttl(INT64_MAX);
+  lock_info.set_txn_size(1);
+  lock_info.set_lock_type(pb::store::Op::Put);
+  lock_info.set_use_async_commit(true);
+  lock_info.set_min_commit_ts(INT64_MAX);
+  lock_info.add_secondaries("b0000000");
+  lock_info.add_secondaries("d0000000");
+   lock_info.add_secondaries("f0000000");
+
+  return lock_info;
+}
+
 static bool LockInfoEqual(const pb::store::LockInfo& a, const pb::store::LockInfo& b) {
   if (a.primary_lock() != b.primary_lock()) {
     return false;
@@ -217,7 +234,7 @@ static bool LockInfoEqual(const pb::store::LockInfo& a, const pb::store::LockInf
 inline int64_t ClockRealtimeMs() {
   struct timespec tp;
   ::clock_gettime(CLOCK_REALTIME, &tp);
-  return tp.tv_sec * 1000ULL + tp.tv_nsec / 1000000ULL - kBaseTimestampMs;
+  return (tp.tv_sec * 1000ULL) + (tp.tv_nsec / 1000000ULL) - kBaseTimestampMs;
 }
 
 static pb::meta::TsoTimestamp CurrentFakeTso() {
