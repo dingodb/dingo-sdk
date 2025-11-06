@@ -210,10 +210,12 @@ Status TxnCommitTask::ProcessTxnCommitResponse(const TxnCommitResponse* response
     if (is_primary) {
       return Status::TxnCommitTsExpired("txn commit ts expired");
     }
-  } else {
-    DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit unknown txn result, is_primary({}) pk({}) response({}).",
-                                    txn_id, is_primary, StringToHex(pk), response->ShortDebugString());
-  }
+  } else if (txn_result.has_primary_mismatch()) {
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit primary mismatch, is_primary({}) pk({}) response({}).",
+                                      txn_id, is_primary, StringToHex(pk),
+                                      txn_result.primary_mismatch().ShortDebugString());
+    return Status::TxnPrimaryMismatch("txn primary mismatch");
+  } 
 
   return Status::OK();
 }
