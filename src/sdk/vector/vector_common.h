@@ -514,6 +514,9 @@ static void FillInternalSearchParams(pb::common::VectorSearchParameter* internal
   internal_parameter->set_is_sorted(parameter.is_sorted);
 
   internal_parameter->set_use_brute_force(parameter.use_brute_force);
+
+  internal_parameter->set_is_scalar_speed_up_with_document(parameter.is_scalar_speed_up_with_document);
+  internal_parameter->set_query_string(parameter.query_string);
 }
 
 }  // namespace sdk

@@ -18,8 +18,10 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "dingosdk/document.h"
 #include "dingosdk/status.h"
 #include "dingosdk/types.h"
 
@@ -335,6 +337,9 @@ struct SearchParam {
   std::map<SearchExtraParamType, int32_t> extra_params;  // The search method to use
   std::string langchain_expr_json;                       // must json format, will convert to coprocessor
   uint32_t beamwidth{2};
+  // for document index speed up
+  bool is_scalar_speed_up_with_document{false};
+  std::string query_string;
 
   explicit SearchParam() = default;
 
@@ -351,7 +356,9 @@ struct SearchParam {
         use_brute_force(other.use_brute_force),
         extra_params(std::move(other.extra_params)),
         langchain_expr_json(std::move(other.langchain_expr_json)),
-        beamwidth(other.beamwidth) {
+        beamwidth(other.beamwidth),
+        is_scalar_speed_up_with_document(other.is_scalar_speed_up_with_document),
+        query_string(std::move(other.query_string)) {
     other.topk = 0;
     other.with_vector_data = true;
     other.with_scalar_data = false;
@@ -362,6 +369,7 @@ struct SearchParam {
     other.filter_type = kNoneFilterType;
     other.use_brute_force = false;
     other.beamwidth = 2;
+    other.is_scalar_speed_up_with_document = false;
   }
 
   SearchParam& operator=(SearchParam&& other) noexcept {
@@ -378,6 +386,8 @@ struct SearchParam {
     extra_params = std::move(other.extra_params);
     langchain_expr_json = std::move(other.langchain_expr_json);
     beamwidth = other.beamwidth;
+    is_scalar_speed_up_with_document = other.is_scalar_speed_up_with_document;
+    query_string = std::move(other.query_string);
 
     other.topk = 0;
     other.with_vector_data = true;
@@ -389,6 +399,7 @@ struct SearchParam {
     other.filter_type = kNoneFilterType;
     other.use_brute_force = false;
     other.beamwidth = 2;
+    other.is_scalar_speed_up_with_document = false;
 
     return *this;
   }
@@ -539,6 +550,12 @@ class VectorIndexCreator {
   VectorIndexCreator& SetRangePartitions(std::vector<int64_t> separator_id);
 
   VectorIndexCreator& SetReplicaNum(int64_t num);
+
+  VectorIndexCreator& SetDocumentSchema(const DocumentSchema& schema);
+
+  VectorIndexCreator& SetJsonParams(std::string& json_params);
+
+  VectorIndexCreator& SetEnableScalarSpeedUpWithDocument(bool enable);
 
   // one of FlatParam/IvfFlatParam/HnswParam/DiskAnnParam/BruteForceParam/BinaryFlat/BinaryIvfFlat, if set multiple, the
   // last one will effective

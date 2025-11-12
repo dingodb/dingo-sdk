@@ -14,11 +14,11 @@
 
 #include <cstdint>
 
+#include "dingosdk/status.h"
+#include "dingosdk/vector.h"
 #include "glog/logging.h"
 #include "proto/meta.pb.h"
 #include "sdk/rpc/coordinator_rpc.h"
-#include "dingosdk/status.h"
-#include "dingosdk/vector.h"
 #include "sdk/vector/vector_common.h"
 #include "sdk/vector/vector_index_creator_internal_data.h"
 
@@ -46,6 +46,21 @@ VectorIndexCreator& VectorIndexCreator::SetRangePartitions(std::vector<int64_t> 
 
 VectorIndexCreator& VectorIndexCreator::SetReplicaNum(int64_t num) {
   data_->replica_num = num;
+  return *this;
+}
+
+VectorIndexCreator& VectorIndexCreator::SetDocumentSchema(const DocumentSchema& schema) {
+  data_->document_schema = schema;
+  return *this;
+}
+
+VectorIndexCreator& VectorIndexCreator::SetJsonParams(std::string& json_params) {
+  data_->json_params = json_params;
+  return *this;
+}
+
+VectorIndexCreator& VectorIndexCreator::SetEnableScalarSpeedUpWithDocument(bool enable) {
+  data_->enable_scalar_speed_up_with_document = enable;
   return *this;
 }
 
@@ -130,6 +145,27 @@ Status VectorIndexCreator::Create(int64_t& out_index_id) {
   }
   if (data_->index_type == kNoneIndexType) {
     return Status::InvalidArgument("Missing Vector Param");
+  }
+  if ((data_->index_type == kBruteForce || data_->index_type == kDiskAnn) &&
+      data_->enable_scalar_speed_up_with_document) {
+    return Status::InvalidArgument("BruteForce or DiskAnn index not support enable_scalar_speed_up_with_document");
+  }
+
+  if (data_->enable_scalar_speed_up_with_document) {
+    bool has_speed_enabled = false;
+    if (data_->schema.has_value()) {
+      for (const auto& s : data_->schema->cols) {
+        if (s.speed) {
+          has_speed_enabled = true;
+          break;
+        }
+      }
+    }
+
+    if (!has_speed_enabled) {
+      return Status::InvalidArgument(
+          "enable_scalar_speed_up_with_document is true, but no scalar column has speed enabled");
+    }
   }
 
   auto part_count = data_->range_partition_seperator_ids.size() + 1;

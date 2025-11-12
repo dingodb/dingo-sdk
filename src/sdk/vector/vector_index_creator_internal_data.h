@@ -18,9 +18,12 @@
 #include <optional>
 #include <utility>
 
+#include "dingosdk/document.h"
+#include "dingosdk/vector.h"
 #include "proto/common.pb.h"
 #include "sdk/client_stub.h"
-#include "dingosdk/vector.h"
+#include "sdk/document/document_index.h"
+#include "sdk/document/document_translater.h"
 #include "sdk/vector/vector_common.h"
 
 namespace dingodb {
@@ -32,7 +35,13 @@ class VectorIndexCreator::Data {
   const Data& operator=(const Data&) = delete;
 
   explicit Data(const ClientStub& stub)
-      : stub(stub), schema_id(-1), version(1), replica_num(3), index_type(kNoneIndexType), wait(true) {}
+      : stub(stub),
+        schema_id(-1),
+        version(1),
+        replica_num(3),
+        index_type(kNoneIndexType),
+        wait(true),
+        enable_scalar_speed_up_with_document(false) {}
 
   ~Data() = default;
 
@@ -79,6 +88,17 @@ class VectorIndexCreator::Data {
       VectorScalarSchema& s = schema.value();
       FillScalarSchema(parameter->mutable_scalar_schema(), s);
     }
+
+    if (enable_scalar_speed_up_with_document && index_type != kBruteForce && index_type != kDiskAnn) {
+      parameter->set_enable_scalar_speed_up_with_document(enable_scalar_speed_up_with_document);
+      if (document_schema.has_value()) {
+        DocumentSchema& s = document_schema.value();
+        DocumentTranslater::FillScalarSchema(parameter->mutable_document_index_parameter()->mutable_scalar_schema(), s);
+      }
+      if (json_params.has_value()) {
+        parameter->mutable_document_index_parameter()->set_json_parameter(json_params.value());
+      }
+    }
   }
 
   const ClientStub& stub;
@@ -104,6 +124,11 @@ class VectorIndexCreator::Data {
   std::optional<VectorScalarSchema> schema;
 
   bool wait;
+
+  // for pre-filter with doucument index speed up
+  bool enable_scalar_speed_up_with_document;
+  std::optional<DocumentSchema> document_schema;
+  std::optional<std::string> json_params;
 };
 
 }  // namespace sdk
