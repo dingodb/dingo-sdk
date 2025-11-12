@@ -21,13 +21,13 @@
 #include <utility>
 
 #include "common/logging.h"
-#include "gflags/gflags.h"
-#include "glog/logging.h"
 #include "dingosdk/client.h"
 #include "dingosdk/status.h"
 #include "dingosdk/types.h"
-#include "sdk/utils/scoped_cleanup.h"
 #include "dingosdk/vector.h"
+#include "gflags/gflags.h"
+#include "glog/logging.h"
+#include "sdk/utils/scoped_cleanup.h"
 
 using namespace dingodb::sdk;
 
@@ -64,6 +64,29 @@ static void PrepareVectorIndex() {
                       .SetRangePartitions(g_range_partition_seperator_ids)
                       .SetFlatParam(g_flat_param)
                       .SetScalarSchema(schema)
+                      .Create(g_index_id);
+  DINGO_LOG(INFO) << "Create index status: " << create.ToString() << ", index_id:" << g_index_id;
+  sleep(5);
+}
+
+static void PrepareVectorIndexWithDocment() {
+  dingodb::sdk::VectorIndexCreator* creator;
+  Status built = g_client->NewVectorIndexCreator(&creator);
+  CHECK(built.IsOK()) << "dingo creator build fail:" << built.ToString();
+  CHECK_NOTNULL(creator);
+  SCOPED_CLEANUP({ delete creator; });
+
+  dingodb::sdk::VectorScalarSchema schema;
+  // NOTE: may be add more
+  schema.cols.push_back({g_scalar_col[0], g_scalar_col_typ[0], true});
+  schema.cols.push_back({g_scalar_col[1], g_scalar_col_typ[1], true});
+  Status create = creator->SetSchemaId(g_schema_id)
+                      .SetName(g_index_name)
+                      .SetReplicaNum(3)
+                      .SetRangePartitions(g_range_partition_seperator_ids)
+                      .SetFlatParam(g_flat_param)
+                      .SetScalarSchema(schema)
+                      .SetEnableScalarSpeedUpWithDocument(true)
                       .Create(g_index_id);
   DINGO_LOG(INFO) << "Create index status: " << create.ToString() << ", index_id:" << g_index_id;
   sleep(5);
@@ -187,6 +210,59 @@ static void VectorSearch(bool use_index_name = false) {
     const auto& vector_id = search_result.id;
     CHECK_EQ(vector_id.id, target_vectors[i].id);
     CHECK_EQ(vector_id.vector.Size(), target_vectors[i].vector.Size());
+  }
+}
+
+static void VectorSearchUseDocumentIndex(bool use_index_name = false) {
+  std::vector<dingodb::sdk::VectorWithId> target_vectors;
+  float init = 0.1f;
+  for (int i = 0; i < 5; i++) {
+    dingodb::sdk::Vector tmp_vector{dingodb::sdk::ValueType::kFloat, g_dimension};
+    tmp_vector.float_values.clear();
+    tmp_vector.float_values.push_back(init);
+    tmp_vector.float_values.push_back(init);
+
+    dingodb::sdk::VectorWithId tmp;
+    tmp.vector = std::move(tmp_vector);
+    target_vectors.push_back(std::move(tmp));
+
+    init = init + 0.1;
+  }
+
+  dingodb::sdk::SearchParam param;
+  param.topk = 2;
+  param.with_scalar_data = true;
+  // param.use_brute_force = true;
+  param.extra_params.insert(std::make_pair(dingodb::sdk::kParallelOnQueries, 10));
+  param.filter_source = dingodb::sdk::FilterSource::kScalarFilter;
+  param.filter_type = dingodb::sdk::FilterType::kQueryPre;
+  param.is_scalar_speed_up_with_document = true;
+  param.query_string = "id:>=0 AND id:<=10";
+
+  Status tmp;
+  std::vector<dingodb::sdk::SearchResult> result;
+  if (use_index_name) {
+    tmp = g_vector_client->SearchByIndexName(g_schema_id, g_index_name, param, target_vectors, result);
+  } else {
+    tmp = g_vector_client->SearchByIndexId(g_index_id, param, target_vectors, result);
+  }
+  CHECK(tmp.ok()) << "vector search use document index failed: " << tmp.ToString();
+
+  DINGO_LOG(INFO) << "vector search status: " << tmp.ToString();
+  for (const auto& r : result) {
+    DINGO_LOG(INFO) << "vector search result: " << r.ToString();
+  }
+
+  CHECK_EQ(result.size(), target_vectors.size());
+  for (auto i = 0; i < result.size(); i++) {
+    auto& search_result = result[i];
+    for (auto& distance : search_result.vector_datas) {
+      for (auto& field : distance.vector_data.scalar_data["id"].fields) {
+        CHECK(!(field.long_data < 0 || field.long_data > 10)) << "scalar field value out of range";
+      }
+    }
+    const auto& vector_id = search_result.id;
+    CHECK_EQ(vector_id.id, target_vectors[i].id);
   }
 }
 
@@ -712,6 +788,17 @@ int main(int argc, char* argv[]) {
     VectorSearch(true);
 
     PostClean(true);
+  }
+
+  {
+    PrepareVectorIndexWithDocment();
+    PrepareVectorClient();
+
+    VectorAdd();
+    VectorSearchUseDocumentIndex();
+    VectorDelete();
+    VectorSearch();
+    PostClean();
   }
 
   {

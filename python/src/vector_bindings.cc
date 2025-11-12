@@ -79,7 +79,7 @@ void DefineVectorBindings(pybind11::module& m) {
       .value("kL2", MetricType::kL2)
       .value("kInnerProduct", MetricType::kInnerProduct)
       .value("kCosine", MetricType::kCosine)
-      .value("kHamming",MetricType::kHamming);
+      .value("kHamming", MetricType::kHamming);
 
   m.def("MetricTypeToString", &MetricTypeToString, "description: MetricTypeToString");
 
@@ -138,14 +138,14 @@ void DefineVectorBindings(pybind11::module& m) {
       .def_static("Type", &BruteForceParam::Type)
       .def_readwrite("dimension", &BruteForceParam::dimension)
       .def_readwrite("metric_type", &BruteForceParam::metric_type);
-     
-py::class_< BinaryFlatParam>(m, "BinaryFlatParam")
+
+  py::class_<BinaryFlatParam>(m, "BinaryFlatParam")
       .def(py::init<int32_t, MetricType>())
       .def_static("Type", &BinaryFlatParam::Type)
       .def_readwrite("dimension", &BinaryFlatParam::dimension)
       .def_readwrite("metric_type", &BinaryFlatParam::metric_type);
-     
-py::class_<BinaryIvfFlatParam>(m, "BinaryIvfFlatParam")
+
+  py::class_<BinaryIvfFlatParam>(m, "BinaryIvfFlatParam")
       .def(py::init<int32_t, MetricType>())
       .def_static("Type", &BinaryIvfFlatParam::Type)
       .def_readwrite("dimension", &BinaryIvfFlatParam::dimension)
@@ -229,7 +229,9 @@ py::class_<BinaryIvfFlatParam>(m, "BinaryIvfFlatParam")
       .def_readwrite("use_brute_force", &SearchParam::use_brute_force)
       .def_readwrite("extra_params", &SearchParam::extra_params)
       .def_readwrite("langchain_expr_json", &SearchParam::langchain_expr_json)
-      .def_readwrite("beamwidth", &SearchParam::beamwidth);
+      .def_readwrite("beamwidth", &SearchParam::beamwidth)
+      .def_readwrite("is_scalar_speed_up_with_document", &SearchParam::is_scalar_speed_up_with_document)
+      .def_readwrite("query_string", &SearchParam::query_string);
 
   py::class_<VectorWithDistance>(m, "VectorWithDistance")
       .def(py::init<>())
@@ -307,6 +309,9 @@ py::class_<BinaryIvfFlatParam>(m, "BinaryIvfFlatParam")
       .def("SetBinaryIvfFlatParam", &VectorIndexCreator::SetBinaryIvfFlatParam)
       .def("SetAutoIncrementStart", &VectorIndexCreator::SetAutoIncrementStart)
       .def("SetScalarSchema", &VectorIndexCreator::SetScalarSchema)
+      .def("SetEnableScalarSpeedUpWithDocument", &VectorIndexCreator::SetEnableScalarSpeedUpWithDocument)
+      .def("SetDocumentSchema", &VectorIndexCreator::SetDocumentSchema)
+      .def("SetJsonParams", &VectorIndexCreator::SetJsonParams)
       .def("Create", [](VectorIndexCreator& vectorindexcreator) -> std::tuple<Status, int64_t> {
         int64_t out_index_id;
         Status status = vectorindexcreator.Create(out_index_id);
