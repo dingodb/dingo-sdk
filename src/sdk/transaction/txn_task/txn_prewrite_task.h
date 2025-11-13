@@ -35,8 +35,17 @@ class TxnPrewriteTask : public TxnTask {
  public:
   TxnPrewriteTask(const ClientStub& stub, const std::string primary_key,
                   const std::map<std::string, const TxnMutation*>& mutations, std::shared_ptr<TxnImpl> txn_impl,
-                  bool& is_one_pc)
-      : TxnTask(stub), primary_key_(primary_key), mutations_(mutations), txn_impl_(txn_impl), is_one_pc_(is_one_pc) {}
+                  bool& is_one_pc, bool& use_async_commit,
+                  const std::map<std::string, const TxnMutation*>& mutations_ordinarykeys_for_async_commit,
+                  uint64_t& min_commit_ts)
+      : TxnTask(stub),
+        primary_key_(primary_key),
+        mutations_(mutations),
+        txn_impl_(txn_impl),
+        is_one_pc_(is_one_pc),
+        use_async_commit_(use_async_commit),
+        mutations_ordinarykeys_for_async_commit_(mutations_ordinarykeys_for_async_commit),
+        min_commit_ts_(min_commit_ts) {}
 
   ~TxnPrewriteTask() override = default;
 
@@ -56,6 +65,11 @@ class TxnPrewriteTask : public TxnTask {
   const std::string primary_key_;
   const std::map<std::string, const TxnMutation*>& mutations_;
   bool& is_one_pc_;
+  
+  // for async commit
+  bool& use_async_commit_;
+  const std::map<std::string, const TxnMutation*>& mutations_ordinarykeys_for_async_commit_;
+  uint64_t& min_commit_ts_;
 
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<TxnPrewriteRpc>> rpcs_;
@@ -65,7 +79,6 @@ class TxnPrewriteTask : public TxnTask {
 
   std::map<std::string, const TxnMutation*> next_mutations_;
 
-  bool first_run_{true};
   std::atomic<int> sub_tasks_count_{0};
   RWLock rw_lock_;
   Status status_;

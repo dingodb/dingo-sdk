@@ -55,6 +55,7 @@ set(SDK_SRCS
   transaction/txn_task/txn_check_status_task.cc
   transaction/txn_task/txn_resolve_lock_task.cc
   transaction/txn_task/txn_heartbeat_task.cc
+    transaction/txn_task/txn_check_secondary_locks_task.cc
   vector/vector_client.cc
   vector/vector_index_cache.cc
   vector/vector_index_creator.cc

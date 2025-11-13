@@ -15,9 +15,9 @@
 #ifndef DINGODB_SDK_TEST_MOCK_TXN_RESOLVER_H_
 #define DINGODB_SDK_TEST_MOCK_TXN_RESOLVER_H_
 
-#include "sdk/client_stub.h"
-#include "gmock/gmock.h"
 #include "dingosdk/status.h"
+#include "gmock/gmock.h"
+#include "sdk/client_stub.h"
 #include "sdk/transaction/txn_lock_resolver.h"
 
 namespace dingodb {
@@ -25,11 +25,12 @@ namespace sdk {
 
 class MockTxnLockResolver final : public TxnLockResolver {
  public:
-  explicit MockTxnLockResolver(const ClientStub& stub) : sdk::TxnLockResolver(stub){};
+  explicit MockTxnLockResolver(const ClientStub& stub) : sdk::TxnLockResolver(stub) {};
 
   ~MockTxnLockResolver() override = default;
 
-  MOCK_METHOD(Status, ResolveLock, (const pb::store::LockInfo& lock_info, int64_t caller_start_ts), (override));
+  MOCK_METHOD(Status, ResolveLock,
+              (const pb::store::LockInfo& lock_info, int64_t caller_start_ts, bool force_sync_commit), (override));
 };
 
 }  // namespace sdk

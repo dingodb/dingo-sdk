@@ -40,7 +40,7 @@ namespace dingodb {
 namespace integration_test {
 
 template <class T>
-class TxnTest : public testing::Test {
+class TxnTest1PC : public testing::Test {
  protected:
   static void SetUpTestSuite() {
     region_id = Helper::CreateTxnRegion(FLAGS_txn_region_name, FLAGS_txn_key_prefix,
@@ -52,12 +52,12 @@ class TxnTest : public testing::Test {
 };
 
 template <class T>
-int64_t TxnTest<T>::region_id = 0;
+int64_t TxnTest1PC<T>::region_id = 0;
 
 using Implementations = testing::Types<LsmEngine>;
-TYPED_TEST_SUITE(TxnTest, Implementations);
+TYPED_TEST_SUITE(TxnTest1PC, Implementations);
 
-TYPED_TEST(TxnTest, TxnMultiThread1PC) {
+TYPED_TEST(TxnTest1PC, TxnMultiThread1PC) {
   testing::Test::RecordProperty("description", "Test multi-threaded txn case");
   {
     dingodb::sdk::Transaction* txn;

@@ -12,16 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TXN_RESOLVE_LOCK_TASK_H
-#define TXN_RESOLVE_LOCK_TASK_H
+#ifndef TXN_CHECK_SECONDARY_LOCKS_TASK_H
+#define TXN_CHECK_SECONDARY_LOCKS_TASK_H
 
+#include <atomic>
 #include <cstdint>
 #include <string>
-#include <string_view>
-#include <unordered_set>
 #include <vector>
 
-#include "dingosdk/status.h"
 #include "sdk/client_stub.h"
 #include "sdk/rpc/brpc/store_rpc.h"
 #include "sdk/rpc/store_rpc_controller.h"
@@ -32,37 +30,40 @@
 namespace dingodb {
 namespace sdk {
 
-class TxnResolveLockTask : public TxnTask {
+class TxnCheckSecondaryLocksTask : public TxnTask {
  public:
-  TxnResolveLockTask(const ClientStub& stub, int64_t lock_ts, const std::vector<std::string>& keys, int64_t commit_ts)
-      : TxnTask(stub), lock_ts_(lock_ts), keys_(keys), commit_ts_(commit_ts) {}
+  TxnCheckSecondaryLocksTask(const ClientStub& stub, const std::vector<std::string> secondary_keys, int64_t primary_lock_start_ts,
+                             TxnSecondaryLockStatus& txn_check_secondary_status)
+      : TxnTask(stub),
+        secondary_keys_(secondary_keys),
+        primary_lock_start_ts_(primary_lock_start_ts),
+        txn_check_secondary_status_(txn_check_secondary_status) {}
 
-  ~TxnResolveLockTask() override = default;
+  ~TxnCheckSecondaryLocksTask() override = default;
 
  private:
   Status Init() override;
 
   void DoAsync() override;
 
-  std::string Name() const override { return "TxnResolveLockTask"; }
+  std::string Name() const override { return "TxnCheckSecondaryLocksTask"; }
 
-  void TxnResolveLockRpcCallback(const Status& status, TxnResolveLockRpc* rpc);
+  void TxnCheckSecondaryLocksRpcCallback(const Status& status, TxnCheckSecondaryLocksRpc* rpc);
 
-  int64_t lock_ts_{0};
-  const std::vector<std::string>& keys_;
-  int64_t commit_ts_{0};
+  std::vector<std::string> secondary_keys_;
+  TxnSecondaryLockStatus& txn_check_secondary_status_;
+  std::set<std::string_view> next_keys_;
+  int64_t primary_lock_start_ts_{0};
 
   std::vector<StoreRpcController> controllers_;
-  std::vector<std::unique_ptr<TxnResolveLockRpc>> rpcs_;
-  std::atomic<int> sub_tasks_count_{0};
-  std::unordered_set<std::string_view> next_keys_;
-
+  std::vector<std::unique_ptr<TxnCheckSecondaryLocksRpc>> rpcs_;
   RWLock rw_lock_;
   Status status_;
+    std::atomic<int> sub_tasks_count_{0};
 };
 
 }  // namespace sdk
 
 }  // namespace dingodb
 
-#endif  // TXN_RESOLVE_LOCK_TASK_H
+#endif  // TXN_CHECK_SECONDARY_LOCKS_TASK_H

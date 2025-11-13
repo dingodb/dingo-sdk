@@ -20,6 +20,7 @@
 
 #include "common/logging.h"
 #include "dingosdk/status.h"
+#include "proto/store.pb.h"
 #include "sdk/common/common.h"
 #include "sdk/common/helper.h"
 #include "sdk/region.h"
@@ -31,6 +32,7 @@
 namespace dingodb {
 namespace sdk {
 void TxnCheckStatusTask::DoAsync() {
+  status_ = Status::OK();
   auto meta_cache = stub.GetMetaCache();
   RegionPtr region;
 
@@ -53,6 +55,7 @@ void TxnCheckStatusTask::DoAsync() {
   rpc_.MutableRequest()->set_lock_ts(lock_ts_);
   rpc_.MutableRequest()->set_caller_start_ts(start_ts_);
   rpc_.MutableRequest()->set_current_ts(current_ts);
+  rpc_.MutableRequest()->set_force_sync_commit(force_sync_commit_);
 
   store_rpc_controller_.ResetRegion(region);
   store_rpc_controller_.AsyncCall([this](auto&& s) { TxnCheckStatusRpcCallback(std::forward<decltype(s)>(s)); });
@@ -62,26 +65,33 @@ void TxnCheckStatusTask::TxnCheckStatusRpcCallback(const Status& status) {
   DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] rpc: {} request: {} response: {}", start_ts_, rpc_.Method(),
                                   rpc_.Request()->ShortDebugString(), rpc_.Response()->ShortDebugString());
   const auto* response = rpc_.Response();
+  pb::store::LockInfo lock_info;
   if (!status.ok()) {
     DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rpc: {} send to region: {} fail: {}", start_ts_, rpc_.Method(),
                                       rpc_.Request()->context().region_id(), status.ToString());
     status_ = status;
   } else {
     if (response->has_txn_result()) {
-      status_ = CheckTxnResultInfo(response->txn_result());
+      Status status = CheckTxnResultInfo(response->txn_result());
       const auto txn_result = response->txn_result();
-      if (!status_.ok()) {
+      if (txn_result.has_locked()) {
+        lock_info = txn_result.locked();
+      }
+      if (!status.ok()) {
         DINGO_LOG(WARNING) << fmt::format(
             "[sdk.txn.{}] check status fail, primary_key({}), lock_ts({}), start_ts({}),  status({}), "
             "txn_result({}).",
             start_ts_, StringToHex(primary_key_), rpc_.Request()->lock_ts(), rpc_.Request()->caller_start_ts(),
-            status_.ToString(), txn_result.ShortDebugString());
+            status.ToString(), txn_result.ShortDebugString());
+        if (!status.IsTxnLockConflict()) {
+          status_ = status;
+        }
       }
     }
   }
 
   if (status_.ok()) {
-    txn_status_ = TxnStatus(response->lock_ttl(), response->commit_ts(), response->action());
+    txn_status_ = TxnStatus(response->lock_ttl(), response->commit_ts(), response->action(), lock_info);
   }
 
   DoAsyncDone(status_);

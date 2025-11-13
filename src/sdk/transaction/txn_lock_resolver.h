@@ -15,7 +15,12 @@
 #ifndef DINGODB_SDK_TRANSACTION_LOCK_RESOLVER_H_
 #define DINGODB_SDK_TRANSACTION_LOCK_RESOLVER_H_
 
+#include <glog/logging.h>
+
+#include <algorithm>
 #include <cstdint>
+#include <string>
+#include <vector>
 
 #include "dingosdk/status.h"
 #include "fmt/core.h"
@@ -26,15 +31,61 @@ namespace sdk {
 
 class ClientStub;
 
+struct TxnSecondaryLockStatus {
+  std::vector<std::string> not_found_keys;
+  std::vector<pb::store::LockInfo> locked_keys;
+  uint64_t commit_ts;
+  bool is_rollbacked;
+  explicit TxnSecondaryLockStatus() : commit_ts(0), is_rollbacked(false), locked_keys({}), not_found_keys({}) {}
+  explicit TxnSecondaryLockStatus(uint64_t commit_ts, bool is_rollbacked = false,
+                                  std::vector<pb::store::LockInfo> locked_keys = {},
+                                  std::vector<std::string> not_found_keys = {})
+      : commit_ts(commit_ts),
+        is_rollbacked(is_rollbacked),
+        locked_keys(std::move(locked_keys)),
+        not_found_keys(std::move(not_found_keys)) {}
+
+  bool IsError() const {
+    return (not_found_keys.size() > 0 && commit_ts > 0) || (is_rollbacked && commit_ts > 0) ||
+           (not_found_keys.size() > 0 && is_rollbacked) ||
+           (commit_ts == 0 && !is_rollbacked && locked_keys.size() == 0 && not_found_keys.size() == 0);
+  }
+
+  std::string ToString() const {
+    std::string locks_detail;
+    for (size_t i = 0; i < locked_keys.size(); ++i) {
+      if (i > 0) locks_detail += ", ";
+      locks_detail += fmt::format("{}", locked_keys[i].ShortDebugString());
+    }
+    std::string not_found_detail;
+    for (size_t i = 0; i < not_found_keys.size(); ++i) {
+      if (i > 0) not_found_detail += ", ";
+      not_found_detail += fmt::format("{}", not_found_keys[i]);
+    }
+    return fmt::format("commit_ts({}) is_rollbacked({}) locked_keys_size({}) [{}] not_found_keys_size({}) [{}]",
+                       commit_ts, is_rollbacked, locked_keys.size(), locks_detail, not_found_keys.size(),
+                       not_found_detail);
+  }
+
+  std::string ToShortString() const {
+    return fmt::format("commit_ts({}) is_rollbacked({}) locked_keys_size({}) not_found_keys_size({})", commit_ts,
+                       is_rollbacked, locked_keys.size(), not_found_keys.size());
+  }
+};
+
 struct TxnStatus {
   int64_t lock_ttl;
   int64_t commit_ts;
   pb::store::Action action;
+  // only for async commit lock
+  pb::store::LockInfo primary_lock_info;
 
   explicit TxnStatus() : lock_ttl(-1), commit_ts(-1), action(pb::store::NoAction) {}
   explicit TxnStatus(int64_t lock_ttl, int64_t commit_ts, const pb::store::Action& action)
       : lock_ttl(lock_ttl), commit_ts(commit_ts), action(action) {}
-
+  explicit TxnStatus(int64_t lock_ttl, int64_t commit_ts, const pb::store::Action& action,
+                     const pb::store::LockInfo& primary_lock_info)
+      : lock_ttl(lock_ttl), commit_ts(commit_ts), action(action), primary_lock_info(primary_lock_info) {}
   bool IsCommitted() const { return commit_ts > 0; }
 
   bool IsRollbacked() const { return lock_ttl == 0 && commit_ts == 0; }
@@ -43,7 +94,10 @@ struct TxnStatus {
 
   bool IsMinCommitTSPushed() const { return action == pb::store::MinCommitTSPushed; }
 
-  std::string ToString() const { return fmt::format("lock_ttl({}) commit_ts({})", lock_ttl, commit_ts); }
+  std::string ToString() const {
+    return fmt::format("lock_ttl({}) commit_ts({}) primary_lock_info({})", lock_ttl, commit_ts,
+                       primary_lock_info.ShortDebugString());
+  }
 };
 
 class TxnLockResolver {
@@ -52,7 +106,13 @@ class TxnLockResolver {
 
   virtual ~TxnLockResolver() = default;
 
-  virtual Status ResolveLock(const pb::store::LockInfo& lock_info, int64_t start_ts);
+  virtual Status ResolveLock(const pb::store::LockInfo& conflict_lock_info, int64_t start_ts,
+                             bool force_sync_commit = false);
+
+  virtual Status ResolveLockSecondaryLocks(const pb::store::LockInfo& primary_lock_info, int64_t start_ts,
+                                           const TxnStatus& txn_status, const pb::store::LockInfo& conflict_lock_info);
+
+  virtual Status ResolveNormalLock(const pb::store::LockInfo& lock_info, int64_t start_ts, const TxnStatus& txn_status);
 
  private:
   const ClientStub& stub_;
