@@ -101,7 +101,7 @@ class Allure {
 
   // intetration test and unit test
   static void GenReport(const testing::UnitTest* unit_test, const pb::common::VersionInfo& version_info,
-                        const std::string& directory_path);
+                        const std::string& directory_path, const std::vector<Label>& global_labels = {});
 
  private:
   static void GenTestResultFile(std::vector<TestSuite>& test_suites, const std::string& directory_path);

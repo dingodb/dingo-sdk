@@ -74,3 +74,6 @@ create_table.sh
 .devcontainer/
 local_scripts/
 contrib/xdprocks/
+
+# allure-reports
+allure-reports/
