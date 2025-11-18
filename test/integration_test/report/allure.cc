@@ -14,9 +14,12 @@
 
 #include "report/allure.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -88,23 +91,22 @@ static std::vector<std::pair<std::string, std::string>> TransformVersionInfo(
 }
 
 void Allure::GenReport(const testing::UnitTest* unit_test, const pb::common::VersionInfo& version_info,
-                       const std::string& directory_path) {
+                       const std::string& directory_path, const std::vector<Label>& global_labels) {
   std::vector<dingodb::report::allure::TestSuite> allure_test_suites;
+  std::map<std::string, size_t> allure_suite_indexes;
   int total_count = unit_test->total_test_suite_count();
   for (int i = 0; i < total_count; ++i) {
-    dingodb::report::allure::TestSuite allure_test_suite;
     const auto* test_suite = unit_test->GetTestSuite(i);
-    allure_test_suite.uuid = dingodb::UUIDGenerator::GenerateUUID();
-    allure_test_suite.history_id = dingodb::UUIDGenerator::GenerateUUIDV3(test_suite->name());
-    allure_test_suite.name = test_suite->name();
-    allure_test_suite.start = test_suite->start_timestamp();
-    allure_test_suite.stop = test_suite->start_timestamp() + test_suite->elapsed_time();
 
     int total_case_count = test_suite->total_test_count();
     for (int j = 0; j < total_case_count; ++j) {
       dingodb::report::allure::TestCase allure_test_case;
       const auto* test_case_info = test_suite->GetTestInfo(j);
       const auto* test_case_result = test_case_info->result();
+      if (!test_case_info->should_run()) {
+        continue;
+      }
+      auto file_name = std::filesystem::path(test_case_info->file()).filename().string();
 
       // Generate property map
       std::map<std::string, std::string> properties;
@@ -115,9 +117,9 @@ void Allure::GenReport(const testing::UnitTest* unit_test, const pb::common::Ver
       }
 
       allure_test_case.uuid = dingodb::UUIDGenerator::GenerateUUID();
-      allure_test_case.history_id = dingodb::UUIDGenerator::GenerateUUIDV3(test_case_info->name());
-      allure_test_case.test_case_id = dingodb::UUIDGenerator::GenerateUUIDV3(test_case_info->name());
-      allure_test_case.full_name = fmt::format("{}.{}", test_suite->name(), test_case_info->name());
+      allure_test_case.history_id = fmt::format("{}::{}::{}", file_name, test_suite->name(), test_case_info->name());
+      allure_test_case.test_case_id = allure_test_case.history_id;
+      allure_test_case.full_name = fmt::format("{}::{}.{}", file_name, test_suite->name(), test_case_info->name());
       allure_test_case.name = test_case_info->name();
       allure_test_case.status = TransformStatus(test_case_result);
       allure_test_case.start = test_case_result->start_timestamp();
@@ -125,10 +127,11 @@ void Allure::GenReport(const testing::UnitTest* unit_test, const pb::common::Ver
       allure_test_case.labels = {
           {"framework", "gtest"},
           {"language", "c++"},
-          {"suite", test_suite->name()},
-          {"subSuite", test_case_info->name()},
+          {"suite", file_name},
+          {"subSuite", test_suite->name()},
           {"testMethod", test_case_info->name()},
       };
+      allure_test_case.labels.insert(allure_test_case.labels.end(), global_labels.begin(), global_labels.end());
       allure_test_case.description = GetPropertyValue(properties, "description");
 
       int total_part_count = test_case_result->total_part_count();
@@ -144,10 +147,29 @@ void Allure::GenReport(const testing::UnitTest* unit_test, const pb::common::Ver
         allure_test_case.steps.push_back(allure_test_step);
       }
 
-      allure_test_suite.test_cases.push_back(allure_test_case);
-    }
+      auto iter = allure_suite_indexes.find(file_name);
+      dingodb::report::allure::TestSuite* allure_test_suite;
+      if (iter == allure_suite_indexes.end()) {
+        dingodb::report::allure::TestSuite new_suite;
+        new_suite.uuid = dingodb::UUIDGenerator::GenerateUUID();
+        new_suite.history_id = dingodb::UUIDGenerator::GenerateUUIDV3(file_name);
+        new_suite.name = file_name;
+        new_suite.start = test_case_result->start_timestamp();
+        new_suite.stop = test_case_result->start_timestamp() + test_case_result->elapsed_time();
+        allure_test_suites.push_back(new_suite);
+        allure_suite_indexes[file_name] = allure_test_suites.size() - 1;
+        allure_test_suite = &allure_test_suites.back();
+      } else {
+        allure_test_suite = &allure_test_suites[iter->second];
+        allure_test_suite->start =
+            std::min(allure_test_suite->start, static_cast<int64_t>(test_case_result->start_timestamp()));
+        allure_test_suite->stop = std::max(
+            allure_test_suite->stop,
+            static_cast<int64_t>(test_case_result->start_timestamp() + test_case_result->elapsed_time()));
+      }
 
-    allure_test_suites.push_back(allure_test_suite);
+      allure_test_suite->test_cases.push_back(allure_test_case);
+    }
   }
 
   if (dingodb::Helper::IsExistPath(directory_path)) {

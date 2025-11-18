@@ -45,7 +45,8 @@ int main(int argc, char* argv[]) {
   if (!FLAGS_allure_report.empty()) {
     dingodb::report::allure::Allure::GenReport(testing::UnitTest::GetInstance(),
                                                dingodb::integration_test::Environment::GetInstance().VersionInfo(),
-                                               FLAGS_allure_report);
+                                               FLAGS_allure_report,
+                                               {{"epic", "dingosdk(c++)"}, {"parentSuite", "c++ sdk"}});
   }
 
   // Generate web report.
