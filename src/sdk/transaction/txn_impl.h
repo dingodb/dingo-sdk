@@ -110,6 +110,17 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   // maybe multiple invoke, when out_kvs.size < limit is over.
   Status Scan(const std::string& start_key, const std::string& end_key, uint64_t limit, std::vector<KVPair>& out_kvs);
 
+  Status PreWriteAndCommit() {
+    Status s = DoPreCommit();
+    if (!s.ok()) {
+      return s;
+    } else if (s.ok() && is_one_pc_) {
+      return Status::OK();
+    }
+    s = DoCommit();
+    return s;
+  }
+
   Status PreCommit();
 
   Status Commit();

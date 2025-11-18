@@ -21,11 +21,11 @@
 #include <utility>
 #include <vector>
 
+#include "common/logging.h"
+#include "dingosdk/client.h"
+#include "dingosdk/status.h"
 #include "gflags/gflags.h"
 #include "glog/logging.h"
-#include "dingosdk/client.h"
-#include "common/logging.h"
-#include "dingosdk/status.h"
 
 using dingodb::sdk::Status;
 
@@ -81,7 +81,7 @@ static void CreateRegion(std::string name, std::string start_key, std::string en
   CHECK(start_key < end_key) << "start_key must < end_key";
   CHECK(replicas > 0) << "replicas must > 0";
 
-  dingodb::sdk::RegionCreator *tmp_creator;
+  dingodb::sdk::RegionCreator* tmp_creator;
   Status built = g_client->NewRegionCreator(&tmp_creator);
   CHECK(built.IsOK()) << "dingo creator build fail";
   std::shared_ptr<dingodb::sdk::RegionCreator> creator(tmp_creator);
@@ -118,7 +118,7 @@ static std::shared_ptr<dingodb::sdk::Transaction> NewOptimisticTransaction(dingo
   options.kind = dingodb::sdk::kOptimistic;
   options.keep_alive_ms = keep_alive_ms;
 
-  dingodb::sdk::Transaction *tmp;
+  dingodb::sdk::Transaction* tmp;
   Status built = g_client->NewTransaction(options, &tmp);
   CHECK(built.ok()) << "dingo txn build fail";
   std::shared_ptr<dingodb::sdk::Transaction> txn(tmp);
@@ -133,8 +133,6 @@ static void OptimisticTxnPostClean(dingodb::sdk::TransactionIsolation isolation)
     Status s = post_clean_txn->BatchDelete(keys);
     CHECK(s.ok());
 
-    Status precommit = post_clean_txn->PreCommit();
-    DINGO_LOG(INFO) << "post_clean_txn precommit:" << precommit.ToString();
     Status commit = post_clean_txn->Commit();
     DINGO_LOG(INFO) << "post_clean_txn commit:" << commit.ToString();
   }
@@ -183,7 +181,7 @@ void OptimisticTxnBatch() {
       s = txn->BatchGet(keys, tmp);
       CHECK(s.ok());
       CHECK_EQ(tmp.size(), kvs.size());
-      for (const auto &kv : tmp) {
+      for (const auto& kv : tmp) {
         CHECK_EQ(kv.value, key_values[kv.key]);
       }
     }
@@ -255,8 +253,6 @@ void OptimisticTxnBatch() {
     //   }
   }
 
-  Status precommit = txn->PreCommit();
-  DINGO_LOG(INFO) << "precommit:" << precommit.ToString();
   Status commit = txn->Commit();
   DINGO_LOG(INFO) << "commit:" << commit.ToString();
 
@@ -280,15 +276,13 @@ void OptimisticTxnSingleOp() {
         txn->PutIfAbsent(put_if_absent_key, key_values[put_if_absent_key]);
         txn->Delete(delete_key);
 
-        Status precommit = txn->PreCommit();
-        DINGO_LOG(INFO) << "precommit:" << precommit.ToString();
         Status commit = txn->Commit();
         DINGO_LOG(INFO) << "commit:" << commit.ToString();
       }
     }
 
     {
-      dingodb::sdk::Transaction *tmp;
+      dingodb::sdk::Transaction* tmp;
       Status built = g_client->NewTransaction(options, &tmp);
       CHECK(built.ok()) << "dingo txn build fail";
       std::shared_ptr<dingodb::sdk::Transaction> txn(tmp);
@@ -300,7 +294,7 @@ void OptimisticTxnSingleOp() {
       CHECK(got.ok());
       CHECK_EQ(kvs.size(), 2);
 
-      for (const auto &kv : kvs) {
+      for (const auto& kv : kvs) {
         CHECK(kv.key == put_key || kv.key == put_if_absent_key);
         if (kv.key == put_key) {
           CHECK_EQ(kv.value, key_values[put_key]);
@@ -309,131 +303,11 @@ void OptimisticTxnSingleOp() {
         }
       }
 
-      Status precommit = txn->PreCommit();
-      DINGO_LOG(INFO) << "precommit:" << precommit.ToString();
       Status commit = txn->Commit();
       DINGO_LOG(INFO) << "commit:" << commit.ToString();
     }
 
     OptimisticTxnPostClean(dingodb::sdk::kSnapshotIsolation);
-  }
-}
-
-void OptimisticTxnLockConflict() {
-  std::string put_key = "xa01";
-  std::string put_if_absent_key = "xa02";
-  std::string delete_key = "xa03";
-
-  std::string put_value = "rxa01";
-  std::string put_if_absent_value = "rxa02";
-
-  auto txn = NewOptimisticTransaction(dingodb::sdk::kSnapshotIsolation);
-  {
-    txn->Put(put_key, put_value);
-    txn->PutIfAbsent(put_if_absent_key, put_if_absent_value);
-    txn->Delete(delete_key);
-
-    Status precommit = txn->PreCommit();
-    DINGO_LOG(INFO) << "precommit:" << precommit.ToString();
-  }
-}
-
-void OptimisticTxnReadSnapshotAndReadCommiited() {
-  std::string put_key = "xb01";
-  std::string put_if_absent_key = "xc01";
-  std::string delete_key = "xd01";
-
-  auto txn = NewOptimisticTransaction(dingodb::sdk::kSnapshotIsolation);
-  {
-    std::vector<dingodb::sdk::KVPair> kvs;
-    Status got = txn->BatchGet(keys, kvs);
-    DINGO_LOG(INFO) << "batch get:" << got.ToString();
-    CHECK(got.ok());
-    CHECK_EQ(kvs.size(), 0);
-
-    txn->Put(put_key, key_values[put_key]);
-    txn->PutIfAbsent(put_if_absent_key, key_values[put_if_absent_key]);
-    txn->Delete(delete_key);
-
-    Status precommit = txn->PreCommit();
-    DINGO_LOG(INFO) << "precommit:" << precommit.ToString();
-  }
-
-  auto read_commit_txn = NewOptimisticTransaction(dingodb::sdk::kReadCommitted);
-
-  auto new_txn = NewOptimisticTransaction(dingodb::sdk::kSnapshotIsolation);
-  {
-    std::vector<dingodb::sdk::KVPair> kvs;
-    Status got = new_txn->BatchGet(keys, kvs);
-    DINGO_LOG(INFO) << "batch get:" << got.ToString();
-    CHECK(got.IsTxnLockConflict());
-  }
-
-  {
-    Status commit = txn->Commit();
-    DINGO_LOG(INFO) << "txn commit:" << commit.ToString();
-  }
-
-  {
-    // snapshot read nothing
-    std::vector<dingodb::sdk::KVPair> kvs;
-    Status got = new_txn->BatchGet(keys, kvs);
-    DINGO_LOG(INFO) << "batch get:" << got.ToString();
-    CHECK(got.ok());
-    CHECK_EQ(kvs.size(), 0);
-    Status precommit = new_txn->PreCommit();
-    DINGO_LOG(INFO) << "new_txn precommit:" << precommit.ToString();
-    Status commit = new_txn->Commit();
-    DINGO_LOG(INFO) << "new_txn commit:" << commit.ToString();
-  }
-
-  {
-    // readCommiited should read txn commit data
-    std::vector<dingodb::sdk::KVPair> kvs;
-    Status got = read_commit_txn->BatchGet(keys, kvs);
-    DINGO_LOG(INFO) << "batch get:" << got.ToString();
-    CHECK(got.ok());
-    CHECK_EQ(kvs.size(), 2);
-
-    for (const auto &kv : kvs) {
-      CHECK(kv.key == put_key || kv.key == put_if_absent_key);
-      if (kv.key == put_key) {
-        CHECK_EQ(kv.value, key_values[put_key]);
-      } else if (kv.key == put_if_absent_key) {
-        CHECK_EQ(kv.value, key_values[put_if_absent_key]);
-      }
-    }
-
-    Status precommit = read_commit_txn->PreCommit();
-    DINGO_LOG(INFO) << "read_commit_txn precommit:" << precommit.ToString();
-    Status commit = read_commit_txn->Commit();
-    DINGO_LOG(INFO) << "read_commit_txn commit:" << commit.ToString();
-  }
-
-  OptimisticTxnPostClean(dingodb::sdk::kSnapshotIsolation);
-}
-
-void OptimisticTxnRollback() {
-  std::string put_key = "xb01";
-  std::string put_if_absent_key = "xb02";
-  std::string delete_key = "xb03";
-
-  std::string put_value = "rxa01";
-  std::string put_if_absent_value = "rxa02";
-
-  auto txn = NewOptimisticTransaction(dingodb::sdk::kSnapshotIsolation);
-  {
-    txn->Put(put_key, put_value);
-    txn->PutIfAbsent(put_if_absent_key, put_if_absent_value);
-    txn->Delete(delete_key);
-
-    Status precommit = txn->PreCommit();
-    DINGO_LOG(INFO) << "precommit:" << precommit.ToString();
-  }
-
-  {
-    Status rollback = txn->Rollback();
-    DINGO_LOG(INFO) << "txn rollback:" << rollback.ToString();
   }
 }
 
@@ -454,8 +328,6 @@ void OptimisticTxnScan() {
     txn->PutIfAbsent(put_if_absent_key, key_values[put_if_absent_key]);
     txn->Delete(delete_key);
 
-    Status precommit = txn->PreCommit();
-    DINGO_LOG(INFO) << "precommit:" << precommit.ToString();
     Status commit = txn->Commit();
     DINGO_LOG(INFO) << "txn commit:" << commit.ToString();
   }
@@ -469,7 +341,7 @@ void OptimisticTxnScan() {
     CHECK(got.ok());
     CHECK_EQ(kvs.size(), 2);
 
-    for (const auto &kv : kvs) {
+    for (const auto& kv : kvs) {
       CHECK(kv.key == put_key || kv.key == put_if_absent_key);
       DINGO_LOG(INFO) << "batch get, key:" << kv.key << ",value:" << kv.value;
       if (kv.key == put_key) {
@@ -491,7 +363,7 @@ void OptimisticTxnScan() {
     }
     CHECK_EQ(kvs.size(), 2);
 
-    for (const auto &kv : kvs) {
+    for (const auto& kv : kvs) {
       CHECK(kv.key == put_key || kv.key == put_if_absent_key);
       if (kv.key == put_key) {
         CHECK_EQ(kv.value, key_values[put_key]);
@@ -499,9 +371,6 @@ void OptimisticTxnScan() {
         CHECK_EQ(kv.value, key_values[put_if_absent_key]);
       }
     }
-
-    Status precommit = read_commit_txn->PreCommit();
-    DINGO_LOG(INFO) << "read_commit_txn precommit:" << precommit.ToString();
     Status commit = read_commit_txn->Commit();
     DINGO_LOG(INFO) << "read_commit_txn commit:" << commit.ToString();
   }
@@ -536,8 +405,6 @@ void OptimisticTxnScanReadSelf() {
     txn->Delete(delete_key);
     txn->Put(put_keyf, key_values[put_keyf]);
 
-    Status precommit = txn->PreCommit();
-    DINGO_LOG(INFO) << "precommit:" << precommit.ToString();
     Status commit = txn->Commit();
     DINGO_LOG(INFO) << "txn commit:" << commit.ToString();
   }
@@ -571,7 +438,7 @@ void OptimisticTxnScanReadSelf() {
       Status scan = read_commit_txn->Scan("xa00000000", "xz00000000", 0, kvs);
       DINGO_LOG(INFO) << "read_commit_txn scan:" << scan.ToString();
       CHECK(scan.ok());
-      for (const auto &kv : kvs) {
+      for (const auto& kv : kvs) {
         DINGO_LOG(INFO) << "read_commit_txn scan key:" << kv.key << ", value:" << kv.value;
       }
       if (kvs.size() != 5) {
@@ -579,7 +446,7 @@ void OptimisticTxnScanReadSelf() {
       }
       CHECK_EQ(kvs.size(), 5);
 
-      for (const auto &kv : kvs) {
+      for (const auto& kv : kvs) {
         if (kv.key != put_if_absent_key && kv.key != put_keyf) {
           CHECK_EQ(kv.value, kv.key);
         } else {
@@ -600,15 +467,13 @@ void OptimisticTxnScanReadSelf() {
       Status scan = read_commit_txn->Scan("xa00000000", "xz00000000", limit, kvs);
       DINGO_LOG(INFO) << "read_commit_txn scan:" << scan.ToString();
       CHECK(scan.ok());
-      for (const auto &kv : kvs) {
+      for (const auto& kv : kvs) {
         DINGO_LOG(INFO) << "read_commit_txn scan key:" << kv.key << ", value:" << kv.value;
       }
       CHECK_EQ(kvs.size(), 2);
       // TODO: check key prefix is xb
     }
 
-    Status precommit = read_commit_txn->PreCommit();
-    DINGO_LOG(INFO) << "read_commit_txn precommit:" << precommit.ToString();
     Status commit = read_commit_txn->Commit();
     DINGO_LOG(INFO) << "read_commit_txn commit:" << commit.ToString();
   }
@@ -620,8 +485,6 @@ void OptimisticTxnScanReadSelf() {
       Status s = clean_txn->BatchDelete(keys);
       CHECK(s.ok());
 
-      Status precommit = clean_txn->PreCommit();
-      DINGO_LOG(INFO) << "clean_txn precommit:" << precommit.ToString();
       Status commit = clean_txn->Commit();
       DINGO_LOG(INFO) << "clean_txn commit:" << commit.ToString();
     }
@@ -639,7 +502,7 @@ void OptimisticTxnScanReadSelf() {
   OptimisticTxnPostClean(dingodb::sdk::kSnapshotIsolation);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   FLAGS_minloglevel = google::GLOG_INFO;
   FLAGS_logtostdout = true;
   FLAGS_colorlogtostdout = true;
@@ -657,7 +520,7 @@ int main(int argc, char *argv[]) {
 
   CHECK(!FLAGS_addrs.empty());
 
-  dingodb::sdk::Client *tmp;
+  dingodb::sdk::Client* tmp;
   Status built = dingodb::sdk::Client::BuildFromAddrs(FLAGS_addrs, &tmp);
   if (!built.ok()) {
     DINGO_LOG(ERROR) << "Fail to build client, please check parameter --addrs=" << FLAGS_addrs
@@ -677,11 +540,9 @@ int main(int argc, char *argv[]) {
 
   OptimisticTxnBatch();
   // OptimisticTxnSingleOp();
-  OptimisticTxnLockConflict();
   // OptimisticTxnReadSnapshotAndReadCommiited();
-  OptimisticTxnRollback();
   // OptimisticTxnScan();
   // OptimisticTxnScanReadSelf();
 
-  // PostClean();
+  PostClean();
 }
