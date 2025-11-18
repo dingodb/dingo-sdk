@@ -588,9 +588,7 @@ Status Transaction::Scan(const std::string& start_key, const std::string& end_ke
   return data_->impl->Scan(start_key, end_key, limit, kvs);
 }
 
-Status Transaction::PreCommit() { return data_->impl->PreCommit(); }
-
-Status Transaction::Commit() { return data_->impl->Commit(); }
+Status Transaction::Commit() { return data_->impl->PreWriteAndCommit(); }
 
 Status Transaction::Rollback() { return data_->impl->Rollback(); }
 

@@ -254,13 +254,8 @@ class Transaction {
   // maybe multiple invoke, when out_kvs.size < limit is over.
   Status Scan(const std::string& start_key, const std::string& end_key, uint64_t limit, std::vector<KVPair>& kvs);
 
-  // If return status is ok, then call Commit
-  // else try to precommit or rollback depends on status code
-  Status PreCommit();
-
-  // NOTE: Caller should first call PreCommit, when PreCommit success then call Commit
-  // If return status is ok or rolledback, txn is end
-  // other status, caller should retry
+  // NOTE: If return status is ok , txn is end
+  // other status, caller should txn->rollback
   Status Commit();
 
   Status Rollback();

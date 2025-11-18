@@ -134,14 +134,6 @@ void OptimisticTxnPut() {
                                .count() -
                            start_time_ms;
 
-    Status precommit = txn->PreCommit();
-    DINGO_LOG(INFO) << "precommit:" << precommit.ToString();
-    DINGO_LOG(INFO) << "prewrite data time cost ms: "
-                    << std::chrono::duration_cast<std::chrono::milliseconds>(
-                           std::chrono::system_clock::now().time_since_epoch())
-                               .count() -
-                           start_time_ms;
-
     Status commit = txn->Commit();
     DINGO_LOG(INFO) << "txn commit:" << commit.ToString();
 
@@ -164,8 +156,7 @@ void OptimisticTxnScan() {
   Status scan = read_commit_txn->Scan(FLAGS_range_start, FLAGS_range_end, 0, kvs);
   DINGO_LOG(INFO) << "read_commit_txn scan:" << scan.ToString();
 
-  Status precommit = read_commit_txn->PreCommit();
-  DINGO_LOG(INFO) << "read_commit_txn precommit:" << precommit.ToString();
+
   Status commit = read_commit_txn->Commit();
   DINGO_LOG(INFO) << "read_commit_txn commit:" << commit.ToString();
 
