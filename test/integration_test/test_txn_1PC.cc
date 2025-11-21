@@ -66,7 +66,7 @@ TYPED_TEST(TxnTest1PC, TxnMultiThread1PC) {
     options.keep_alive_ms = 10000;
     options.kind = sdk::TransactionKind::kOptimistic;
     auto status = Environment::GetInstance().GetClient()->NewTransaction(options, &txn);
-    CHECK(txn != nullptr) << "txn is nullptr";
+    ASSERT_TRUE(txn != nullptr) << "txn is nullptr";
     std::string key = Helper::EncodeTxnKey(FLAGS_txn_key_prefix);
     std::string value = "0";
     txn->Put(key, value);
@@ -87,7 +87,7 @@ TYPED_TEST(TxnTest1PC, TxnMultiThread1PC) {
         options.keep_alive_ms = 10000;
         options.kind = sdk::TransactionKind::kOptimistic;
         auto status = Environment::GetInstance().GetClient()->NewTransaction(options, &txn);
-        CHECK(txn != nullptr) << "txn is nullptr";
+        ASSERT_TRUE(txn != nullptr) << "txn is nullptr";
         std::string key = Helper::EncodeTxnKey(FLAGS_txn_key_prefix);
         std::string value;
         status = txn->Get(key, value);
@@ -111,7 +111,7 @@ TYPED_TEST(TxnTest1PC, TxnMultiThread1PC) {
           delete txn;
           continue;
         }
-        CHECK(txn->IsOnePc()) << "txn is not 1pc";
+        ASSERT_TRUE(txn->IsOnePc()) << "txn is not 1pc";
         thread_success_count++;
         LOG(INFO) << fmt::format("after_commit success txn_id {}, value: {}, success count: {}", txn->ID(), value,
                                  success_count.fetch_add(1) + 1);
@@ -134,9 +134,9 @@ TYPED_TEST(TxnTest1PC, TxnMultiThread1PC) {
     options.keep_alive_ms = 10000;
     options.kind = sdk::TransactionKind::kOptimistic;
     auto status = Environment::GetInstance().GetClient()->NewTransaction(options, &txn);
-    CHECK(txn != nullptr) << "txn is nullptr";
+    ASSERT_TRUE(txn != nullptr) << "txn is nullptr";
     status = txn->Get(key, value);
-    CHECK(status.ok()) << status.ToString();
+    ASSERT_TRUE(status.ok()) << status.ToString();
     delete txn;
 
     EXPECT_EQ(success_count.load(), std::stoi(value))

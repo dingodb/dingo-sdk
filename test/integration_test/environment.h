@@ -18,11 +18,11 @@
 #include <mutex>
 
 #include "common/logging.h"
+#include "dingosdk/client.h"
 #include "fmt/core.h"
 #include "gflags/gflags.h"
 #include "glog/logging.h"
 #include "gtest/gtest.h"
-#include "dingosdk/client.h"
 #include "sdk/client_stub.h"
 #include "sdk/common/helper.h"
 #include "sdk/rpc/coordinator_rpc.h"
@@ -32,6 +32,9 @@ DECLARE_string(coordinator_addrs);
 namespace dingodb {
 
 namespace integration_test {
+
+// Global static version info to avoid copy issues
+static pb::common::VersionInfo g_version_info;
 
 class Environment : public testing::Environment {
  public:
@@ -62,15 +65,15 @@ class Environment : public testing::Environment {
     client_.reset(tmp);
 
     // Get dingo-store version info
-    version_info_ = GetVersionInfo();
-    PrintVersionInfo(version_info_);
+    g_version_info = GetVersionInfo();
+    PrintVersionInfo(g_version_info);
   }
 
   void TearDown() override {}
 
   std::shared_ptr<sdk::Client> GetClient() { return client_; }
 
-  pb::common::VersionInfo VersionInfo() { return version_info_; }
+  static const pb::common::VersionInfo& VersionInfo() { return g_version_info; }
 
  private:
   pb::common::VersionInfo GetVersionInfo() {
@@ -104,8 +107,6 @@ class Environment : public testing::Environment {
 
   std::shared_ptr<sdk::ClientStub> client_stub_;
   std::shared_ptr<sdk::Client> client_;
-
-  pb::common::VersionInfo version_info_;
 };
 
 }  // namespace integration_test

@@ -78,7 +78,7 @@ TYPED_TEST(TxnTest2PC, TxnMultiThreadAsyncCommit) {
     options.keep_alive_ms = 10000;
     options.kind = sdk::TransactionKind::kOptimistic;
     auto status = Environment::GetInstance().GetClient()->NewTransaction(options, &txn);
-    CHECK(txn != nullptr) << "txn is nullptr";
+    ASSERT_TRUE(txn != nullptr) << "txn is nullptr";
     for (const auto& range : extra_ranges) {
       std::string key = Helper::EncodeTxnKey(FLAGS_txn_key_prefix + range.first);
       std::string value = "0";
@@ -101,7 +101,7 @@ TYPED_TEST(TxnTest2PC, TxnMultiThreadAsyncCommit) {
         options.keep_alive_ms = 10000;
         options.kind = sdk::TransactionKind::kOptimistic;
         auto status = Environment::GetInstance().GetClient()->NewTransaction(options, &txn);
-        CHECK(txn != nullptr) << "txn is nullptr";
+        ASSERT_TRUE(txn != nullptr) << "txn is nullptr";
 
         std::vector<std::pair<std::string, std::string>> kvs;
         bool error = false;
@@ -170,12 +170,12 @@ TYPED_TEST(TxnTest2PC, TxnMultiThreadAsyncCommit) {
     options.keep_alive_ms = 10000;
     options.kind = sdk::TransactionKind::kOptimistic;
     auto status = Environment::GetInstance().GetClient()->NewTransaction(options, &txn);
-    CHECK(txn != nullptr) << "txn is nullptr";
+    ASSERT_TRUE(txn != nullptr) << "txn is nullptr";
     for (const auto& range : extra_ranges) {
       std::string key = Helper::EncodeTxnKey(FLAGS_txn_key_prefix + range.first);
       std::string value;
       status = txn->Get(key, value);
-      CHECK(status.ok()) << status.ToString();
+      ASSERT_TRUE(status.ok()) << status.ToString();
       EXPECT_EQ(success_count.load(), std::stoi(value))
           << fmt::format("Not match value, key {}, expect {}, actual {}", key, success_count.load(), value);
     }
