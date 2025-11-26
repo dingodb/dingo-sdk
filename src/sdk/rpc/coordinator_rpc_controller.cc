@@ -61,7 +61,9 @@ void CoordinatorRpcController::DoAsyncCall(Rpc& rpc) {
   SendCoordinatorRpc(rpc);
 }
 
-bool CoordinatorRpcController::NeedPickLeader() { return !status_.IsRemoteError(); }
+bool CoordinatorRpcController::NeedPickLeader() {
+  return status_.IsNetworkError() || status_.IsNotLeader() || status_.IsNoLeader();
+}
 
 void CoordinatorRpcController::PrepareRpc(Rpc& rpc) {
   if (NeedPickLeader()) {
