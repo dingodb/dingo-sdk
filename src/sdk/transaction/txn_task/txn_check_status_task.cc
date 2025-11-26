@@ -56,6 +56,7 @@ void TxnCheckStatusTask::DoAsync() {
   rpc_.MutableRequest()->set_caller_start_ts(start_ts_);
   rpc_.MutableRequest()->set_current_ts(current_ts);
   rpc_.MutableRequest()->set_force_sync_commit(force_sync_commit_);
+  rpc_.MutableRequest()->set_rollback_if_not_exist(rollback_if_not_exist_);
 
   store_rpc_controller_.ResetRegion(region);
   store_rpc_controller_.AsyncCall([this](auto&& s) { TxnCheckStatusRpcCallback(std::forward<decltype(s)>(s)); });

@@ -31,13 +31,14 @@ namespace sdk {
 class TxnCheckStatusTask : public TxnTask {
  public:
   TxnCheckStatusTask(const ClientStub& stub, int64_t lock_ts, const std::string& primary_key, int64_t start_ts,
-                     TxnStatus& txn_status, bool force_sync_commit = false)
+                     TxnStatus& txn_status, bool force_sync_commit = false, bool rollback_if_not_exist = false)
       : TxnTask(stub),
         lock_ts_(lock_ts),
         primary_key_(primary_key),
         start_ts_(start_ts),
         txn_status_(txn_status),
         force_sync_commit_(force_sync_commit),
+        rollback_if_not_exist_(rollback_if_not_exist),
         store_rpc_controller_(stub, rpc_) {}
 
   ~TxnCheckStatusTask() override = default;
@@ -57,6 +58,7 @@ class TxnCheckStatusTask : public TxnTask {
   TxnCheckTxnStatusRpc rpc_;
   bool force_sync_commit_{false};
   uint64_t resolved_lock_{0};
+  bool rollback_if_not_exist_{false};
 
   RWLock rw_lock_;
   Status status_;

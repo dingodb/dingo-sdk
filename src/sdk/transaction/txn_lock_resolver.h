@@ -101,12 +101,12 @@ class TxnLockResolver {
   virtual Status ResolveLock(const pb::store::LockInfo& conflict_lock_info, int64_t start_ts,
                              bool force_sync_commit = false);
 
-  virtual Status ResolveLockSecondaryLocks(const pb::store::LockInfo& primary_lock_info, int64_t start_ts,
-                                           const TxnStatus& txn_status, const pb::store::LockInfo& conflict_lock_info);
-
-  virtual Status ResolveNormalLock(const pb::store::LockInfo& lock_info, int64_t start_ts, const TxnStatus& txn_status);
-
  private:
+  Status ResolveLockSecondaryLocks(const pb::store::LockInfo& primary_lock_info, int64_t start_ts,
+                                   const TxnStatus& txn_status, const pb::store::LockInfo& conflict_lock_info);
+
+  Status ResolveNormalLock(const pb::store::LockInfo& lock_info, int64_t start_ts, const TxnStatus& txn_status);
+
   const ClientStub& stub_;
 };
 

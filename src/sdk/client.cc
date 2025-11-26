@@ -601,6 +601,8 @@ bool Transaction::IsOnePc() const { return data_->impl->IsOnePc(); }
 
 bool Transaction::IsAsyncCommit() const { return data_->impl->IsAsyncCommit(); }
 
+bool Transaction::IsConcurrentPreCommit() const { return data_->impl->IsConcurrentPreCommit(); }
+
 RegionCreator::RegionCreator(Data* data) : data_(data) {}
 
 RegionCreator::~RegionCreator() { delete data_; }

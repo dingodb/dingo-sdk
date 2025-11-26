@@ -232,13 +232,12 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
     }
   }
 
+  bool trigger_heartbeat = false;
+
   {
     WriteLockGuard guard(rw_lock_);
     if (s.ok()) {
       if (!need_retry) {
-        for (const auto& mutation : rpc->Request()->mutations()) {
-          next_mutations_.erase(mutation.key());
-        }
         if (is_one_pc_) {
           if (response->one_pc_commit_ts() == 0) {
             // repeat rpc to disable 1PC downgrade to 2pc
@@ -259,6 +258,16 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
             min_commit_ts_ = std::max(min_commit_ts_, response->min_commit_ts());
           }
         }
+
+        for (const auto& mutation : rpc->Request()->mutations()) {
+          if (!is_one_pc_) {
+            if (mutation.key() == primary_key_) {
+              // 2pc need schedule heartbeat to update primary lock ttl
+              trigger_heartbeat = true;
+            }
+          }
+          next_mutations_.erase(mutation.key());
+        }
       } else {
         need_retry_ = true;
       }
@@ -268,6 +277,11 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
         status_ = s;
       }
     }
+  }
+
+  if (trigger_heartbeat) {
+    // 2pc need schedule heartbeat to update primary lock ttl
+    txn_impl_->ScheduleHeartBeat();
   }
 
   if (sub_tasks_count_.fetch_sub(1) == 1) {

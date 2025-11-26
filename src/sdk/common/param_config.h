@@ -66,6 +66,7 @@ DECLARE_int64(txn_op_max_retry);
 
 DECLARE_int64(txn_prewrite_delay_ms);
 DECLARE_int64(txn_prewrite_max_retry);
+DECLARE_bool(enable_txn_concurrent_prewrite);
 
 DECLARE_int64(vector_op_delay_ms);
 DECLARE_int64(vector_op_max_retry);
@@ -78,6 +79,8 @@ DECLARE_bool(log_rpc_time);
 
 DECLARE_int64(txn_heartbeat_interval_ms);
 DECLARE_int64(txn_heartbeat_lock_delay_ms);
+
+DECLARE_int64(txn_check_status_interval_ms);
 
 DECLARE_uint32(stale_period_us);
 DECLARE_uint32(tso_batch_size);

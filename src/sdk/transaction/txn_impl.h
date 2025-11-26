@@ -125,9 +125,13 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
 
   Status Rollback();
 
+  void ScheduleHeartBeat();
+
   bool IsOnePc() const { return is_one_pc_.load(); }
 
   bool IsAsyncCommit() const { return !is_one_pc_.load() && use_async_commit_.load(); }
+
+  bool IsConcurrentPreCommit() const { return use_concurrent_precommit_.load(); }
 
   int64_t GetStartTs() const { return start_ts_.load(); }
   int64_t GetCommitTs() const { return commit_ts_.load(); }
@@ -204,6 +208,10 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   Status DoPreCommit();
   Status PreCommit1PC();
   Status PreCommit2PC();
+  Status PreCommit2PCConcurrent();
+  Status PreCommit2PCSequential();
+
+  void UpdateAsyncCommitTs(uint64_t min_commit_ts);
 
   // txn commit
   Status CommitPrimaryKey();
@@ -219,7 +227,6 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   Status DoRollback();
 
   void DoHeartBeat(int64_t start_ts, std::string primary_key);
-  void ScheduleHeartBeat();
 
   void CheckStateActive() const;
 
@@ -235,6 +242,7 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
 
   std::atomic<bool> is_one_pc_{false};
   std::atomic<bool> use_async_commit_{false};
+  std::atomic<bool> use_concurrent_precommit_{false};
 
   TxnBufferUPtr buffer_;
 

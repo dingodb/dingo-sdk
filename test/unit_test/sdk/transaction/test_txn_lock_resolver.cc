@@ -48,56 +48,6 @@ class SDKTxnLockResolverTest : public TestBase {
   pb::meta::TsoTimestamp init_tso;
 };
 
-TEST_F(SDKTxnLockResolverTest, TxnNotFound) {
-  std::string key = "b";
-  auto fake_lock = PrepareLockInfo();
-  fake_lock.set_key(key);
-
-  std::shared_ptr<Region> region;
-  CHECK(meta_cache->LookupRegionByKey(fake_lock.primary_lock(), region).IsOK());
-  CHECK_NOTNULL(region.get());
-
-  auto fake_tso = CurrentFakeTso();
-
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
-    auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
-    EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
-    t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
-    auto* ts = t_rpc->MutableResponse()->mutable_start_timestamp();
-    *ts = fake_tso;
-
-    return Status::OK();
-  });
-
-  EXPECT_CALL(*rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
-    auto* txn_rpc = dynamic_cast<TxnCheckTxnStatusRpc*>(&rpc);
-    CHECK_NOTNULL(txn_rpc);
-
-    const auto* request = txn_rpc->Request();
-    EXPECT_TRUE(request->has_context());
-    auto context = request->context();
-    EXPECT_EQ(context.region_id(), region->RegionId());
-    EXPECT_TRUE(context.has_region_epoch());
-    EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
-                              region->GetEpoch()));
-
-    EXPECT_EQ(request->primary_key(), fake_lock.primary_lock());
-    EXPECT_EQ(request->lock_ts(), fake_lock.lock_ts());
-    EXPECT_EQ(request->current_ts(), Tso2Timestamp(fake_tso));
-
-    // txn_rpc->MutableResponse()->set_lock_ttl(10);
-    auto* txn_result = txn_rpc->MutableResponse()->mutable_txn_result();
-    auto* no_txn = txn_result->mutable_txn_not_found();
-    no_txn->set_start_ts(request->lock_ts());
-    no_txn->set_primary_key(request->primary_key());
-
-    cb();
-  });
-
-  Status s = lock_resolver->ResolveLock(fake_lock, Tso2Timestamp(init_tso));
-  EXPECT_TRUE(s.IsTxnNotFound());
-}
-
 TEST_F(SDKTxnLockResolverTest, Locked) {
   std::string key = "b";
   auto fake_lock = PrepareLockInfo();
@@ -1269,7 +1219,7 @@ TEST_F(SDKTxnLockResolverTest, AsyncCommitCaseTransferSyncCommit) {
         lock_info->set_lock_ttl(0);
         lock_info->set_txn_size(1);
         lock_info->set_lock_type(pb::store::Op::Put);
-        lock_info->set_use_async_commit(true);  
+        lock_info->set_use_async_commit(true);
         lock_info->set_min_commit_ts(10);
         lock_info->add_secondaries("b0000000");
         lock_info->add_secondaries("d0000000");
@@ -1295,7 +1245,7 @@ TEST_F(SDKTxnLockResolverTest, AsyncCommitCaseTransferSyncCommit) {
         lock_info->set_primary_lock(fake_lock.primary_lock());
         lock_info->set_key(request->keys(0));
         lock_info->set_lock_ttl(0);
-        lock_info->set_use_async_commit(false);// transfer to sync commit
+        lock_info->set_use_async_commit(false);  // transfer to sync commit
         lock_info->set_lock_type(pb::store::Op::Put);
         lock_info->set_min_commit_ts(11);
         lock_info->add_secondaries("b0000000");
@@ -1399,6 +1349,80 @@ TEST_F(SDKTxnLockResolverTest, AsyncCommitCaseTransferSyncCommit) {
   EXPECT_TRUE(s.ok());
 }
 
-}  // namespace sdk
+TEST_F(SDKTxnLockResolverTest, TxnNotFoundTTLExpired) {
+  std::string key = "b";
+  auto fake_lock = PrepareLockInfo();
+  fake_lock.set_key(key);
+  // set lock ttl expired
+  fake_lock.set_lock_ttl(0);
 
+  std::shared_ptr<Region> region;
+  CHECK(meta_cache->LookupRegionByKey(fake_lock.primary_lock(), region).IsOK());
+  CHECK_NOTNULL(region.get());
+
+  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
+    auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
+    EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
+    t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
+    auto* ts = t_rpc->MutableResponse()->mutable_start_timestamp();
+    *ts = CurrentFakeTso();
+
+    return Status::OK();
+  });
+
+  EXPECT_CALL(*rpc_client, SendRpc)
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        auto* txn_rpc = dynamic_cast<TxnCheckTxnStatusRpc*>(&rpc);
+        CHECK_NOTNULL(txn_rpc);
+
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        auto context = request->context();
+        EXPECT_EQ(context.region_id(), region->RegionId());
+        EXPECT_TRUE(context.has_region_epoch());
+        EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                                  region->GetEpoch()));
+
+        EXPECT_EQ(request->primary_key(), fake_lock.primary_lock());
+        EXPECT_EQ(request->lock_ts(), fake_lock.lock_ts());
+        EXPECT_EQ(request->rollback_if_not_exist(), false);
+
+        auto* txn_result = txn_rpc->MutableResponse()->mutable_txn_result();
+        auto* no_txn = txn_result->mutable_txn_not_found();
+        no_txn->set_start_ts(request->lock_ts());
+        no_txn->set_primary_key(request->primary_key());
+
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        auto* txn_rpc = dynamic_cast<TxnCheckTxnStatusRpc*>(&rpc);
+        CHECK_NOTNULL(txn_rpc);
+
+        const auto* request = txn_rpc->Request();
+        EXPECT_TRUE(request->has_context());
+        auto context = request->context();
+        EXPECT_EQ(context.region_id(), region->RegionId());
+        EXPECT_TRUE(context.has_region_epoch());
+        EXPECT_EQ(0, EpochCompare(RegionEpoch(context.region_epoch().version(), context.region_epoch().conf_version()),
+                                  region->GetEpoch()));
+
+        EXPECT_EQ(request->primary_key(), fake_lock.primary_lock());
+        EXPECT_EQ(request->lock_ts(), fake_lock.lock_ts());
+        EXPECT_EQ(request->rollback_if_not_exist(), true);
+
+        // primary lock is committed
+        txn_rpc->MutableResponse()->set_commit_ts(10);
+
+        cb();
+      })
+      .WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+        (void)rpc;
+        cb();
+      });
+
+  Status s = lock_resolver->ResolveLock(fake_lock, Tso2Timestamp(init_tso));
+  EXPECT_TRUE(s.ok());
+}
+
+}  // namespace sdk
 }  // namespace dingodb

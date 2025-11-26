@@ -443,9 +443,11 @@ void TxnImpl::ScheduleHeartBeat() {
 void TxnImpl::DoHeartBeat(int64_t start_ts, std::string primary_key) {
   State state = state_.load();
   if (state != kPreCommitted && state != kPreCommitting && state != kCommitting) {
+    DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] heartbeat stop, state({}).", ID(), StateName(state));
     return;
   }
-  if (use_async_commit_.load() && state == kPreCommitted) {
+  if (use_async_commit_.load() && state != kPreCommitting) {
+    DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] heartbeat stop for async commit, state({}).", ID(), StateName(state));
     return;
   }
   std::shared_ptr<TxnHeartbeatTask> heartbeat_task = std::make_shared<TxnHeartbeatTask>(stub_, start_ts, primary_key);
@@ -499,6 +501,8 @@ Status TxnImpl::DoPreCommit() {
   is_one_pc_.store((region_ids.size() == 1) && (buffer_->Mutations().size() <= FLAGS_txn_max_batch_count));
 
   use_async_commit_.store(buffer_->MutationsSize() < FLAGS_txn_max_async_commit_count && FLAGS_enable_txn_async_commit);
+
+  use_concurrent_precommit_.store(FLAGS_enable_txn_concurrent_prewrite);
 
   Status status = is_one_pc_.load() ? PreCommit1PC() : PreCommit2PC();
 
@@ -554,6 +558,20 @@ Status TxnImpl::PreCommit1PC() {
 Status TxnImpl::PreCommit2PC() {
   DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] precommit primary key, pk({}).", ID(),
                                   StringToHex(buffer_->GetPrimaryKey()));
+
+  bool is_one_pc = is_one_pc_.load();
+  CHECK(!is_one_pc) << fmt::format("[sdk.txn.{}] precommit 2pc but is_one_pc is true.", ID());
+
+  if (use_concurrent_precommit_.load()) {
+    DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] precommit use concurrent prewrite.", ID());
+    return PreCommit2PCConcurrent();
+  } else {
+    DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] precommit use sequential prewrite.", ID());
+    return PreCommit2PCSequential();
+  }
+}
+
+Status TxnImpl::PreCommit2PCSequential() {
   // primary key map
   std::map<std::string, const TxnMutation*> mutations_map_primary_key;
   mutations_map_primary_key.emplace(
@@ -566,8 +584,10 @@ Status TxnImpl::PreCommit2PC() {
     }
     mutations_map_ordinary_keys.emplace(std::make_pair(key, &mutation));
   }
-  bool is_one_pc = is_one_pc_.load();
-  CHECK(!is_one_pc) << fmt::format("[sdk.txn.{}] precommit 2pc but is_one_pc is true.", ID());
+
+  // precommit primary key
+  DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] precommit primary key.", ID());
+  bool is_one_pc = false;
   bool use_async_commit = use_async_commit_.load();
   uint64_t min_commit_ts = 0;
   TxnPrewriteTask task_primary(stub_, buffer_->GetPrimaryKey(), mutations_map_primary_key, shared_from_this(),
@@ -584,13 +604,8 @@ Status TxnImpl::PreCommit2PC() {
   if (!use_async_commit) {
     use_async_commit_.store(false);
   } else {
-    CHECK(min_commit_ts > 0) << fmt::format("[sdk.txn.{}] min_commit_ts({}) invalid.", ID(), min_commit_ts);
-    min_commit_ts = std::max(min_commit_ts, commit_ts_.load());
-    commit_ts_.store(min_commit_ts);
+    UpdateAsyncCommitTs(min_commit_ts);
   }
-
-  // 2pc need schedule heartbeat to update lock ttl
-  ScheduleHeartBeat();
 
   // precommit ordinary keys
   DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] precommit ordinary keys.", ID());
@@ -607,12 +622,55 @@ Status TxnImpl::PreCommit2PC() {
   if (!use_async_commit) {
     use_async_commit_.store(false);
   } else {
-    CHECK(min_commit_ts > 0) << fmt::format("[sdk.txn.{}] min_commit_ts({}) invalid.", ID(), min_commit_ts);
-    min_commit_ts = std::max(min_commit_ts, commit_ts_.load());
-    commit_ts_.store(min_commit_ts);
+    UpdateAsyncCommitTs(min_commit_ts);
+  }
+  
+  return Status::OK();
+}
+
+Status TxnImpl::PreCommit2PCConcurrent() {
+  // all keys map
+  std::map<std::string, const TxnMutation*> mutations_map_all_keys;
+  // ordinary keys map for async commit
+  std::map<std::string, const TxnMutation*> mutations_map_ordinary_keys;
+  bool use_async_commit = use_async_commit_.load();
+  for (const auto& [key, mutation] : buffer_->Mutations()) {
+    if (key == buffer_->GetPrimaryKey()) {
+      mutations_map_all_keys.emplace(std::make_pair(key, &mutation));
+      continue;
+    }
+    mutations_map_all_keys.emplace(std::make_pair(key, &mutation));
+    if (use_async_commit) {
+      // for async commit, need to save ordinary keys info
+      mutations_map_ordinary_keys.emplace(std::make_pair(key, &mutation));
+    }
+  }
+
+  bool is_one_pc = false;
+  uint64_t min_commit_ts = 0;
+  TxnPrewriteTask task_primary(stub_, buffer_->GetPrimaryKey(), mutations_map_all_keys, shared_from_this(),
+                               mutations_map_ordinary_keys, is_one_pc, use_async_commit, min_commit_ts);
+
+  Status status = task_primary.Run();
+  if (!status.ok()) {
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] 2pc concurrent precommit keys fail, status({}).", ID(),
+                                      status.ToString());
+    return status;
+  }
+
+  if (!use_async_commit) {
+    use_async_commit_.store(false);
+  } else {
+    UpdateAsyncCommitTs(min_commit_ts);
   }
 
   return Status::OK();
+}
+
+void TxnImpl::UpdateAsyncCommitTs(uint64_t min_commit_ts) {
+  CHECK(min_commit_ts > 0) << fmt::format("[sdk.txn.{}] min_commit_ts({}) invalid.", ID(), min_commit_ts);
+  min_commit_ts = std::max(min_commit_ts, commit_ts_.load());
+  commit_ts_.store(min_commit_ts);
 }
 
 Status TxnImpl::CommitPrimaryKey() {
