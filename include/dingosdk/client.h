@@ -263,6 +263,8 @@ class Transaction {
   bool IsOnePc() const;
 
   bool IsAsyncCommit() const;
+  
+  bool IsConcurrentPreCommit() const;
 
  private:
   friend class Client;

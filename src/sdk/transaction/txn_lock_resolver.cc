@@ -16,6 +16,7 @@
 
 #include <fmt/format.h>
 #include <fmt/ranges.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -27,9 +28,11 @@
 #include "dingosdk/status.h"
 #include "glog/logging.h"
 #include "sdk/client_stub.h"
+#include "sdk/common/param_config.h"
 #include "sdk/transaction/txn_task/txn_check_secondary_locks_task.h"
 #include "sdk/transaction/txn_task/txn_check_status_task.h"
 #include "sdk/transaction/txn_task/txn_resolve_lock_task.h"
+#include "sdk/utils/async_util.h"
 
 namespace dingodb {
 namespace sdk {
@@ -43,18 +46,48 @@ Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& conflict_lock_inf
 
   // check primary key lock status
   TxnStatus txn_status;
-  TxnCheckStatusTask task_check_status(stub_, conflict_lock_info.lock_ts(), conflict_lock_info.primary_lock(), start_ts,
-                                       txn_status, force_sync_commit);
-  Status status = task_check_status.Run();
-  if (!status.ok()) {
-    if (status.IsNotFound()) {
-      DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] not exist txn when check status, status({}) lock({}).", start_ts,
-                                      status.ToString(), conflict_lock_info.ShortDebugString());
-
-      return Status::OK();
+  Status status;
+  int64_t retry_times = 0;
+  int64_t max_retry_times = (FLAGS_txn_heartbeat_lock_delay_ms / FLAGS_txn_check_status_interval_ms) + 1;
+  bool rollback_if_not_exist = false;
+  while (retry_times < max_retry_times) {
+    status = Status();
+    txn_status = TxnStatus();
+    TxnCheckStatusTask task_check_status(stub_, conflict_lock_info.lock_ts(), conflict_lock_info.primary_lock(),
+                                         start_ts, txn_status, force_sync_commit, rollback_if_not_exist);
+    status = task_check_status.Run();
+    if (!status.ok()) {
+      if (status.IsTxnNotFound()) {
+        // check lock ttl expired
+        int64_t current_ts;
+        Status status1 = stub_.GetTsoProvider()->GenPhysicalTs(2, current_ts);
+        if (!status1.ok()) {
+          return status1;
+        }
+        if (conflict_lock_info.lock_ttl() > current_ts) {
+          // lock ttl not expired, wait and retry
+          SleepUs(FLAGS_txn_check_status_interval_ms * 1000);
+        } else {
+          // lock ttl expired, next check will rollback txn if not exist
+          rollback_if_not_exist = true;
+        }
+      } else {
+        return status;
+      }
     } else {
-      return status;
+      break;
     }
+    retry_times++;
+  }
+
+  if (!status.ok()) {
+    DINGO_LOG(WARNING) << fmt::format(
+        "[sdk.txn.{}] check primary lock status fail, retry_times({}), max_retry_times({}), interval_ms({}) "
+        "rollback_if_not_exist({}), "
+        "lock_info({}), status({}).",
+        start_ts, retry_times, max_retry_times, FLAGS_txn_check_status_interval_ms, rollback_if_not_exist,
+        conflict_lock_info.ShortDebugString(), status.ToString());
+    return status;
   }
 
   if (txn_status.primary_lock_info.lock_ts() > 0 && txn_status.primary_lock_info.use_async_commit() &&

@@ -49,6 +49,8 @@ class SDKTxnImplTest : public TestBase {
   void SetUp() override {
     // default disable async commit
     FLAGS_enable_txn_async_commit = false;
+    // default disable concurrent prewrite
+    FLAGS_enable_txn_concurrent_prewrite = false;
     TestBase::SetUp();
     options.kind = kOptimistic;
     options.isolation = kSnapshotIsolation;

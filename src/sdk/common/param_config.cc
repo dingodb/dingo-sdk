@@ -49,6 +49,7 @@ DEFINE_int64(txn_op_max_retry, 20, "txn op max retry times");
 
 DEFINE_int64(txn_prewrite_delay_ms, 500, "txn prewrite delay ms");
 DEFINE_int64(txn_prewrite_max_retry, 300, "txn prewrite max retry");
+DEFINE_bool(enable_txn_concurrent_prewrite, true, "enable txn concurrent prewrite");
 
 DEFINE_int64(raw_kv_delay_ms, 500, "raw kv backoff delay ms");
 DEFINE_int64(raw_kv_max_retry, 10, "raw kv max retry times");
@@ -56,7 +57,7 @@ DEFINE_int64(raw_kv_max_retry, 10, "raw kv max retry times");
 DEFINE_int64(vector_op_delay_ms, 500, "vector task base backoff delay ms");
 DEFINE_int64(vector_op_max_retry, 30, "vector task max retry times");
 
-DEFINE_int64(txn_max_batch_count, 1000, "txn max batch count");
+DEFINE_int64(txn_max_batch_count, 4096, "txn max batch count");
 DEFINE_int64(txn_max_async_commit_count, 256, "txn max async commit count");
 DEFINE_bool(enable_txn_async_commit, true, "enable txn async commit");
 
@@ -64,6 +65,8 @@ DEFINE_bool(log_rpc_time, false, "log rpc time");
 
 DEFINE_int64(txn_heartbeat_interval_ms, 8000, "txn heartbeat interval time");
 DEFINE_int64(txn_heartbeat_lock_delay_ms, 20000, "txn heartbeat lock delay time");
+
+DEFINE_int64(txn_check_status_interval_ms, 100, "txn check status interval ms");
 
 DEFINE_uint32(stale_period_us, 1000, "stale period us default 1000 us, used for tso provider");
 DEFINE_uint32(tso_batch_size, 256, "tso batch size default 256, used for tso provider");
