@@ -172,10 +172,9 @@ void Allure::GenReport(const testing::UnitTest* unit_test, const pb::common::Ver
     }
   }
 
-  if (dingodb::Helper::IsExistPath(directory_path)) {
-    dingodb::Helper::RemoveAllFileOrDirectory(directory_path);
+  if (!dingodb::Helper::IsExistPath(directory_path)) {
+    dingodb::Helper::CreateDirectory(directory_path);
   }
-  dingodb::Helper::CreateDirectory(directory_path);
 
   GenTestResultFile(allure_test_suites, directory_path);
   GenContainerFile(allure_test_suites, directory_path);
