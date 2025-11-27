@@ -47,7 +47,7 @@ class CoordinatorRpcController {
   void RetrySendRpcOrFireCallback(Rpc& rpc);
   void FireCallback(Rpc& rpc);
   bool NeedDelay();
-  bool NeedPickLeader();
+  bool NeedPickLeader(Rpc& rpc);
 
   const ClientStub& stub_;
   MetaMemberInfo meta_member_info_;

@@ -61,12 +61,12 @@ void CoordinatorRpcController::DoAsyncCall(Rpc& rpc) {
   SendCoordinatorRpc(rpc);
 }
 
-bool CoordinatorRpcController::NeedPickLeader() {
-  return status_.IsNetworkError() || status_.IsNotLeader() || status_.IsNoLeader();
+bool CoordinatorRpcController::NeedPickLeader(Rpc& rpc) {
+  return !rpc.GetEndPoint().IsValid() || status_.IsNetworkError() || status_.IsNotLeader() || status_.IsNoLeader();
 }
 
 void CoordinatorRpcController::PrepareRpc(Rpc& rpc) {
-  if (NeedPickLeader()) {
+  if (NeedPickLeader(rpc)) {
     EndPoint next_leader = meta_member_info_.PickNextLeader();
     DINGO_LOG(INFO) << fmt::format("[sdk.rpc.{}]Pick next leader: {}, rpc method: {}", rpc.LogId(),
                                    next_leader.ToString(), rpc.Method());
