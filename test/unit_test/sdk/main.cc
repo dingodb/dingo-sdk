@@ -15,7 +15,36 @@
 #include "gflags/gflags.h"
 #include "glog/logging.h"
 #include "gtest/gtest.h"
+#include "proto/common.pb.h"
+#include "report/allure.h"
 #include "sdk/common/param_config.h"
+#include "sdk/sdk_version.h"
+
+DEFINE_string(allure_report, "", "allure report directory");
+
+static dingodb::pb::common::VersionInfo BuildSdkVersionInfo() {
+  dingodb::pb::common::VersionInfo version_info;
+
+  version_info.set_git_commit_hash(GIT_VERSION);
+  version_info.set_git_tag_name(GIT_TAG_NAME);
+  version_info.set_git_commit_user(GIT_COMMIT_USER);
+  version_info.set_git_commit_mail(GIT_COMMIT_MAIL);
+  version_info.set_git_commit_time(GIT_COMMIT_TIME);
+  version_info.set_major_version(MAJOR_VERSION);
+  version_info.set_minor_version(MINOR_VERSION);
+  version_info.set_dingo_build_type(DINGO_SDK_BUILD_TYPE);
+  version_info.set_dingo_contrib_build_type(DINGO_SDK_BUILD_TYPE);
+  version_info.set_use_mkl(false);
+  version_info.set_use_openblas(false);
+  version_info.set_use_tcmalloc(false);
+  version_info.set_use_profiler(false);
+  version_info.set_use_sanitizer(false);
+  version_info.set_use_diskann(false);
+  version_info.set_diskann_depend_on_system(false);
+  version_info.set_boost_summary("");
+
+  return version_info;
+}
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
@@ -31,5 +60,15 @@ int main(int argc, char** argv) {
   google::InitGoogleLogging(argv[0]);
   google::ParseCommandLineFlags(&argc, &argv, true);
 
-  return RUN_ALL_TESTS();
+  int ret = RUN_ALL_TESTS();
+
+  const auto version_info = BuildSdkVersionInfo();
+
+  if (!FLAGS_allure_report.empty()) {
+    dingodb::report::allure::Allure::GenReport(
+        testing::UnitTest::GetInstance(), version_info, FLAGS_allure_report,
+        {{"epic", "dingosdk(c++)"}, {"parentSuite", "c++ sdk unit"}});
+  }
+
+  return ret;
 }
