@@ -59,7 +59,7 @@ TEST_F(SDKTxnLockResolverTest, Locked) {
 
   auto fake_tso = CurrentFakeTso();
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
     t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
@@ -106,7 +106,7 @@ TEST_F(SDKTxnLockResolverTest, Committed) {
 
   auto fake_tso = CurrentFakeTso();
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
     t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
@@ -179,7 +179,7 @@ TEST_F(SDKTxnLockResolverTest, CommittedResolvePrimaryKeyFail) {
 
   auto fake_tso = CurrentFakeTso();
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
     t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
@@ -255,7 +255,7 @@ TEST_F(SDKTxnLockResolverTest, CommittedResolveConflictKeyFail) {
 
   auto fake_tso = CurrentFakeTso();
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
     t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
@@ -331,7 +331,7 @@ TEST_F(SDKTxnLockResolverTest, Rollbacked) {
 
   auto fake_tso = CurrentFakeTso();
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
     t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
@@ -404,7 +404,7 @@ TEST_F(SDKTxnLockResolverTest, AsyncCommitCasePrimaryLockNotExpired) {
 
   auto fake_tso = CurrentFakeTso();
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
     t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
@@ -464,7 +464,7 @@ TEST_F(SDKTxnLockResolverTest, AsyncCommitCaseCommittedPrimaryLock) {
 
   auto fake_tso = CurrentFakeTso();
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
     t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
@@ -536,7 +536,7 @@ TEST_F(SDKTxnLockResolverTest, AsyncCommitCaseNotCommittedKeys) {
 
   auto fake_tso = CurrentFakeTso();
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
     t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
@@ -693,7 +693,7 @@ TEST_F(SDKTxnLockResolverTest, AsyncCommitCaseCommittedPartOfOrdinaryKeys) {
 
   auto fake_tso = CurrentFakeTso();
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
     t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
@@ -828,7 +828,7 @@ TEST_F(SDKTxnLockResolverTest, AsyncCommitCaseRollbackedPrimaryLock) {
 
   auto fake_tso = CurrentFakeTso();
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
     t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
@@ -900,7 +900,7 @@ TEST_F(SDKTxnLockResolverTest, AsyncCommitCaseRollbackedPartOfOrdinaryKeys) {
 
   auto fake_tso = CurrentFakeTso();
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
     t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
@@ -1035,7 +1035,7 @@ TEST_F(SDKTxnLockResolverTest, AsyncCommitCasePartOfOrdinaryKeysNotFound) {
 
   auto fake_tso = CurrentFakeTso();
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
     t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
@@ -1184,7 +1184,7 @@ TEST_F(SDKTxnLockResolverTest, AsyncCommitCaseTransferSyncCommit) {
 
   auto fake_tso = CurrentFakeTso();
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
     t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
@@ -1360,7 +1360,7 @@ TEST_F(SDKTxnLockResolverTest, TxnNotFoundTTLExpired) {
   CHECK(meta_cache->LookupRegionByKey(fake_lock.primary_lock(), region).IsOK());
   CHECK_NOTNULL(region.get());
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
     t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);

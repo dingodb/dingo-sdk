@@ -56,7 +56,7 @@ Status Coordinator::CreateAutoIncrement(int64_t table_id, int64_t start_id) {
 
   mut_request->set_start_id(start_id);
 
-  Status status = stub_.GetMetaRpcController()->SyncCall(rpc);
+  Status status = stub_.GetAutoIncrementerRpcController()->SyncCall(rpc);
   if (!status.IsOK()) {
     DINGO_LOG(ERROR) << fmt::format("Create auto increment fail, error: {} {}", status.Errno(), status.ToString());
     return status;
@@ -73,7 +73,7 @@ Status Coordinator::DeleteAutoIncrement(int64_t table_id) {
   mut_table_id->set_entity_id(table_id);
   mut_table_id->set_parent_entity_id(0);
 
-  Status status = stub_.GetMetaRpcController()->SyncCall(rpc);
+  Status status = stub_.GetAutoIncrementerRpcController()->SyncCall(rpc);
   if (!status.IsOK()) {
     DINGO_LOG(ERROR) << fmt::format("Delete auto increment fail, error: {} {}", status.Errno(), status.ToString());
     return status;
@@ -93,7 +93,7 @@ Status Coordinator::UpdateAutoIncrement(int64_t table_id, int64_t start_id) {
   mut_request->set_start_id(start_id);
   mut_request->set_force(false);
 
-  Status status = stub_.GetMetaRpcController()->SyncCall(rpc);
+  Status status = stub_.GetAutoIncrementerRpcController()->SyncCall(rpc);
   if (!status.IsOK()) {
     DINGO_LOG(ERROR) << fmt::format("Update auto increment fail, error: {} {}", status.Errno(), status.ToString());
     return status;
@@ -114,7 +114,7 @@ Status Coordinator::GenerateAutoIncrement(int64_t table_id, int64_t count, int64
   mut_request->set_auto_increment_increment(1);
   mut_request->set_auto_increment_offset(1);
 
-  Status status = stub_.GetMetaRpcController()->SyncCall(rpc);
+  Status status = stub_.GetAutoIncrementerRpcController()->SyncCall(rpc);
   if (!status.IsOK()) {
     DINGO_LOG(ERROR) << fmt::format("Generate auto increment fail, error: {} {}", status.Errno(), status.ToString());
     return status;
@@ -134,7 +134,7 @@ Status Coordinator::GetAutoIncrement(int64_t table_id, int64_t& start_id) {
   mut_table_id->set_entity_id(table_id);
   mut_table_id->set_parent_entity_id(0);
 
-  Status status = stub_.GetMetaRpcController()->SyncCall(rpc);
+  Status status = stub_.GetAutoIncrementerRpcController()->SyncCall(rpc);
   if (!status.IsOK()) {
     if (status.Errno() == pb::error::EAUTO_INCREMENT_NOT_FOUND) {
       return Status::NotFound("auto increment not found");
@@ -150,7 +150,7 @@ Status Coordinator::GetAutoIncrement(int64_t table_id, int64_t& start_id) {
 
 Status Coordinator::GetAutoIncrements(std::vector<TableIncrement>& table_increments) {
   GetAutoIncrementsRpc rpc;
-  Status status = stub_.GetMetaRpcController()->SyncCall(rpc);
+  Status status = stub_.GetAutoIncrementerRpcController()->SyncCall(rpc);
   if (!status.IsOK()) {
     DINGO_LOG(ERROR) << fmt::format("Get all auto increment fail, error: {} {}", status.Errno(), status.ToString());
     return status;

@@ -13,10 +13,12 @@
 // limitations under the License.
 
 #include "sdk/meta_member_info.h"
+#include <fmt/format.h>
 
 #include <algorithm>
 #include <mutex>
 
+#include "common/logging.h"
 #include "glog/logging.h"
 #include "sdk/utils/net_util.h"
 
@@ -33,6 +35,7 @@ EndPoint MetaMemberInfo::PickNextLeader() {
       leader = leader_;
     } else {
       leader = members_[next_ % members_.size()];
+      DINGO_LOG(INFO) << fmt::format("[sdk.meta]Pick next leader: {}", leader.ToString());
       next_++;
     }
   }

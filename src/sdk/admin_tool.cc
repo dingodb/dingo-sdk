@@ -64,7 +64,7 @@ Status AdminTool::CreateTableIds(int64_t count, std::vector<int64_t>& out_table_
 
   rpc.MutableRequest()->set_count(count);
 
-  Status ret = stub_.GetMetaRpcController()->SyncCall(rpc);
+  Status ret = stub_.GetCoordinatorRpcController()->SyncCall(rpc);
   if (!ret.ok()) {
     return ret;
   }
@@ -89,7 +89,7 @@ Status AdminTool::DropIndex(int64_t index_id) {
   index_pb->set_parent_entity_id(::dingodb::pb::meta::ReservedSchemaIds::DINGO_SCHEMA);
   index_pb->set_entity_id(index_id);
 
-  Status s = stub_.GetMetaRpcController()->SyncCall(rpc);
+  Status s = stub_.GetCoordinatorRpcController()->SyncCall(rpc);
   if (s.IsNotFound()) {
     s = Status::OK();
   }

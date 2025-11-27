@@ -55,7 +55,7 @@ class SDKTxnImplTest : public TestBase {
     options.kind = kOptimistic;
     options.isolation = kSnapshotIsolation;
 
-    ON_CALL(*meta_rpc_controller, SyncCall).WillByDefault([&](Rpc& rpc) {
+    ON_CALL(*tso_rpc_controller, SyncCall).WillByDefault([&](Rpc& rpc) {
       auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
       EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
       t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
@@ -65,7 +65,7 @@ class SDKTxnImplTest : public TestBase {
       return Status::OK();
     });
 
-    EXPECT_CALL(*meta_rpc_controller, SyncCall).Times(testing::AnyNumber());
+    EXPECT_CALL(*tso_rpc_controller, SyncCall).Times(testing::AnyNumber());
 
     ON_CALL(*txn_lock_resolver, ResolveLock).WillByDefault(testing::Return(Status::OK()));
   }
@@ -74,7 +74,7 @@ class SDKTxnImplTest : public TestBase {
 };
 
 TEST_F(SDKTxnImplTest, BeginFail) {
-  ON_CALL(*meta_rpc_controller, SyncCall).WillByDefault([&](Rpc& rpc) {
+  ON_CALL(*tso_rpc_controller, SyncCall).WillByDefault([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
     return Status::NetworkError("mock error");

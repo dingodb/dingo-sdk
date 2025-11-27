@@ -28,7 +28,8 @@ class MockClientStub final : public ClientStub {
   ~MockClientStub() override = default;
 
   MOCK_METHOD(std::shared_ptr<CoordinatorRpcController>, GetCoordinatorRpcController, (), (const, override));
-  MOCK_METHOD(std::shared_ptr<CoordinatorRpcController>, GetMetaRpcController, (), (const, override));
+  MOCK_METHOD(std::shared_ptr<CoordinatorRpcController>, GetTsoRpcController, (), (const, override));
+  MOCK_METHOD(std::shared_ptr<CoordinatorRpcController>, GetAutoIncrementerRpcController, (), (const, override));
   MOCK_METHOD(std::shared_ptr<MetaCache>, GetMetaCache, (), (const, override));
   MOCK_METHOD(std::shared_ptr<RpcClient>, GetRpcClient, (), (const, override));
   MOCK_METHOD(std::shared_ptr<RegionScannerFactory>, GetRawKvRegionScannerFactory, (), (const, override));

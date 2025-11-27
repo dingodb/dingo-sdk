@@ -124,7 +124,7 @@ Status TsoProvider::FetchTso(uint32_t count) {
   rpc.MutableRequest()->set_op_type(pb::meta::TsoOpType::OP_GEN_TSO);
   rpc.MutableRequest()->set_count(count);
 
-  auto status = stub_.GetMetaRpcController()->SyncCall(rpc);
+  auto status = stub_.GetTsoRpcController()->SyncCall(rpc);
   if (!status.IsOK()) {
     DINGO_LOG(ERROR) << fmt::format("[sdk.tso] fetch tso fail, status({}).", status.ToString());
     return status;

@@ -54,10 +54,15 @@ class TestBase : public ::testing::Test {
     EXPECT_CALL(*stub, GetCoordinatorRpcController).Times(testing::AnyNumber());
     ON_CALL(*coordinator_rpc_controller, SyncCall).WillByDefault(testing::Return(Status::OK()));
 
-    meta_rpc_controller = std::make_shared<MockCoordinatorRpcController>(*stub);
-    ON_CALL(*stub, GetMetaRpcController).WillByDefault(testing::Return(meta_rpc_controller));
-    EXPECT_CALL(*stub, GetMetaRpcController).Times(testing::AnyNumber());
-    ON_CALL(*meta_rpc_controller, SyncCall).WillByDefault(testing::Return(Status::OK()));
+    tso_rpc_controller = std::make_shared<MockCoordinatorRpcController>(*stub);
+    ON_CALL(*stub, GetTsoRpcController).WillByDefault(testing::Return(tso_rpc_controller));
+    EXPECT_CALL(*stub, GetTsoRpcController).Times(testing::AnyNumber());
+    ON_CALL(*tso_rpc_controller, SyncCall).WillByDefault(testing::Return(Status::OK()));
+
+    auto_incrementer_rpc_controller = std::make_shared<MockCoordinatorRpcController>(*stub);
+    ON_CALL(*stub, GetAutoIncrementerRpcController).WillByDefault(testing::Return(auto_incrementer_rpc_controller));
+    EXPECT_CALL(*stub, GetAutoIncrementerRpcController).Times(testing::AnyNumber());
+    ON_CALL(*auto_incrementer_rpc_controller, SyncCall).WillByDefault(testing::Return(Status::OK()));
 
     meta_cache = std::make_shared<MetaCache>(coordinator_rpc_controller);
     ON_CALL(*stub, GetMetaCache).WillByDefault(testing::Return(meta_cache));
@@ -122,7 +127,7 @@ class TestBase : public ::testing::Test {
     if (txn_actuator) {
       txn_actuator->Stop();
     }
-    
+
     delete client;
   }
 
@@ -144,7 +149,8 @@ class TestBase : public ::testing::Test {
   }
 
   std::shared_ptr<MockCoordinatorRpcController> coordinator_rpc_controller;
-  std::shared_ptr<MockCoordinatorRpcController> meta_rpc_controller;
+  std::shared_ptr<MockCoordinatorRpcController> tso_rpc_controller;
+  std::shared_ptr<MockCoordinatorRpcController> auto_incrementer_rpc_controller;
   std::shared_ptr<MetaCache> meta_cache;
   std::shared_ptr<MockRpcClient> rpc_client;
   std::shared_ptr<MockRegionScannerFactory> region_scanner_factory;
