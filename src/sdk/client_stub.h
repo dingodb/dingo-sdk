@@ -50,9 +50,14 @@ class ClientStub {
     return coordinator_rpc_controller_;
   }
 
-  virtual std::shared_ptr<CoordinatorRpcController> GetMetaRpcController() const {
-    DCHECK_NOTNULL(meta_rpc_controller_.get());
-    return meta_rpc_controller_;
+  virtual std::shared_ptr<CoordinatorRpcController> GetTsoRpcController() const {
+    DCHECK_NOTNULL(tso_rpc_controller_.get());
+    return tso_rpc_controller_;
+  }
+
+  virtual std::shared_ptr<CoordinatorRpcController> GetAutoIncrementerRpcController() const {
+    DCHECK_NOTNULL(auto_incrementer_rpc_controller_.get());
+    return auto_incrementer_rpc_controller_;
   }
 
   virtual std::shared_ptr<CoordinatorRpcController> GetVersionRpcController() const {
@@ -128,7 +133,8 @@ class ClientStub {
  private:
   // TODO: use unique ptr
   std::shared_ptr<CoordinatorRpcController> coordinator_rpc_controller_;
-  std::shared_ptr<CoordinatorRpcController> meta_rpc_controller_;
+  std::shared_ptr<CoordinatorRpcController> tso_rpc_controller_;
+  std::shared_ptr<CoordinatorRpcController> auto_incrementer_rpc_controller_;
   std::shared_ptr<CoordinatorRpcController> version_rpc_controller_;
   std::shared_ptr<MetaCache> meta_cache_;
   std::shared_ptr<RpcClient> rpc_client_;

@@ -118,7 +118,7 @@ Status DocumentIndexCache::SlowGetDocumentIndexByKey(const DocumentIndexCacheKey
   schema->set_entity_id(schema_id);
   rpc.MutableRequest()->set_index_name(index_name);
 
-  DINGO_RETURN_NOT_OK(stub_.GetMetaRpcController()->SyncCall(rpc));
+  DINGO_RETURN_NOT_OK(stub_.GetCoordinatorRpcController()->SyncCall(rpc));
 
   if (CheckIndexResponse(*rpc.Response())) {
     return ProcessIndexDefinitionWithId(rpc.Response()->index_definition_with_id(), out_doc_index);
@@ -134,7 +134,7 @@ Status DocumentIndexCache::SlowGetDocumentIndexById(int64_t index_id, std::share
   index_id_pb->set_parent_entity_id(::dingodb::pb::meta::ReservedSchemaIds::DINGO_SCHEMA);
   index_id_pb->set_entity_id(index_id);
 
-  DINGO_RETURN_NOT_OK(stub_.GetMetaRpcController()->SyncCall(rpc));
+  DINGO_RETURN_NOT_OK(stub_.GetCoordinatorRpcController()->SyncCall(rpc));
 
   if (CheckIndexResponse(*rpc.Response())) {
     return ProcessIndexDefinitionWithId(rpc.Response()->index_definition_with_id(), out_doc_index);

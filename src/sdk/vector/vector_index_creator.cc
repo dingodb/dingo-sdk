@@ -205,7 +205,7 @@ Status VectorIndexCreator::Create(int64_t& out_index_id) {
 
   out_index_id = new_index_id;
 
-  return data_->stub.GetMetaRpcController()->SyncCall(rpc);
+  return data_->stub.GetCoordinatorRpcController()->SyncCall(rpc);
 }
 
 }  // namespace sdk

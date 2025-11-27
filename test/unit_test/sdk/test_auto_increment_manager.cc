@@ -68,7 +68,7 @@ class SDKAutoInrementerTest : public TestBase {
 };
 
 TEST_F(SDKAutoInrementerTest, CacheEmpty) {
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
+  EXPECT_CALL(*auto_incrementer_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<GenerateAutoIncrementRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->count(), FLAGS_auto_incre_req_count);
     EXPECT_EQ(t_rpc->Request()->auto_increment_increment(), 1);
@@ -87,7 +87,7 @@ TEST_F(SDKAutoInrementerTest, CacheEmpty) {
 }
 
 TEST_F(SDKAutoInrementerTest, FromCache) {
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
+  EXPECT_CALL(*auto_incrementer_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<GenerateAutoIncrementRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->count(), FLAGS_auto_incre_req_count);
     EXPECT_EQ(t_rpc->Request()->auto_increment_increment(), 1);
@@ -114,7 +114,7 @@ TEST_F(SDKAutoInrementerTest, FromCache) {
 }
 
 TEST_F(SDKAutoInrementerTest, FromCacheThenRefill) {
-  EXPECT_CALL(*meta_rpc_controller, SyncCall)
+  EXPECT_CALL(*auto_incrementer_rpc_controller, SyncCall)
       .WillOnce([&](Rpc& rpc) {
         auto* t_rpc = dynamic_cast<GenerateAutoIncrementRpc*>(&rpc);
         EXPECT_EQ(t_rpc->Request()->count(), FLAGS_auto_incre_req_count);
@@ -159,7 +159,7 @@ TEST_F(SDKAutoInrementerTest, FromCacheThenRefill) {
 }
 
 TEST_F(SDKAutoInrementerTest, MultiThreadGetNextId) {
-  EXPECT_CALL(*meta_rpc_controller, SyncCall)
+  EXPECT_CALL(*auto_incrementer_rpc_controller, SyncCall)
       .WillOnce([&](Rpc& rpc) {
         auto* t_rpc = dynamic_cast<GenerateAutoIncrementRpc*>(&rpc);
         EXPECT_EQ(t_rpc->Request()->count(), FLAGS_auto_incre_req_count);
@@ -205,7 +205,7 @@ TEST_F(SDKAutoInrementerTest, MultiThreadGetNextId) {
 }
 
 TEST_F(SDKAutoInrementerTest, CacheGetAutoId) {
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
+  EXPECT_CALL(*auto_incrementer_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<GenerateAutoIncrementRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->count(), FLAGS_auto_incre_req_count);
     EXPECT_EQ(t_rpc->Request()->auto_increment_increment(), 1);
@@ -225,7 +225,7 @@ TEST_F(SDKAutoInrementerTest, CacheGetAutoId) {
 }
 
 TEST_F(SDKAutoInrementerTest, CacheUpdate) {
-  EXPECT_CALL(*meta_rpc_controller, SyncCall)
+  EXPECT_CALL(*auto_incrementer_rpc_controller, SyncCall)
       .WillOnce([&](Rpc& rpc) {
         auto* t_rpc = dynamic_cast<GenerateAutoIncrementRpc*>(&rpc);
         EXPECT_EQ(t_rpc->Request()->count(), FLAGS_auto_incre_req_count);
@@ -276,7 +276,7 @@ TEST_F(SDKAutoInrementerTest, CacheUpdate) {
 }
 
 TEST_F(SDKAutoInrementerTest, MultiThreadUpdateId) {
-  EXPECT_CALL(*meta_rpc_controller, SyncCall)
+  EXPECT_CALL(*auto_incrementer_rpc_controller, SyncCall)
       .WillOnce([&](Rpc& rpc) {
         auto* t_rpc = dynamic_cast<GenerateAutoIncrementRpc*>(&rpc);
         EXPECT_EQ(t_rpc->Request()->count(), FLAGS_auto_incre_req_count);

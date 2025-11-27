@@ -53,7 +53,7 @@ class SDKVectorIndexCacheTest : public TestBase {
 TEST_F(SDKVectorIndexCacheTest, GetIndexIdByNameNotOK) {
   std::string index_name = "test";
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
+  EXPECT_CALL(*coordinator_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<GetIndexByNameRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->index_name(), index_name);
     return Status::RemoteError("mock error");
@@ -69,7 +69,7 @@ TEST_F(SDKVectorIndexCacheTest, GetIndexIdByNameNotOK) {
 TEST_F(SDKVectorIndexCacheTest, GetVectorIndexByKeyNotOK) {
   std::string index_name = "test";
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
+  EXPECT_CALL(*coordinator_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<GetIndexByNameRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->index_name(), index_name);
     return Status::RemoteError("mock error");
@@ -84,7 +84,7 @@ TEST_F(SDKVectorIndexCacheTest, GetVectorIndexByKeyNotOK) {
 TEST_F(SDKVectorIndexCacheTest, GetVectorIndexByIdNotOK) {
   int64_t index_id = 2;
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
+  EXPECT_CALL(*coordinator_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<GetIndexRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->index_id().entity_type(), pb::meta::EntityType::ENTITY_TYPE_INDEX);
     EXPECT_EQ(t_rpc->Request()->index_id().parent_entity_id(), ::dingodb::pb::meta::ReservedSchemaIds::DINGO_SCHEMA);
@@ -106,7 +106,7 @@ TEST_F(SDKVectorIndexCacheTest, GetVectorIndexByKeyOK) {
   std::vector<int64_t> range_seperator_ids = {5, 10, 20};
   FlatParam flat_param(1000, dingodb::sdk::MetricType::kL2);
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
+  EXPECT_CALL(*coordinator_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<GetIndexByNameRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->index_name(), index_name);
     FillVectorIndexId(t_rpc->MutableResponse()->mutable_index_definition_with_id()->mutable_index_id(), index_id,
@@ -144,7 +144,7 @@ TEST_F(SDKVectorIndexCacheTest, GetVectorIndexByKeyOK) {
     EXPECT_EQ(index->GetVectorIndexType(), flat_param.Type());
   }
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall)
+  EXPECT_CALL(*coordinator_rpc_controller, SyncCall)
       .WillOnce([&](Rpc& rpc) {
         auto* t_rpc = dynamic_cast<GetIndexByNameRpc*>(&rpc);
         EXPECT_EQ(t_rpc->Request()->index_name(), index_name);
@@ -185,7 +185,7 @@ TEST_F(SDKVectorIndexCacheTest, GetVectorIndexByIdOK) {
   std::vector<int64_t> range_seperator_ids = {5, 10, 20};
   FlatParam flat_param(1000, dingodb::sdk::MetricType::kL2);
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
+  EXPECT_CALL(*coordinator_rpc_controller, SyncCall).WillOnce([&](Rpc& rpc) {
     auto* t_rpc = dynamic_cast<GetIndexRpc*>(&rpc);
     EXPECT_EQ(t_rpc->Request()->index_id().entity_type(), pb::meta::EntityType::ENTITY_TYPE_INDEX);
     EXPECT_EQ(t_rpc->Request()->index_id().parent_entity_id(), ::dingodb::pb::meta::ReservedSchemaIds::DINGO_SCHEMA);
@@ -226,7 +226,7 @@ TEST_F(SDKVectorIndexCacheTest, GetVectorIndexByIdOK) {
     EXPECT_EQ(index->GetVectorIndexType(), flat_param.Type());
   }
 
-  EXPECT_CALL(*meta_rpc_controller, SyncCall)
+  EXPECT_CALL(*coordinator_rpc_controller, SyncCall)
       .WillOnce([&](Rpc& rpc) {
         auto* t_rpc = dynamic_cast<GetIndexRpc*>(&rpc);
         EXPECT_EQ(t_rpc->Request()->index_id().entity_type(), pb::meta::EntityType::ENTITY_TYPE_INDEX);

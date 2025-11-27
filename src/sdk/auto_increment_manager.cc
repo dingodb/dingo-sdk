@@ -82,7 +82,7 @@ Status AutoIncrementer::UpdateAutoIncrementId(int64_t start_id) {
   return RunOperation([this, start_id]() {
     UpdateAutoIncrementRpc rpc;
     PrepareUpdateAutoIncrementRequest(*rpc.MutableRequest(), start_id);
-    DINGO_RETURN_NOT_OK(stub_.GetMetaRpcController()->SyncCall(rpc));
+    DINGO_RETURN_NOT_OK(stub_.GetAutoIncrementerRpcController()->SyncCall(rpc));
     VLOG(kSdkVlogLevel) << "UpdateAutoIncrement request:" << rpc.Request()->ShortDebugString()
                         << " response:" << rpc.Response()->ShortDebugString();
     id_cache_.clear();
@@ -115,7 +115,7 @@ Status AutoIncrementer::RefillCache() {
   GenerateAutoIncrementRpc rpc;
   PrepareGenerateAutoIncrementRequest(*rpc.MutableRequest());
 
-  DINGO_RETURN_NOT_OK(stub_.GetMetaRpcController()->SyncCall(rpc));
+  DINGO_RETURN_NOT_OK(stub_.GetAutoIncrementerRpcController()->SyncCall(rpc));
   VLOG(kSdkVlogLevel) << "GenerateAutoIncrement request:" << rpc.Request()->ShortDebugString()
                       << " response:" << rpc.Response()->ShortDebugString();
   // TODO: maybe not crash just return error msg

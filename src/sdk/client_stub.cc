@@ -45,8 +45,11 @@ Status ClientStub::Open(const std::vector<EndPoint>& endpoints) {
   coordinator_rpc_controller_ = std::make_shared<CoordinatorRpcController>(*this);
   coordinator_rpc_controller_->Open(endpoints);
 
-  meta_rpc_controller_ = std::make_shared<CoordinatorRpcController>(*this);
-  meta_rpc_controller_->Open(endpoints);
+  tso_rpc_controller_ = std::make_shared<CoordinatorRpcController>(*this);
+  tso_rpc_controller_->Open(endpoints);
+
+  auto_incrementer_rpc_controller_ = std::make_shared<CoordinatorRpcController>(*this);
+  auto_incrementer_rpc_controller_->Open(endpoints);
 
   version_rpc_controller_ = std::make_shared<CoordinatorRpcController>(*this);
   version_rpc_controller_->Open(endpoints);
