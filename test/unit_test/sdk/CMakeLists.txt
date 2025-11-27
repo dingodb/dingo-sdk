@@ -14,10 +14,15 @@
 
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/)
+include_directories(${PROJECT_SOURCE_DIR}/test/integration_test)
+include_directories(${PROJECT_SOURCE_DIR}/test/integration_test/report)
+include_directories(${PROJECT_SOURCE_DIR}/test/integration_test/common)
 
 file(GLOB SDK_UNIT_TEST_RAWKV_SRCS "rawkv/*.cc")
 file(GLOB SDK_UNIT_TEST_TRANSACTION_SRCS "transaction/*.cc")
 file(GLOB SDK_UNIT_TEST_VECTOR_SRCS "vector/*.cc")
+file(GLOB SDK_UNIT_TEST_REPORT_SRCS "${PROJECT_SOURCE_DIR}/test/integration_test/report/*.cc")
+file(GLOB SDK_UNIT_TEST_COMMON_SRCS "${PROJECT_SOURCE_DIR}/test/integration_test/common/*.cc")
 
 set(SDK_UNIT_TEST_SRCS
   test_meta_cache.cc
@@ -31,6 +36,8 @@ set(SDK_UNIT_TEST_SRCS
   ${SDK_UNIT_TEST_RAWKV_SRCS}
   ${SDK_UNIT_TEST_TRANSACTION_SRCS}
   ${SDK_UNIT_TEST_VECTOR_SRCS}
+  ${SDK_UNIT_TEST_REPORT_SRCS}
+  ${SDK_UNIT_TEST_COMMON_SRCS}
 )
 
 add_executable(sdk_unit_test
