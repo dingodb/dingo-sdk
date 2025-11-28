@@ -16,7 +16,6 @@
 #define DINGODB_SDK_RAW_KV_BATCH_GET_TASK_H_
 
 #include <atomic>
-#include <shared_mutex>
 #include <string_view>
 
 #include "dingosdk/client.h"

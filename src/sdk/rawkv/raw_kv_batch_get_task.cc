@@ -14,8 +14,6 @@
 
 #include "sdk/rawkv/raw_kv_batch_get_task.h"
 
-#include <mutex>
-#include <shared_mutex>
 #include <string_view>
 
 #include "glog/logging.h"

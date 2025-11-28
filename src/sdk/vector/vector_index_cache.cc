@@ -16,8 +16,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <mutex>
-#include <shared_mutex>
 
 #include "dingosdk/status.h"
 #include "glog/logging.h"

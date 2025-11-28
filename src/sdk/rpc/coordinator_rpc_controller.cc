@@ -85,7 +85,7 @@ void CoordinatorRpcController::SendCoordinatorRpc(Rpc& rpc) {
   if (NeedDelay()) {
     DINGO_LOG(INFO) << fmt::format("[sdk.rpc.{}]try to delay: {}ms", rpc.LogId(),
                                    FLAGS_coordinator_interaction_delay_ms);
-    (void)usleep(FLAGS_coordinator_interaction_delay_ms * 1000);
+    SleepUs(FLAGS_coordinator_interaction_delay_ms * 1000);
   }
 
   stub_.GetRpcClient()->SendRpc(rpc, [this, &rpc] { SendCoordinatorRpcCallBack(rpc); });
@@ -99,6 +99,7 @@ void CoordinatorRpcController::SendCoordinatorRpcCallBack(Rpc& rpc) {
                                       rpc.GetEndPoint().ToString(), sent.ToString());
     status_ = sent;
   } else {
+    meta_member_info_.MarkLeader(rpc.GetEndPoint());
     auto error = GetRpcResponseError(rpc);
     if (error.errcode() == pb::error::Errno::OK) {
       VLOG(kSdkVlogLevel) << fmt::format("[sdk.rpc.{}]Success connect with meta server leader_addr: {}", rpc.LogId(),
