@@ -21,11 +21,11 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <queue>
 #include <thread>
 
 #include "sdk/utils/actuator.h"
+#include "sdk/utils/mutex_lock.h"
 #include "sdk/utils/thread_pool.h"
 
 namespace dingodb {
@@ -43,7 +43,7 @@ class Timer {
   bool Add(std::function<void()> func, int delay_ms);
 
   bool IsStopped() {
-    std::lock_guard<std::mutex> lk(mutex_);
+    LockGuard lock(&mutex_);
     return !running_;
   }
 
@@ -65,8 +65,8 @@ class Timer {
   };
 
   Actuator* actuator_;
-  std::mutex mutex_;
-  std::condition_variable cv_;
+  Mutex mutex_;
+  CondVar cv_{&mutex_};
   std::unique_ptr<std::thread> thread_;
   std::priority_queue<FunctionInfo, std::vector<FunctionInfo>, RunTimeOrder> heap_;
   bool running_;

@@ -17,7 +17,6 @@
 
 #include <atomic>
 #include <cstdint>
-#include <shared_mutex>
 #include <sstream>
 #include <vector>
 
@@ -40,6 +39,8 @@ class MetaMemberInfo {
   void MarkLeader(const EndPoint& end_point);
 
   void MarkFollower(const EndPoint& end_point);
+
+  bool IsLeader(const EndPoint& end_point);
 
   std::vector<EndPoint> GetMembers();
 

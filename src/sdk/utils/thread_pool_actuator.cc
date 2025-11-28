@@ -18,10 +18,10 @@
 #include <condition_variable>
 #include <cstdint>
 #include <memory>
-#include <mutex>
 
 #include "glog/logging.h"
 #include "sdk/utils/actuator.h"
+#include "sdk/utils/mutex_lock.h"
 #include "sdk/utils/thread_pool.h"
 
 namespace dingodb {
@@ -29,12 +29,12 @@ namespace sdk {
 
 using namespace std::chrono;
 
-Timer::Timer() : thread_(nullptr), running_(false){};
+Timer::Timer() : thread_(nullptr), running_(false) {};
 
 Timer::~Timer() { Stop(); }
 
 bool Timer::Start(Actuator* actuator) {
-  std::lock_guard<std::mutex> lk(mutex_);
+  LockGuard lock(&mutex_);
   if (running_) {
     return false;
   }
@@ -48,7 +48,7 @@ bool Timer::Start(Actuator* actuator) {
 
 bool Timer::Stop() {
   {
-    std::lock_guard<std::mutex> lk(mutex_);
+    LockGuard lock(&mutex_);
     if (!running_) {
       return false;
     }
@@ -59,7 +59,7 @@ bool Timer::Stop() {
       heap_.pop();
     }
 
-    cv_.notify_all();
+    cv_.NotifyAll();
   }
 
   if (thread_) {
@@ -75,17 +75,17 @@ bool Timer::Add(std::function<void()> func, int delay_ms) {
   uint64_t next = duration_cast<microseconds>(now + milliseconds(delay_ms)).count();
 
   FunctionInfo fn_info(std::move(func), next);
-  std::lock_guard<std::mutex> lk(mutex_);
+  LockGuard lock(&mutex_);
   heap_.push(std::move(fn_info));
-  cv_.notify_all();
+  cv_.NotifyAll();
   return true;
 }
 
 void Timer::Run() {
-  std::unique_lock<std::mutex> lk(mutex_);
+  LockGuard lock(&mutex_);
   while (running_) {
     if (heap_.empty()) {
-      cv_.wait(lk);
+      cv_.Wait();
       continue;
     }
 
@@ -96,7 +96,7 @@ void Timer::Run() {
       CHECK(actuator_->Execute(std::move(fn)));
       heap_.pop();
     } else {
-      cv_.wait_for(lk, microseconds(cur_fn.next_run_time_us - now));
+      cv_.WaitFor(cur_fn.next_run_time_us - now);
     }
   }
 }

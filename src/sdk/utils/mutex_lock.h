@@ -12,13 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef DINGODB_SDK_THREAD_POOL_IMPL_H_
-#define DINGODB_SDK_THREAD_POOL_IMPL_H_
+#ifndef DINGODB_SDK_MUTEX_LOCK_H_
+#define DINGODB_SDK_MUTEX_LOCK_H_
 
 #ifdef USE_GRPC
-#include "sdk/utils/thread/thread_pool_impl.h"
+#include "sdk/utils/thread/mutex_lock.h"
 #else
-#include "sdk/utils/bthread/thread_pool_impl.h"
+#include "sdk/utils/bthread/mutex_lock.h"
 #endif  // USE_GRPC
 
-#endif  // DINGODB_SDK_THREAD_POOL_IMPL_H_
+namespace dingodb {
+namespace sdk {
+
+class LockGuard {
+ public:
+  explicit LockGuard(Mutex* mutex) : mutex_(mutex) { mutex_->Lock(); }
+  LockGuard(const LockGuard&) = delete;
+  LockGuard& operator=(const LockGuard&) = delete;
+  ~LockGuard() { mutex_->Unlock(); }
+
+ private:
+  Mutex* const mutex_;
+};
+
+}  // namespace sdk
+}  // namespace dingodb
+
+#endif  // DINGODB_SDK_MUTEX_LOCK_H_

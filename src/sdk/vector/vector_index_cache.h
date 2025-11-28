@@ -16,7 +16,6 @@
 #define DINGODB_SDK_VECTOR_INDEX_CACHE_H_
 
 #include <cstdint>
-#include <shared_mutex>
 #include <unordered_map>
 
 #include "common/logging.h"

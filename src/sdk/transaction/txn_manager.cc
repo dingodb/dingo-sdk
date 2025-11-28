@@ -17,7 +17,6 @@
 #include <glog/logging.h>
 
 #include <memory>
-#include <mutex>
 #include <utility>
 
 #include "common/logging.h"
@@ -26,6 +25,7 @@
 #include "sdk/client_stub.h"
 #include "sdk/transaction/txn_impl.h"
 #include "sdk/transaction/txn_internal_data.h"
+#include "sdk/utils/mutex_lock.h"
 
 namespace dingodb {
 namespace sdk {
@@ -46,7 +46,7 @@ Status TxnManager::RegisterTxn(std::shared_ptr<TxnImpl> txn_impl) {
 
   int64_t txn_id = txn_impl->ID();
   {
-    std::lock_guard<std::mutex> lock(mutex_);
+    LockGuard lock(&mutex_);
     CHECK(active_txns_.find(txn_id) == active_txns_.end()) << "[sdk.txnmanager]txn already exists, txn id: " << txn_id;
     CHECK(active_txns_.emplace(txn_id, std::move(txn_impl)).second)
         << "[sdk.txnmanager]failed to emplace txn, txn id: " << txn_id;
@@ -57,7 +57,7 @@ Status TxnManager::RegisterTxn(std::shared_ptr<TxnImpl> txn_impl) {
 }
 
 void TxnManager::UnregisterTxn(int64_t txn_id) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  LockGuard lock(&mutex_);
 
   auto it = active_txns_.find(txn_id);
   if (it != active_txns_.end()) {
@@ -69,13 +69,12 @@ void TxnManager::UnregisterTxn(int64_t txn_id) {
   }
 
   if (active_txns_.empty()) {
-    cv_.notify_all();
+    cv_.NotifyAll();
   }
 }
 
 void TxnManager::WaitAllTxnsComplete() {
-  std::unique_lock<std::mutex> lock(mutex_);
-
+  LockGuard lock(&mutex_);
   if (active_txns_.empty()) {
     DINGO_LOG(INFO) << "[sdk.txnmanager]No active txns, return immediately";
     return;
@@ -83,14 +82,15 @@ void TxnManager::WaitAllTxnsComplete() {
 
   DINGO_LOG(INFO) << "[sdk.txnmanager]Waiting for all txns to complete, active txns: " << active_txns_.size();
 
-  cv_.wait(lock, [this] { return active_txns_.empty(); });
+  while (!active_txns_.empty()) {
+    cv_.Wait();
+  }
 
   DINGO_LOG(INFO) << "[sdk.txnmanager]All txns completed";
 }
 
 void TxnManager::CheckTxnState() {
-  std::lock_guard<std::mutex> lock(mutex_);
-
+  LockGuard lock(&mutex_);
   for (auto it = active_txns_.begin(); it != active_txns_.end();) {
     auto txn = it->second;
     CHECK(txn != nullptr) << "[sdk.txnmanager]txn is nullptr";
@@ -109,7 +109,7 @@ void TxnManager::Stop() {
 }
 
 size_t TxnManager::GetActiveTxnCount() const {
-  std::lock_guard<std::mutex> lock(mutex_);
+  LockGuard lock(&mutex_);
   return active_txns_.size();
 }
 

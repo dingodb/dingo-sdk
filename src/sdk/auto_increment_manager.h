@@ -18,13 +18,13 @@
 #include <cstdint>
 #include <deque>
 #include <memory>
-#include <mutex>
 #include <unordered_map>
 #include <vector>
 
 #include "dingosdk/status.h"
 #include "proto/meta.pb.h"
 #include "sdk/document/document_index.h"
+#include "sdk/utils/mutex_lock.h"
 #include "sdk/utils/rw_lock.h"
 #include "sdk/vector/vector_index.h"
 
@@ -58,7 +58,7 @@ class AutoIncrementer {
 
   const ClientStub& stub_;
 
-  std::mutex mutex_;
+  Mutex mutex_;
   struct Req;
   std::deque<Req*> queue_;
   std::vector<int64_t> id_cache_;

@@ -14,20 +14,19 @@
 
 #include "sdk/rpc/grpc/grpc_rpc_client.h"
 
-#include <mutex>
-
 #include "glog/logging.h"
 #include "grpcpp/grpcpp.h"
 #include "sdk/common/param_config.h"
 #include "sdk/rpc/grpc/unary_rpc.h"
 #include "sdk/rpc/rpc.h"
+#include "sdk/utils/mutex_lock.h"
 #include "sdk/utils/net_util.h"
 
 namespace dingodb {
 namespace sdk {
 
 void GrpcRpcClient::Open() {
-  std::unique_lock<std::mutex> lg(lock_);
+  LockGuard lg(&lock_);
   if (!opened_) {
     for (int i = 0; i < FLAGS_grpc_poll_thread_num; ++i) {
       auto cq = std::make_unique<grpc::CompletionQueue>();
@@ -51,7 +50,7 @@ void GrpcRpcClient::Open() {
 }
 
 void GrpcRpcClient::Close() {
-  std::unique_lock<std::mutex> lg(lock_);
+  LockGuard lg(&lock_);
   if (opened_) {
     for (auto& cq : cqs_) {
       cq->Shutdown();
@@ -74,7 +73,7 @@ void GrpcRpcClient::SendRpc(Rpc& rpc, RpcCallback cb) {
 
   std::shared_ptr<grpc::Channel> channel;
   {
-    std::lock_guard<std::mutex> guard(lock_);
+    LockGuard lg(&lock_);
     auto ch = channel_map_.find(endpoint);
     if (ch == channel_map_.end()) {
       // TODO: maybe use custome channel

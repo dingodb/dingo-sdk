@@ -39,6 +39,7 @@
 #include "sdk/transaction/txn_task/txn_get_task.h"
 #include "sdk/transaction/txn_task/txn_heartbeat_task.h"
 #include "sdk/transaction/txn_task/txn_prewrite_task.h"
+#include "sdk/utils/async_util.h"
 #include "sdk/utils/callback.h"
 
 namespace dingodb {
@@ -218,7 +219,7 @@ Status TxnImpl::Rollback() { return DoRollback(); }
 bool TxnImpl::IsNeedRetry(int& times) {
   bool retry = times++ < FLAGS_txn_op_max_retry;
   if (retry) {
-    (void)usleep(FLAGS_txn_op_delay_ms * 1000);
+    SleepUs(FLAGS_txn_op_delay_ms * 1000);
   }
 
   return retry;
@@ -624,7 +625,7 @@ Status TxnImpl::PreCommit2PCSequential() {
   } else {
     UpdateAsyncCommitTs(min_commit_ts);
   }
-  
+
   return Status::OK();
 }
 

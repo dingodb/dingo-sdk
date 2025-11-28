@@ -13,10 +13,10 @@
 // limitations under the License.
 
 #include "sdk/meta_member_info.h"
+
 #include <fmt/format.h>
 
 #include <algorithm>
-#include <mutex>
 
 #include "common/logging.h"
 #include "glog/logging.h"
@@ -45,6 +45,11 @@ EndPoint MetaMemberInfo::PickNextLeader() {
 
 void MetaMemberInfo::MarkLeader(const EndPoint& end_point) {
   CHECK(end_point.IsValid()) << "end_point is invalid: " << end_point.ToString();
+
+  if (IsLeader(end_point)) {
+    return;
+  }
+
   WriteLockGuard guard(rw_lock_);
 
   leader_ = end_point;
@@ -53,6 +58,14 @@ void MetaMemberInfo::MarkLeader(const EndPoint& end_point) {
   if (it == members_.end()) {
     members_.push_back(end_point);
   }
+}
+
+bool MetaMemberInfo::IsLeader(const EndPoint& end_point) {
+  ReadLockGuard guard(rw_lock_);
+  if (leader_.IsValid()) {
+    return leader_ == end_point;
+  }
+  return false;
 }
 
 void MetaMemberInfo::MarkFollower(const EndPoint& end_point) {

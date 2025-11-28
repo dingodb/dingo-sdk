@@ -12,32 +12,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef DINGODB_SDK_BRPC_RPC_CLIENT_H_
-#define DINGODB_SDK_BRPC_RPC_CLIENT_H_
+#ifndef DINGODB_SDK_THREAD_RW_LOCK_H_
+#define DINGODB_SDK_THREAD_RW_LOCK_H_
 
-#include <map>
-
-#include "brpc/channel.h"
-#include "sdk/rpc/rpc_client.h"
-#include "sdk/utils/mutex_lock.h"
+#include <shared_mutex>
 
 namespace dingodb {
 namespace sdk {
 
-class BrpcRpcClient : public RpcClient {
+class PthreadRWLock {
  public:
-  BrpcRpcClient(const RpcClientOptions& options) : RpcClient(options) {}
+  PthreadRWLock() = default;
+  ~PthreadRWLock() = default;
 
-  ~BrpcRpcClient() override = default;
+  void WRLock() { mutex_.lock(); }
 
-  void SendRpc(Rpc& rpc, RpcCallback cb) override;
+  int TryWRLock() { return mutex_.try_lock() ? 0 : 1; }
+
+  void UnWRLock() { mutex_.unlock(); }
+
+  void RDLock() { mutex_.lock_shared(); }
+
+  int TryRDLock() { return mutex_.try_lock_shared() ? 0 : 1; }
+
+  void UnRDLock() { mutex_.unlock_shared(); }
 
  private:
-  Mutex lock_;
-  std::map<EndPoint, std::shared_ptr<brpc::Channel>> channel_map_;
+  std::shared_mutex mutex_;
 };
 
+using RWLock = PthreadRWLock;
 }  // namespace sdk
 }  // namespace dingodb
 
-#endif  // DINGODB_SDK_BRPC_RPC_CLIENT_H_
+#endif  // DINGODB_SDK_THREAD_RW_LOCK_H_

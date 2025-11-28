@@ -18,7 +18,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -59,6 +58,7 @@
 #include "sdk/transaction/txn_impl.h"
 #include "sdk/transaction/txn_internal_data.h"
 #include "sdk/transaction/txn_manager.h"
+#include "sdk/utils/async_util.h"
 #include "sdk/utils/net_util.h"
 #include "sdk/vector/diskann/vector_diskann_status_by_index_task.h"
 #include "sdk/vector/vector_index.h"
@@ -689,7 +689,7 @@ Status RegionCreator::Create(int64_t& out_region_id) {
 
       if (creating) {
         retry++;
-        usleep(FLAGS_coordinator_interaction_delay_ms * 1000);
+        SleepUs(FLAGS_coordinator_interaction_delay_ms * 1000);
       } else {
         return Status::OK();
       }

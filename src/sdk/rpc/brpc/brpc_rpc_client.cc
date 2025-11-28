@@ -19,6 +19,7 @@
 #include "glog/logging.h"
 #include "sdk/rpc/brpc/unary_rpc.h"
 #include "sdk/rpc/rpc_client.h"
+#include "sdk/utils/mutex_lock.h"
 
 namespace dingodb {
 namespace sdk {
@@ -29,7 +30,7 @@ void BrpcRpcClient::SendRpc(Rpc &rpc, RpcCallback cb) {
 
   std::shared_ptr<brpc::Channel> channel = std::make_shared<brpc::Channel>();
   {
-    std::lock_guard<std::mutex> guard(lock_);
+    LockGuard guard(&lock_);
     auto ch = channel_map_.find(endpoint);
     if (ch == channel_map_.end()) {
       brpc::ChannelOptions options;

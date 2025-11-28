@@ -14,10 +14,8 @@
 
 #include "sdk/auto_increment_manager.h"
 
-#include <condition_variable>
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <utility>
 
 #include "dingosdk/status.h"
@@ -25,14 +23,15 @@
 #include "sdk/client_stub.h"
 #include "sdk/common/param_config.h"
 #include "sdk/rpc/coordinator_rpc.h"
+#include "sdk/utils/mutex_lock.h"
 
 namespace dingodb {
 
 namespace sdk {
 
 struct AutoIncrementer::Req {
-  explicit Req() = default;
-  std::condition_variable cv;
+  explicit Req(Mutex* m) : cv(m) {}
+  CondVar cv;
 };
 
 Status AutoIncrementer::GetNextId(int64_t& next) {
@@ -91,21 +90,22 @@ Status AutoIncrementer::UpdateAutoIncrementId(int64_t start_id) {
 }
 
 Status AutoIncrementer::RunOperation(std::function<Status()> operation) {
-  Req req;
+  Req req(&mutex_);
   {
-    std::unique_lock<std::mutex> lk(mutex_);
-
+    LockGuard lk(&mutex_);
     queue_.push_back(&req);
+
     while (&req != queue_.front()) {
-      req.cv.wait(lk);
+      req.cv.Wait();
     }
   }
   Status s = operation();
   {
-    std::unique_lock<std::mutex> lk(mutex_);
+    LockGuard lk(&mutex_);
     queue_.pop_front();
+
     if (!queue_.empty()) {
-      queue_.front()->cv.notify_one();
+      queue_.front()->cv.NotifyOne();
     }
   }
   return s;

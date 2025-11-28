@@ -18,11 +18,11 @@
 #include <atomic>
 #include <condition_variable>
 #include <memory>
-#include <mutex>
 #include <unordered_map>
 
 #include "dingosdk/client.h"
 #include "dingosdk/status.h"
+#include "sdk/utils/mutex_lock.h"
 namespace dingodb {
 namespace sdk {
 
@@ -49,8 +49,8 @@ class TxnManager : public std::enable_shared_from_this<TxnManager> {
 
   bool IsStopped() const { return stopped_.load(); }
 
-  mutable std::mutex mutex_;
-  std::condition_variable cv_;
+  mutable Mutex mutex_;
+  CondVar cv_{&mutex_};
 
   std::unordered_map<int64_t, std::shared_ptr<TxnImpl>> active_txns_;
   std::atomic<bool> stopped_{false};

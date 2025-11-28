@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "sdk/utils/thread_pool_impl.h"
+#include "sdk/utils/thread/thread_pool_impl.h"
 
 #include <cassert>
-#include <mutex>
 
 #include "glog/logging.h"
 #include "sdk/common/param_config.h"

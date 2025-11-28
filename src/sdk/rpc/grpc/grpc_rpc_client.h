@@ -18,31 +18,31 @@
 #include <cstdint>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <thread>
 #include <vector>
 
 #include "grpcpp/channel.h"
 #include "grpcpp/completion_queue.h"
 #include "sdk/rpc/rpc_client.h"
+#include "sdk/utils/mutex_lock.h"
 
 namespace dingodb {
 namespace sdk {
 
 class GrpcRpcClient : public RpcClient {
  public:
-  GrpcRpcClient(const RpcClientOptions &options) : RpcClient(options) {}
+  GrpcRpcClient(const RpcClientOptions& options) : RpcClient(options) {}
 
   ~GrpcRpcClient() override { Close(); }
 
   void Open() override;
 
-  void SendRpc(Rpc &rpc, RpcCallback cb) override;
+  void SendRpc(Rpc& rpc, RpcCallback cb) override;
 
  private:
   void Close();
 
-  std::mutex lock_;
+  Mutex lock_;
   std::vector<std::unique_ptr<grpc::CompletionQueue>> cqs_;
   std::vector<std::thread> workers_;
   std::map<EndPoint, std::shared_ptr<grpc::Channel>> channel_map_;

@@ -103,7 +103,6 @@ set(SDK_SRCS
   document/document_get_auto_increment_id_task.cc
   document/document_update_auto_increment_task.cc
   utils/thread_pool_actuator.cc
-  utils/thread_pool_impl.cc
   common/param_config.cc
   common/rand.cc
   expression/coding.cc
@@ -123,6 +122,7 @@ if(SDK_ENABLE_GRPC)
         rpc/grpc/store_rpc.cc
         rpc/grpc/document_service_rpc.cc
         rpc/grpc/version_rpc.cc
+        utils/thread/thread_pool_impl.cc
     )
 
     add_library(sdk
@@ -167,6 +167,7 @@ else()
         rpc/brpc/store_rpc.cc
         rpc/brpc/document_service_rpc.cc
         rpc/brpc/version_rpc.cc
+        utils/bthread/thread_pool_impl.cc
     )
 
     add_library(sdk

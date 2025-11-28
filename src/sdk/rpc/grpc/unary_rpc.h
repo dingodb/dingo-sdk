@@ -20,8 +20,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <mutex>
-#include <shared_mutex>
 #include <string>
 
 #include "common/logging.h"
@@ -38,6 +36,7 @@
 #include "sdk/common/param_config.h"
 #include "sdk/common/rand.h"
 #include "sdk/rpc/rpc.h"
+#include "sdk/utils/mutex_lock.h"
 #include "sdk/utils/net_util.h"
 
 namespace dingodb {
@@ -92,7 +91,7 @@ class UnaryRpc : public Rpc {
     if (!grpc_status.ok()) {
       DINGO_LOG(WARNING) << fmt::format(
           "[sdk.rpc.{}] Fail send rpc: {}, endpoint(peer): {}, grpc error_code: {}, error_text: {}", log_id, Method(),
-          context->peer(), grpc_status.error_code(), grpc_status.error_message());
+          context->peer(), static_cast<int>(grpc_status.error_code()), grpc_status.error_message());
       Status err = Status::NetworkError(grpc_status.error_code(), grpc_status.error_message());
       SetStatus(err);
     } else {
@@ -130,7 +129,7 @@ class UnaryRpc : public Rpc {
 
     StubType* p_stub = nullptr;
     {
-      std::lock_guard<std::mutex> lg(lk);
+      LockGuard lg(&lk);
       auto iter = stubs.find(grpc_ctx->endpoint);
       if (iter == stubs.end()) {
         auto stub = ServiceType::NewStub(grpc_ctx->channel);
@@ -164,13 +163,13 @@ class UnaryRpc : public Rpc {
   int64_t start_time{0};  // record the start time of the RPC call , use for trace
 
   static std::map<EndPoint, std::unique_ptr<StubType>> stubs;
-  static std::mutex lk;
+  static Mutex lk;
 };
 
 template <class RequestType, class ResponseType, class ServiceType, class StubType>
 std::map<EndPoint, std::unique_ptr<StubType>> UnaryRpc<RequestType, ResponseType, ServiceType, StubType>::stubs;
 template <class RequestType, class ResponseType, class ServiceType, class StubType>
-std::mutex UnaryRpc<RequestType, ResponseType, ServiceType, StubType>::lk;
+Mutex UnaryRpc<RequestType, ResponseType, ServiceType, StubType>::lk;
 
 #define DECLARE_UNARY_RPC_INNER(NS, SERVICE, METHOD, REQ_RSP_PREFIX)                                                 \
   class METHOD##Rpc final                                                                                            \
