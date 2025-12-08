@@ -158,7 +158,8 @@ static void TraceRpcPerformance(int64_t elapse_time, const std::string& method_n
                                 const std::string& str) {
   if (FLAGS_enable_trace_rpc_performance) {
     if (elapse_time > FLAGS_rpc_elapse_time_threshold_us) {
-      DINGO_LOG(INFO) << fmt::format("[sdk.trace.rpc][{}][{:.6f}][endpoint({})] {}", method_name, elapse_time / 1e6,
+      // Log concise rpc info if elapse time greater than threshold
+      DINGO_LOG(INFO) << fmt::format("[sdk.trace.rpc][{}][{:.6f}s][endpoint({})] {}", method_name, elapse_time / 1e6,
                                      endpoint, str);
     }
   }

@@ -190,8 +190,8 @@ Status TxnCommitTask::ProcessTxnCommitResponse(const TxnCommitResponse* response
   const auto& txn_result = response->txn_result();
   if (txn_result.has_locked()) {
     const auto& lock_info = txn_result.locked();
-    DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit lock conflict, is_primary({}) pk({}) response({}).", txn_id,
-                                    is_primary, StringToHex(pk), response->ShortDebugString());
+    DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit lock conflict, is_primary({}) pk({}) response({}).", txn_id,
+                                      is_primary, StringToHex(pk), response->ShortDebugString());
 
   } else if (txn_result.has_txn_not_found()) {
     DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit not found, is_primary({}) pk({}) response({}).", txn_id,
@@ -215,7 +215,7 @@ Status TxnCommitTask::ProcessTxnCommitResponse(const TxnCommitResponse* response
                                       txn_id, is_primary, StringToHex(pk),
                                       txn_result.primary_mismatch().ShortDebugString());
     return Status::TxnPrimaryMismatch("txn primary mismatch");
-  } 
+  }
 
   return Status::OK();
 }

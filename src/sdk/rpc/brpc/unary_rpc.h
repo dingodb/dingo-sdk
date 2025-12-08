@@ -103,13 +103,19 @@ class UnaryRpc : public Rpc {
                                       request->ShortDebugString(), response->ShortDebugString());
     }
 
-    if (FLAGS_enable_trace_rpc_performance) {
-      int64_t end_time =
-          std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
-              .count();
-      std::string str = fmt::format("request_id: {}, status: {}", controller.log_id(), status.ToString());
-      TraceRpcPerformance(end_time - start_time, Method(), endpoint2str(controller.remote_side()).c_str(), str);
+    int64_t end_time =
+        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+            .count();
+    std::string str = fmt::format("request_id: {}, status: {}", controller.log_id(), status.ToString());
+    if ((end_time - start_time) > FLAGS_rpc_trace_full_info_threshold_us) {
+      // Default log all rpc info if elapse time greater than 1 second
+      str += fmt::format(",request : {}, response : {}", request->ShortDebugString(), response->ShortDebugString());
+      DINGO_LOG(INFO) << fmt::format("[sdk.trace.rpc][{}][{:.6f}s][endpoint({})] Full rpc info {}", Method(),
+                                     (end_time - start_time) / 1e6, endpoint2str(controller.remote_side()).c_str(),
+                                     str);
     }
+    TraceRpcPerformance(end_time - start_time, Method(), endpoint2str(controller.remote_side()).c_str(), str);
+
     brpc_ctx->cb();
   }
 
@@ -129,12 +135,12 @@ class UnaryRpc : public Rpc {
     CHECK_NOTNULL(brpc_ctx);
     CHECK_NOTNULL(brpc_ctx->channel);
     StubType stub(brpc_ctx->channel.get());
-    if (FLAGS_enable_trace_rpc_performance) {
-      // Record the start time for performance tracing
-      start_time =
-          std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
-              .count();
-    }
+
+    // Record the start time for performance tracing
+    start_time =
+        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+            .count();
+
     Send(stub, brpc::NewCallback(this, &UnaryRpc::OnRpcDone));
   }
 
