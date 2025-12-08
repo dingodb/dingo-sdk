@@ -100,13 +100,18 @@ class UnaryRpc : public Rpc {
           context->peer(), request.ShortDebugString(), response.ShortDebugString());
     }
 
-    if (FLAGS_enable_trace_rpc_performance) {
-      int64_t end_time =
-          std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
-              .count();
-      std::string str = fmt::format("request_id: {}, status: {}", log_id, status.ToString());
-      TraceRpcPerformance(end_time - start_time, Method(), context->peer(), str);
+    int64_t end_time =
+        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+            .count();
+    std::string str = fmt::format("request_id: {}, status: {}", log_id, status.ToString());
+    if ((end_time - start_time) > FLAGS_rpc_trace_full_info_threshold_us) {
+      // Default log all rpc info if elapse time greater than 1 second
+      str += fmt::format(", request: {}, response: {}", request.ShortDebugString(), response.ShortDebugString());
+      DINGO_LOG(INFO) << fmt::format("[sdk.trace.rpc][{}][{:.6f}s][endpoint({})] Full rpc info {}", Method(),
+                                     (end_time - start_time) / 1e6, context->peer(), str);
     }
+    TraceRpcPerformance(end_time - start_time, Method(), context->peer(), str);
+
     grpc_ctx->cb();
   }
 
@@ -141,12 +146,11 @@ class UnaryRpc : public Rpc {
     }
     CHECK_NOTNULL(p_stub);
 
-    if (FLAGS_enable_trace_rpc_performance) {
-      // Record the start time for performance tracing
-      start_time =
-          std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
-              .count();
-    }
+    // Record the start time for performance tracing
+    start_time =
+        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+            .count();
+
     auto reader = Prepare(p_stub, grpc_ctx->cq);
     reader->Finish(&response, &grpc_status, (void*)this);
   }

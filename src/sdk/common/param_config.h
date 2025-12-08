@@ -47,6 +47,7 @@ DECLARE_int64(grpc_poll_thread_num);
 
 DECLARE_bool(enable_trace_rpc_performance);
 DECLARE_int64(rpc_elapse_time_threshold_us);
+DECLARE_int64(rpc_trace_full_info_threshold_us);
 
 // each store rpc params, used for store rpc controller
 DECLARE_int64(store_rpc_max_retry);
