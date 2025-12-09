@@ -80,7 +80,9 @@ TYPED_TEST(TxnTest1PC, TxnMultiThread1PC) {
   for (int i = 0; i < FLAGS_thread_count; ++i) {
     threads.emplace_back([i, &success_count]() {
       int thread_success_count = 0;
-      while (success_count.load() < FLAGS_txn_test_frequency_1PC) {
+      int retry_count = 0;
+      while (success_count.load() < FLAGS_txn_test_frequency_1PC && retry_count < FLAGS_txn_test_frequency_1PC * 6) {
+        retry_count++;
         dingodb::sdk::Transaction* txn;
         sdk::TransactionOptions options;
         options.isolation = sdk::TransactionIsolation::kSnapshotIsolation;
@@ -116,6 +118,9 @@ TYPED_TEST(TxnTest1PC, TxnMultiThread1PC) {
         LOG(INFO) << fmt::format("after_commit success txn_id {}, value: {}, success count: {}", txn->ID(), value,
                                  success_count.fetch_add(1) + 1);
         delete txn;
+      }
+      if (retry_count >= FLAGS_txn_test_frequency_1PC * 6) {
+        LOG(ERROR) << fmt::format("Thread {} reached max retry count {}", i, retry_count);
       }
       LOG(INFO) << fmt::format("Thread {} exit, success_count: {}", i, thread_success_count);
     });
