@@ -199,7 +199,7 @@ Status TxnCommitTask::ProcessTxnCommitResponse(const TxnCommitResponse* response
 
   } else if (txn_result.has_write_conflict()) {
     if (!is_primary) {
-      DINGO_LOG(FATAL) << fmt::format("[sdk.txn.{}] commit write conlict, pk({}) response({}).", txn_id,
+      DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit write conlict, pk({}) response({}).", txn_id,
                                       StringToHex(pk), txn_result.write_conflict().ShortDebugString());
     }
     return Status::TxnWriteConflict("txn write conflict");
