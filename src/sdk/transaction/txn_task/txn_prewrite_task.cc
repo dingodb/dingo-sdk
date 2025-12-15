@@ -113,6 +113,15 @@ void TxnPrewriteTask::DoAsync() {
     return;
   }
 
+  int64_t commit_ts{0};
+  if (is_one_pc_ || use_async_commit_) {
+    status = stub.GetTsoProvider()->GenTs(2, commit_ts);
+    if (!status.ok()) {
+      DoAsyncDone(status);
+      return;
+    }
+  }
+
   for (const auto& entry : region_id_to_mutations) {
     auto region_id = entry.first;
     auto iter = region_id_to_region.find(region_id);
@@ -128,13 +137,8 @@ void TxnPrewriteTask::DoAsync() {
     rpc->MutableRequest()->set_lock_ttl(physical_ts + FLAGS_txn_heartbeat_lock_delay_ms);
     rpc->MutableRequest()->set_txn_size(mutations_.size());
     rpc->MutableRequest()->set_try_one_pc(is_one_pc_);
-    if (is_one_pc_) {
-      int64_t commit_ts{0};
-      status = stub.GetTsoProvider()->GenTs(2, commit_ts);
-      if (!status.ok()) {
-        DoAsyncDone(status);
-        return;
-      }
+
+    if (is_one_pc_ || use_async_commit_) {
       rpc->MutableRequest()->set_min_commit_ts(commit_ts);
     }
 
@@ -156,6 +160,10 @@ void TxnPrewriteTask::DoAsync() {
         rpc->MutableRequest()->set_lock_ttl(physical_ts + FLAGS_txn_heartbeat_lock_delay_ms);
         rpc->MutableRequest()->set_txn_size(mutations_.size());
         rpc->MutableRequest()->set_try_one_pc(is_one_pc_);
+
+        if (is_one_pc_ || use_async_commit_) {
+          rpc->MutableRequest()->set_min_commit_ts(commit_ts);
+        }
       }
 
       TxnMutation2MutationPB(*mutation, rpc->MutableRequest()->add_mutations());
