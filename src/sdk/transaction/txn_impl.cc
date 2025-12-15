@@ -748,11 +748,7 @@ Status TxnImpl::DoCommit() {
         fmt::format("forbid commit, state {}, expect {}", StateName(state), StateName(kPreCommitted)));
   }
 
-  if (buffer_->IsEmpty()) {
-    state_.store(kFinshed);
-    DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] buffer is empty, commit success.", ID());
-    return Status::OK();
-  }
+  CHECK(!buffer_->IsEmpty()) << fmt::format("[sdk.txn.{}] buffer is empty.", ID());
 
   state_.store(kCommitting);
 
