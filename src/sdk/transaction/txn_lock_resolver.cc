@@ -145,21 +145,26 @@ Status TxnLockResolver::ResolveLockSecondaryLocks(const pb::store::LockInfo& pri
                                                   const pb::store::LockInfo& conflict_lock_info) {
   DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] lock use async commit, lock_info({}), txn_status({}).", start_ts,
                                   primary_lock_info.ShortDebugString(), txn_status.ToString());
+  //  check lock ttl expired
+  int64_t retry_times = 0;
+  int64_t max_retry_times = (FLAGS_txn_heartbeat_lock_delay_ms / FLAGS_txn_check_status_interval_ms) + 1;
+  while (retry_times < max_retry_times) {
+    int64_t current_ts;
+    Status status1 = stub_.GetTsoProvider()->GenPhysicalTs(2, current_ts);
+    if (!status1.ok()) {
+      return status1;
+    }
+    if (txn_status.primary_lock_info.lock_ttl() > current_ts) {
+      // lock ttl not expired, can not resolve lock now
+      DINGO_LOG(DEBUG) << fmt::format(
+          "[sdk.txn.{}] async commit lock ttl not expired, lock_info({}), txn_status({}), current_ts({}).", start_ts,
+          primary_lock_info.ShortDebugString(), txn_status.ToString(), current_ts);
 
-  // check lock ttl expired
-  int64_t current_ts;
-  Status status1 = stub_.GetTsoProvider()->GenPhysicalTs(2, current_ts);
-  if (!status1.ok()) {
-    return status1;
-  }
-  if (txn_status.primary_lock_info.lock_ttl() > current_ts) {
-    // lock ttl not expired, can not resolve lock now
-    DINGO_LOG(DEBUG) << fmt::format(
-        "[sdk.txn.{}] async commit lock ttl not expired, lock_info({}), txn_status({}), current_ts({}).", start_ts,
-        primary_lock_info.ShortDebugString(), txn_status.ToString(), current_ts);
-    return Status::TxnLockConflict(
-        fmt::format("async commit lock ttl not expired, lock_info({}), txn_status({}), current_ts({}).",
-                    primary_lock_info.ShortDebugString(), txn_status.ToString(), current_ts));
+      retry_times++;
+      SleepUs(FLAGS_txn_check_status_interval_ms * 1000);
+      continue;
+    }
+    break;
   }
 
   // check secondary locks status
