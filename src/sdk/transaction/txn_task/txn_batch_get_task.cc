@@ -47,6 +47,9 @@ Status TxnBatchGetTask::Init() {
 }
 
 void TxnBatchGetTask::DoAsync() {
+  auto start_time = TimestampUs();
+  SCOPED_CLEANUP(txn_impl_->GetTracer()->IncrementReadSdkTime(TimestampUs() - start_time););
+
   std::set<std::string_view> next_batch;
   {
     WriteLockGuard guard(rw_lock_);
@@ -118,6 +121,12 @@ void TxnBatchGetTask::DoAsync() {
 void TxnBatchGetTask::TxnBatchGetRpcCallback(const Status& status, TxnBatchGetRpc* rpc) {
   DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] rpc: {} request: {} response: {}", txn_impl_->ID(), rpc->Method(),
                                   rpc->Request()->ShortDebugString(), rpc->Response()->ShortDebugString());
+
+  txn_impl_->GetTracer()->IncrementReadRpcTime(rpc->ElapsedTimeUs());
+  txn_impl_->GetTracer()->IncrementReadRpcRetryCount(rpc->GetRetryTimes());
+  txn_impl_->GetTracer()->IncrementSleepTime(rpc->GetSleepTimesUs());
+  txn_impl_->GetTracer()->IncrementSleepCount(rpc->GetSleepCount());
+
   Status s;
   bool need_retry = false;
   const auto* response = rpc->Response();
@@ -129,6 +138,7 @@ void TxnBatchGetTask::TxnBatchGetRpcCallback(const Status& status, TxnBatchGetRp
     if (response->has_txn_result()) {
       s = CheckTxnResultInfo(response->txn_result());
       if (s.IsTxnLockConflict()) {
+        auto start_time = TimestampUs();
         s = stub.GetTxnLockResolver()->ResolveLock(response->txn_result().locked(), txn_impl_->GetStartTs());
         if (s.ok()) {
           need_retry = true;
@@ -138,6 +148,7 @@ void TxnBatchGetTask::TxnBatchGetRpcCallback(const Status& status, TxnBatchGetRp
           need_retry = true;
           s = Status::OK();
         }
+        txn_impl_->GetTracer()->IncrementResolveLockTime(TimestampUs() - start_time);
       } else if (!s.ok()) {
         DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] batch get fail, status({}) , txn_result({}).", txn_impl_->ID(),
                                           s.ToString(), response->txn_result().ShortDebugString());
@@ -180,6 +191,7 @@ void TxnBatchGetTask::TxnBatchGetRpcCallback(const Status& status, TxnBatchGetRp
       tmp_need_retry = need_retry_;
     }
     if (tmp.ok() && tmp_need_retry) {
+      txn_impl_->GetTracer()->IncrementReadRetryCount(1);
       DoAsyncRetry();
       return;
     }

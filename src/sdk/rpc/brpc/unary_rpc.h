@@ -89,6 +89,8 @@ class UnaryRpc : public Rpc {
 
   uint64_t LogId() const override { return controller.log_id(); }
 
+  uint64_t ElapsedTimeUs() const override { return elapsed_time; }
+
   void OnRpcDone() override {
     if (controller.Failed()) {
       DINGO_LOG(WARNING) << fmt::format("[sdk.rpc.{}] Fail send rpc: {}, endpoint: {}, error_code: {}, error_text: {}",
@@ -103,10 +105,11 @@ class UnaryRpc : public Rpc {
                                       request->ShortDebugString(), response->ShortDebugString());
     }
 
-    int64_t end_time =
+    uint64_t end_time =
         std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
             .count();
     std::string str = fmt::format("request_id: {}, status: {}", controller.log_id(), status.ToString());
+    elapsed_time = end_time - start_time;
     if ((end_time - start_time) > FLAGS_rpc_trace_full_info_threshold_us) {
       // Default log all rpc info if elapse time greater than 1 second
       str += fmt::format(",request : {}, response : {}", request->ShortDebugString(), response->ShortDebugString());
@@ -151,7 +154,8 @@ class UnaryRpc : public Rpc {
   ResponseType* response;
   brpc::Controller controller;
   BrpcContext* brpc_ctx;
-  int64_t start_time{0};  // record the start time of the RPC call , use for trace
+  uint64_t start_time{0};    // record the start time of the RPC call , use for trace
+  uint64_t elapsed_time{0};  // record the during time of the RPC call , use for trace
   int64_t log_id{0};
 };
 

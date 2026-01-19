@@ -19,6 +19,7 @@
 #include "sdk/client_stub.h"
 #include "sdk/utils/callback.h"
 #include "sdk/utils/rw_lock.h"
+#include "sdk/utils/scoped_cleanup.h"
 
 namespace dingodb {
 namespace sdk {

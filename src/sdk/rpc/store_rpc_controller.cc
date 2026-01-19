@@ -107,6 +107,8 @@ void StoreRpcController::SendStoreRpc() {
 void StoreRpcController::MaybeDelay() {
   if (NeedDelay(status_)) {
     auto delay_ms = FLAGS_store_rpc_retry_delay_ms;
+    rpc_.IncSleepCount();
+    rpc_.IncSleepTimesUs(FLAGS_coordinator_interaction_delay_ms * 1000);
     SleepUs(delay_ms * 1000);
   }
 }
@@ -210,6 +212,7 @@ void StoreRpcController::RetrySendRpcOrFireCallback() {
   if (!status_.IsOK() && (IsUniversalNeedRetryError(status_) || IsTxnNeedRetryError(status_))) {
     if (rpc_retry_times_ < FLAGS_store_rpc_max_retry) {
       rpc_retry_times_++;
+      rpc_.IncRetryTimes();
       DoAsyncCall();
       return;
 

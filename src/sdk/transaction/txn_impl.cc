@@ -41,12 +41,18 @@
 #include "sdk/transaction/txn_task/txn_prewrite_task.h"
 #include "sdk/utils/async_util.h"
 #include "sdk/utils/callback.h"
+#include "sdk/utils/scoped_cleanup.h"
 
 namespace dingodb {
 namespace sdk {
 
 TxnImpl::TxnImpl(const ClientStub& stub, const TransactionOptions& options, TxnManager* txn_manager)
-    : stub_(stub), options_(options), txn_manager_(txn_manager), state_(kInit), buffer_(new TxnBuffer()) {}
+    : stub_(stub),
+      options_(options),
+      txn_manager_(txn_manager),
+      state_(kInit),
+      buffer_(new TxnBuffer()),
+      tracker_(Tracker::New()) {}
 
 TxnImplSPtr TxnImpl::GetSelfPtr() { return std::dynamic_pointer_cast<TxnImpl>(shared_from_this()); }
 
@@ -303,6 +309,9 @@ Status TxnImpl::ProcessScanState(ScanState& scan_state, uint64_t limit, std::vec
 
 Status TxnImpl::DoScan(const std::string& start_key, const std::string& end_key, uint64_t limit,
                        std::vector<KVPair>& out_kvs) {
+  auto start_time = TimestampUs();
+  SCOPED_CLEANUP(GetTracer()->IncrementReadSdkTime(TimestampUs() - start_time););
+
   // check whether region exist
   RegionPtr region;
   Status status = LookupRegion(start_key, end_key, region);
@@ -423,6 +432,7 @@ Status TxnImpl::DoScan(const std::string& start_key, const std::string& end_key,
 }
 
 Status TxnImpl::PreWriteAndCommit() {
+  SCOPED_CLEANUP(tracker_->SetTotalTransactionTime(););
   Status s = DoPreCommit();
   if (!s.ok()) {
     return s;
@@ -847,6 +857,7 @@ Status TxnImpl::DoRollback() {
   // TODO: client txn status maybe inconsistence with server
   // so we should check txn status first and then take action
   // TODO: maybe support rollback when txn is active
+  SCOPED_CLEANUP(tracker_->SetTotalTransactionTime(););
   State state = state_.load();
   if (state != kPreCommitting && state != kPreCommitted) {
     return Status::IllegalState(fmt::format("forbid rollback, state {}", StateName(state)));
@@ -892,5 +903,27 @@ void TxnImpl::Cleanup() {
   txn_manager_->UnregisterTxn(ID());
 }
 
+void TxnImpl::GetTraceMetrics(TraceMetrics& metrics) {
+  metrics.total_time_us = tracker_->TotalTransactionTime();
+
+  metrics.read_metric.sdk_time_us = tracker_->ReadSdkTime();
+  metrics.read_metric.rpc_time_us = tracker_->ReadRpcTime();
+  metrics.read_metric.retry_count = tracker_->ReadRetryCount();
+  metrics.read_metric.rpc_retry_count = tracker_->ReadRpcRetryCount();
+
+  metrics.prewrite_metric.sdk_time_us = tracker_->PrewriteSdkTime();
+  metrics.prewrite_metric.rpc_time_us = tracker_->PrewriteRpcTime();
+  metrics.prewrite_metric.retry_count = tracker_->PrewriteRetryCount();
+  metrics.prewrite_metric.rpc_retry_count = tracker_->PrewriteRpcRetryCount();
+
+  metrics.commit_metric.sdk_time_us = tracker_->CommitSdkTime();
+  metrics.commit_metric.rpc_time_us = tracker_->CommitRpcTime();
+  metrics.commit_metric.retry_count = tracker_->CommitRetryCount();
+  metrics.commit_metric.rpc_retry_count = tracker_->CommitRpcRetryCount();
+
+  metrics.resolve_lock_time_us = tracker_->ResolveLockSdkTime();
+  metrics.sleep_time_us = tracker_->SleepTime();
+  metrics.sleep_count = tracker_->SleepTimeCount();
+}
 }  // namespace sdk
 }  // namespace dingodb

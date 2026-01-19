@@ -50,6 +50,14 @@ class Rpc {
 
   int GetRetryTimes() const { return retry_times; }
 
+  void IncSleepTimesUs(uint64_t elapsed_time) { sleep_time_us += elapsed_time; }
+
+  int GetSleepTimesUs() const { return sleep_time_us; }
+
+  void IncSleepCount() { sleep_count++; }
+
+  int GetSleepCount() const { return sleep_count; }
+
   virtual google::protobuf::Message* RawMutableRequest() = 0;
 
   virtual const google::protobuf::Message* RawRequest() const = 0;
@@ -72,6 +80,8 @@ class Rpc {
 
   virtual uint64_t LogId() const = 0;
 
+  virtual uint64_t ElapsedTimeUs() const = 0;
+
   StatusCallback call_back;
 
  protected:
@@ -79,6 +89,8 @@ class Rpc {
   EndPoint end_point;
   Status status;
   int retry_times{0};
+  uint64_t sleep_time_us{0};
+  uint64_t sleep_count{0};
 };
 
 }  // namespace sdk
