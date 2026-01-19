@@ -53,6 +53,8 @@ Status TxnCommitTask::Init() {
 }
 
 void TxnCommitTask::DoAsync() {
+  auto start_time = TimestampUs();
+  SCOPED_CLEANUP(txn_impl_->GetTracer()->IncrementCommitSdkTime(TimestampUs() - start_time););
   std::set<std::string_view> next_batch;
   {
     WriteLockGuard guard(rw_lock_);
@@ -136,6 +138,12 @@ void TxnCommitTask::DoAsync() {
 void TxnCommitTask::TxnCommitRpcCallback(const Status& status, TxnCommitRpc* rpc) {
   DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] rpc: {} request: {} response: {}", txn_impl_->ID(), rpc->Method(),
                                   rpc->Request()->ShortDebugString(), rpc->Response()->ShortDebugString());
+
+  txn_impl_->GetTracer()->IncrementCommitRpcTime(rpc->ElapsedTimeUs());
+  txn_impl_->GetTracer()->IncrementCommitRpcRetryCount(rpc->GetRetryTimes());
+  txn_impl_->GetTracer()->IncrementSleepTime(rpc->GetSleepTimesUs());
+  txn_impl_->GetTracer()->IncrementSleepCount(rpc->GetSleepCount());
+
   Status s;
   const auto* response = rpc->Response();
   if (!status.ok()) {
@@ -200,7 +208,7 @@ Status TxnCommitTask::ProcessTxnCommitResponse(const TxnCommitResponse* response
   } else if (txn_result.has_write_conflict()) {
     if (!is_primary) {
       DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] commit write conlict, pk({}) response({}).", txn_id,
-                                      StringToHex(pk), txn_result.write_conflict().ShortDebugString());
+                                        StringToHex(pk), txn_result.write_conflict().ShortDebugString());
     }
     return Status::TxnWriteConflict("txn write conflict");
 

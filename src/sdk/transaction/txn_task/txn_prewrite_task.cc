@@ -50,6 +50,9 @@ Status TxnPrewriteTask::Init() {
 }
 
 void TxnPrewriteTask::DoAsync() {
+  auto start_time = TimestampUs();
+  SCOPED_CLEANUP(txn_impl_->GetTracer()->IncrementPrewriteSdkTime(TimestampUs() - start_time););
+
   std::map<std::string, const TxnMutation*> next_batch;
   {
     WriteLockGuard guard(rw_lock_);
@@ -193,6 +196,12 @@ void TxnPrewriteTask::DoAsync() {
 void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRpc* rpc) {
   DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] rpc: {} request: {} response: {}", txn_impl_->ID(), rpc->Method(),
                                   rpc->Request()->ShortDebugString(), rpc->Response()->ShortDebugString());
+
+  txn_impl_->GetTracer()->IncrementPrewriteRpcTime(rpc->ElapsedTimeUs());
+  txn_impl_->GetTracer()->IncrementPrewriteRpcRetryCount(rpc->GetRetryTimes());
+  txn_impl_->GetTracer()->IncrementSleepTime(rpc->GetSleepTimesUs());
+  txn_impl_->GetTracer()->IncrementSleepCount(rpc->GetSleepCount());
+
   bool need_retry = false;
   Status s;
   const auto* response = rpc->Response();
@@ -208,6 +217,7 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
       if (s1.ok()) {
         continue;
       } else if (s1.IsTxnLockConflict()) {
+        auto start_time = TimestampUs();
         s1 = stub.GetTxnLockResolver()->ResolveLock(txn_result.locked(), txn_impl_->GetStartTs());
         if (!s1.ok()) {
           DINGO_LOG(WARNING) << fmt::format(
@@ -219,7 +229,7 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
           // need to retry
           need_retry = true;
         }
-
+        txn_impl_->GetTracer()->IncrementResolveLockTime(TimestampUs() - start_time);
       } else if (s1.IsTxnWriteConflict()) {
         DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] precommit write conflict, pk({}) status({}) txn_result({}).",
                                           txn_impl_->ID(), StringToHex(primary_key_), s1.ToString(),
@@ -301,6 +311,7 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
       tmp_need_retry = need_retry_;
     }
     if (tmp.ok() && tmp_need_retry) {
+      txn_impl_->GetTracer()->IncrementPrewriteRetryCount(1);
       DoAsyncRetry();
       return;
     }

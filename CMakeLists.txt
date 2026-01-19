@@ -32,6 +32,8 @@ option(BUILD_SDK_EXAMPLE "Build sdk example" ON)
 option(BUILD_PYTHON_SDK "Build python sdk" OFF)
 option(DINGOSDK_INSTALL "Install dingosdk header and libary" ON)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(CMAKE_CXX_STANDARD 17)
 message("CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
 

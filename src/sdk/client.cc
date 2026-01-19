@@ -603,6 +603,8 @@ bool Transaction::IsAsyncCommit() const { return data_->impl->IsAsyncCommit(); }
 
 bool Transaction::IsConcurrentPreCommit() const { return data_->impl->IsConcurrentPreCommit(); }
 
+void Transaction::GetTraceMetrics(TraceMetrics& metrics) { data_->impl->GetTraceMetrics(metrics); }
+
 RegionCreator::RegionCreator(Data* data) : data_(data) {}
 
 RegionCreator::~RegionCreator() { delete data_; }

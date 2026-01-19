@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "sdk/transaction/txn_task/txn_get_task.h"
+
 #include <fmt/format.h>
 
 #include "dingosdk/status.h"
@@ -27,6 +28,9 @@
 namespace dingodb {
 namespace sdk {
 void TxnGetTask::DoAsync() {
+  auto start_time = TimestampUs();
+  SCOPED_CLEANUP(txn_impl_->GetTracer()->IncrementReadSdkTime(TimestampUs() - start_time););
+
   auto meta_cache = stub.GetMetaCache();
   RegionPtr region;
   Status s = meta_cache->LookupRegionByKey(key_, region);
@@ -48,6 +52,12 @@ void TxnGetTask::DoAsync() {
 void TxnGetTask::TxnGetRpcCallback(const Status& status) {
   DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] rpc: {} request: {} response: {}", txn_impl_->ID(), rpc_.Method(),
                                   rpc_.Request()->ShortDebugString(), rpc_.Response()->ShortDebugString());
+
+  txn_impl_->GetTracer()->IncrementReadRpcTime(rpc_.ElapsedTimeUs());
+  txn_impl_->GetTracer()->IncrementReadRpcRetryCount(rpc_.GetRetryTimes());
+  txn_impl_->GetTracer()->IncrementSleepTime(rpc_.GetSleepTimesUs());
+  txn_impl_->GetTracer()->IncrementSleepCount(rpc_.GetSleepCount());
+
   const auto* response = rpc_.Response();
   if (!status.ok()) {
     DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rpc: {} send to region: {} fail: {}", txn_impl_->ID(),
@@ -57,14 +67,18 @@ void TxnGetTask::TxnGetRpcCallback(const Status& status) {
     if (response->has_txn_result()) {
       auto status1 = CheckTxnResultInfo(response->txn_result());
       if (status1.IsTxnLockConflict()) {
+        auto start_time = TimestampUs();
         status1 = stub.GetTxnLockResolver()->ResolveLock(response->txn_result().locked(), txn_impl_->GetStartTs());
+        txn_impl_->GetTracer()->IncrementResolveLockTime(TimestampUs() - start_time);
         // retry
         if (status1.ok()) {
           // need to retry
+          txn_impl_->GetTracer()->IncrementReadRetryCount(1);
           DoAsyncRetry();
           return;
         } else if (status1.IsPushMinCommitTs()) {
           resolved_lock_ = response->txn_result().locked().lock_ts();
+          txn_impl_->GetTracer()->IncrementReadRetryCount(1);
           DoAsyncRetry();
           return;
         }
@@ -80,7 +94,7 @@ void TxnGetTask::TxnGetRpcCallback(const Status& status) {
 
   if (status_.ok()) {
     if (response->value().empty()) {
-      status_ = Status::NotFound(fmt::format("key:{} not found", key_));
+      status_ = Status::NotFound(fmt::format("key:{} not found", StringToHex(key_)));
     } else {
       value_ = response->value();
     }

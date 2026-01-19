@@ -85,6 +85,8 @@ void CoordinatorRpcController::SendCoordinatorRpc(Rpc& rpc) {
   if (NeedDelay()) {
     DINGO_LOG(INFO) << fmt::format("[sdk.rpc.{}]try to delay: {}ms", rpc.LogId(),
                                    FLAGS_coordinator_interaction_delay_ms);
+    rpc.IncSleepCount();
+    rpc.IncSleepTimesUs(FLAGS_coordinator_interaction_delay_ms * 1000);
     SleepUs(FLAGS_coordinator_interaction_delay_ms * 1000);
   }
 

@@ -28,6 +28,7 @@
 #include "proto/meta.pb.h"
 #include "proto/store.pb.h"
 #include "sdk/client_stub.h"
+#include "sdk/common/tracker.h"
 #include "sdk/region.h"
 #include "sdk/rpc/store_rpc.h"
 #include "sdk/transaction/txn_buffer.h"
@@ -158,6 +159,10 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
     }
   }
 
+  TrackerPtr GetTracer() { return tracker_; }
+
+  void GetTraceMetrics(TraceMetrics& metrics);
+
   std::string DebugString() const { return fmt::format("Txn: id={}, state={}", ID(), StateName(state_.load())); }
 
   bool TEST_IsInitState() { return state_.load() == kInit; }                      // NOLINT
@@ -251,6 +256,8 @@ class TxnImpl : public std::enable_shared_from_this<TxnImpl> {
   std::map<std::string, ScanState> scan_states_;
 
   TxnManager* txn_manager_;
+
+  TrackerPtr tracker_;
 };
 
 }  // namespace sdk
