@@ -39,7 +39,7 @@ DEFINE_int64(rpc_time_out_ms, 500000, "rpc call timeout ms");
 DEFINE_bool(enable_trace_rpc_performance, true, "enable trance rpc performance, use for debug");
 DEFINE_int64(rpc_elapse_time_threshold_us, 1000, "rpc elapse time us threshold");
 DEFINE_int64(rpc_trace_full_info_threshold_us, 1000000,
-			 "log full rpc detail when elapsed time exceeds this threshold (us)");
+             "log full rpc detail when elapsed time exceeds this threshold (us)");
 
 DEFINE_int64(store_rpc_retry_delay_ms, 500, "store rpc retry delay ms");
 DEFINE_int64(store_rpc_max_retry, 600, "store rpc max retry times, use case: wrong leader or request range invalid");
@@ -65,8 +65,8 @@ DEFINE_bool(enable_txn_async_commit, true, "enable txn async commit");
 
 DEFINE_bool(log_rpc_time, false, "log rpc time");
 
-DEFINE_int64(txn_heartbeat_interval_ms, 8000, "txn heartbeat interval time");
-DEFINE_int64(txn_heartbeat_lock_delay_ms, 20000, "txn heartbeat lock delay time");
+DEFINE_int64(txn_heartbeat_interval_ms, 3000, "txn heartbeat interval time");
+DEFINE_int64(txn_heartbeat_lock_delay_ms, 5000, "txn heartbeat lock delay time");
 
 DEFINE_int64(txn_check_status_interval_ms, 100, "txn check status interval ms");
 
