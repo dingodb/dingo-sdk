@@ -15,6 +15,7 @@
 #include "sdk/rawkv/raw_kv_batch_put_if_absent_task.h"
 
 #include "sdk/common/common.h"
+#include "sdk/common/helper.h"
 #include "sdk/rawkv/raw_kv_task.h"
 
 namespace dingodb {
@@ -30,7 +31,7 @@ Status RawKvBatchPutIfAbsentTask::Init() {
   for (const auto& kv : kvs_) {
     if (!next_keys_.insert(kv.key).second) {
       // duplicate key
-      std::string msg = fmt::format("duplicate key: {}", kv.key);
+      std::string msg = fmt::format("duplicate key: {}", StringToHex(kv.key));
       DINGO_LOG(ERROR) << msg;
       return Status::InvalidArgument(msg);
     }

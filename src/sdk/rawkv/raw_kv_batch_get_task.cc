@@ -18,6 +18,7 @@
 
 #include "glog/logging.h"
 #include "sdk/common/common.h"
+#include "sdk/common/helper.h"
 #include "sdk/rawkv/raw_kv_task.h"
 
 namespace dingodb {
@@ -33,7 +34,7 @@ Status RawKvBatchGetTask::Init() {
   for (const auto& str : keys_) {
     if (!next_keys_.insert(str).second) {
       // duplicate key
-      std::string msg = fmt::format("duplicate key: {}", str);
+      std::string msg = fmt::format("duplicate key: {}", StringToHex(str));
       DINGO_LOG(ERROR) << msg;
       return Status::InvalidArgument(msg);
     }

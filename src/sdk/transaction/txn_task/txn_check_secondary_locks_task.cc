@@ -24,6 +24,7 @@
 #include "common/logging.h"
 #include "dingosdk/status.h"
 #include "sdk/common/common.h"
+#include "sdk/common/helper.h"
 #include "sdk/rpc/store_rpc_controller.h"
 #include "sdk/transaction/txn_common.h"
 #include "sdk/utils/rw_lock.h"
@@ -35,7 +36,7 @@ Status TxnCheckSecondaryLocksTask::Init() {
   for (const auto& str : secondary_keys_) {
     if (!next_keys_.insert(str).second) {
       // duplicate key
-      std::string msg = fmt::format("[sdk.txn.{}] duplicate key: {}", primary_lock_start_ts_, str);
+      std::string msg = fmt::format("[sdk.txn.{}] duplicate key: {}", primary_lock_start_ts_, StringToHex(str));
       DINGO_LOG(ERROR) << msg;
       return Status::InvalidArgument(msg);
     }

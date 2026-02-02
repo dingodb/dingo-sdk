@@ -17,7 +17,7 @@
 #include "dingosdk/client.h"
 #include "dingosdk/status.h"
 #include "sdk/common/common.h"
-
+#include "sdk/common/helper.h"
 namespace dingodb {
 namespace sdk {
 
@@ -30,7 +30,7 @@ Status RawKvBatchPutTask::Init() {
   for (const auto& kv : kvs_) {
     if (!next_keys_.insert(kv.key).second) {
       // duplicate key
-      std::string msg = fmt::format("duplicate key: {}", kv.key);
+      std::string msg = fmt::format("duplicate key: {}", StringToHex(kv.key));
       DINGO_LOG(ERROR) << msg;
       return Status::InvalidArgument(msg);
     }
