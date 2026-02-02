@@ -84,16 +84,16 @@ void TxnCheckStatusTask::TxnCheckStatusRpcCallback(const Status& status) {
             "txn_result({}).",
             start_ts_, StringToHex(primary_key_), rpc_.Request()->lock_ts(), rpc_.Request()->caller_start_ts(),
             status.ToString(), txn_result.ShortDebugString());
-        if (!status.IsTxnLockConflict()) {
-          status_ = status;
-        }
+        // if (!status.IsTxnLockConflict()) {
+        //   status_ = status;
+        // }
       }
     }
   }
 
-  if (status_.ok()) {
-    txn_status_ = TxnStatus(response->lock_ttl(), response->commit_ts(), response->action(), lock_info);
-  }
+  // if (status_.ok()) {
+  txn_status_ = TxnStatus(response->lock_ttl(), response->commit_ts(), response->action(), lock_info);
+  //}
 
   DoAsyncDone(status_);
 }
