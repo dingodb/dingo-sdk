@@ -145,6 +145,13 @@ void TxnPrewriteTask::DoAsync() {
       rpc->MutableRequest()->set_min_commit_ts(commit_ts);
     }
 
+    if (!is_one_pc_ && use_async_commit_) {
+      rpc->MutableRequest()->set_use_async_commit(true);
+      for (const auto& [_, m] : mutations_ordinarykeys_for_async_commit_) {
+        rpc->MutableRequest()->add_secondaries(m->key);
+      }
+    }
+
     for (const auto& mutation : entry.second) {
       if (rpc->MutableRequest()->mutations_size() == FLAGS_txn_max_batch_count) {
         DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] precommit key, region({}) mutations({}) equal max batch count.",
@@ -167,15 +174,15 @@ void TxnPrewriteTask::DoAsync() {
         if (is_one_pc_ || use_async_commit_) {
           rpc->MutableRequest()->set_min_commit_ts(commit_ts);
         }
+        if (!is_one_pc_ && use_async_commit_) {
+          rpc->MutableRequest()->set_use_async_commit(true);
+          for (const auto& [_, m] : mutations_ordinarykeys_for_async_commit_) {
+            rpc->MutableRequest()->add_secondaries(m->key);
+          }
+        }
       }
 
       TxnMutation2MutationPB(*mutation, rpc->MutableRequest()->add_mutations());
-      if (!is_one_pc_ && use_async_commit_) {
-        rpc->MutableRequest()->set_use_async_commit(true);
-        for (const auto& [_, m] : mutations_ordinarykeys_for_async_commit_) {
-          rpc->MutableRequest()->add_secondaries(m->key);
-        }
-      }
     }
 
     StoreRpcController controller(stub, *rpc, region);
