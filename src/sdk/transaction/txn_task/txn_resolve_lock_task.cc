@@ -34,7 +34,7 @@ Status TxnResolveLockTask::Init() {
   for (const auto& str : keys_) {
     if (!next_keys_.insert(str).second) {
       // duplicate key
-      std::string msg = fmt::format("[sdk.txn] lock_ts: {}, duplicate key: {}", lock_ts_, str);
+      std::string msg = fmt::format("[sdk.txn] lock_ts: {}, duplicate key: {}", lock_ts_, StringToHex(str));
       DINGO_LOG(ERROR) << msg;
       return Status::InvalidArgument(msg);
     }
@@ -121,7 +121,7 @@ void TxnResolveLockTask::TxnResolveLockRpcCallback(const Status& status, TxnReso
       }
     }
   }
-  
+
   {
     WriteLockGuard guard(rw_lock_);
     if (s.ok()) {

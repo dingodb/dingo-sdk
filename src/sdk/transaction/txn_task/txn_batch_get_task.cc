@@ -38,7 +38,7 @@ Status TxnBatchGetTask::Init() {
   for (const auto& str : keys_) {
     if (!next_keys_.insert(str).second) {
       // duplicate key
-      std::string msg = fmt::format("[sdk.txn.{}] duplicate key: {}", txn_impl_->ID(), str);
+      std::string msg = fmt::format("[sdk.txn.{}] duplicate key: {}", txn_impl_->ID(), StringToHex(str));
       DINGO_LOG(ERROR) << msg;
       return Status::InvalidArgument(msg);
     }

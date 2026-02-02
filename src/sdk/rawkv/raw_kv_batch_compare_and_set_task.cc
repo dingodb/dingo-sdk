@@ -18,6 +18,7 @@
 
 #include "glog/logging.h"
 #include "sdk/common/common.h"
+#include "sdk/common/helper.h"
 #include "sdk/rawkv/raw_kv_task.h"
 
 namespace dingodb {
@@ -41,13 +42,13 @@ Status RawKvBatchCompareAndSetTask::Init() {
     const auto& expected_value = expected_values_[i];
     if (!next_keys_.insert(kv.key).second) {
       // duplicate key
-      std::string msg = fmt::format("next_keys_ duplicate key: {}", kv.key);
+      std::string msg = fmt::format("next_keys_ duplicate key: {}", StringToHex(kv.key));
       DINGO_LOG(ERROR) << msg;
       return Status::InvalidArgument(msg);
     }
     if (!compare_and_set_contexts_.insert({kv.key, {kv, expected_value}}).second) {
       // duplicate key
-      std::string msg = fmt::format("compare_and_set_contexts_ exist duplicate key: {}", kv.key);
+      std::string msg = fmt::format("compare_and_set_contexts_ exist duplicate key: {}", StringToHex(kv.key));
       DINGO_LOG(ERROR) << msg;
       return Status::InvalidArgument(msg);
     }
