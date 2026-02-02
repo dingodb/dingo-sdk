@@ -71,6 +71,17 @@ Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& conflict_lock_inf
           // lock ttl expired, next check will rollback txn if not exist
           rollback_if_not_exist = true;
         }
+      } else if (status.IsTxnLockConflict()) {
+        // check lock ttl expired
+        int64_t current_ts;
+        Status status1 = stub_.GetTsoProvider()->GenPhysicalTs(2, current_ts);
+        if (!status1.ok()) {
+          return status1;
+        }
+        if (txn_status.primary_lock_info.lock_ts() > 0 && txn_status.primary_lock_info.lock_ttl() > current_ts) {
+          // lock ttl not expired, wait and retry
+          SleepUs(FLAGS_txn_check_status_interval_ms * 1000);
+        }
       } else {
         return status;
       }
@@ -107,9 +118,9 @@ Status TxnLockResolver::ResolveNormalLock(const pb::store::LockInfo& lock_info, 
   }
 
   // primary key exist lock then outer txn rollback
-  if (txn_status.IsLocked()) {
-    return Status::TxnLockConflict(fmt::format("lock still exist, lock_info({})", lock_info.ShortDebugString()));
-  }
+  // if (txn_status.IsLocked()) {
+  //   return Status::TxnLockConflict(fmt::format("lock still exist, lock_info({})", lock_info.ShortDebugString()));
+  // }
 
   Status status;
 
@@ -146,26 +157,26 @@ Status TxnLockResolver::ResolveLockSecondaryLocks(const pb::store::LockInfo& pri
   DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] lock use async commit, lock_info({}), txn_status({}).", start_ts,
                                   primary_lock_info.ShortDebugString(), txn_status.ToString());
   //  check lock ttl expired
-  int64_t retry_times = 0;
-  int64_t max_retry_times = (FLAGS_txn_heartbeat_lock_delay_ms / FLAGS_txn_check_status_interval_ms) + 1;
-  while (retry_times < max_retry_times) {
-    int64_t current_ts;
-    Status status1 = stub_.GetTsoProvider()->GenPhysicalTs(2, current_ts);
-    if (!status1.ok()) {
-      return status1;
-    }
-    if (txn_status.primary_lock_info.lock_ttl() > current_ts) {
-      // lock ttl not expired, can not resolve lock now
-      DINGO_LOG(DEBUG) << fmt::format(
-          "[sdk.txn.{}] async commit lock ttl not expired, lock_info({}), txn_status({}), current_ts({}).", start_ts,
-          primary_lock_info.ShortDebugString(), txn_status.ToString(), current_ts);
+  // int64_t retry_times = 0;
+  // int64_t max_retry_times = (FLAGS_txn_heartbeat_lock_delay_ms / FLAGS_txn_check_status_interval_ms) + 1;
+  // while (retry_times < max_retry_times) {
+  //   int64_t current_ts;
+  //   Status status1 = stub_.GetTsoProvider()->GenPhysicalTs(2, current_ts);
+  //   if (!status1.ok()) {
+  //     return status1;
+  //   }
+  //   if (txn_status.primary_lock_info.lock_ttl() > current_ts) {
+  //     // lock ttl not expired, can not resolve lock now
+  //     DINGO_LOG(DEBUG) << fmt::format(
+  //         "[sdk.txn.{}] async commit lock ttl not expired, lock_info({}), txn_status({}), current_ts({}).", start_ts,
+  //         primary_lock_info.ShortDebugString(), txn_status.ToString(), current_ts);
 
-      retry_times++;
-      SleepUs(FLAGS_txn_check_status_interval_ms * 1000);
-      continue;
-    }
-    break;
-  }
+  //     retry_times++;
+  //     SleepUs(FLAGS_txn_check_status_interval_ms * 1000);
+  //     continue;
+  //   }
+  //   break;
+  // }
 
   // check secondary locks status
   TxnSecondaryLockStatus txn_secondary_lock_status;
