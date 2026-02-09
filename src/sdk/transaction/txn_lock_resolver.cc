@@ -72,6 +72,10 @@ Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& conflict_lock_inf
           rollback_if_not_exist = true;
         }
       } else if (status.IsTxnLockConflict()) {
+        // if lock.ts > current_start_ts, return write conflict
+        if (txn_status.primary_lock_info.lock_ts() > start_ts) {
+          return Status::TxnWriteConflict(txn_status.primary_lock_info.ShortDebugString());
+        }
         // check lock ttl expired
         int64_t current_ts;
         Status status1 = stub_.GetTsoProvider()->GenPhysicalTs(2, current_ts);
@@ -117,10 +121,10 @@ Status TxnLockResolver::ResolveNormalLock(const pb::store::LockInfo& lock_info, 
     return Status::PushMinCommitTs("push min_commit_ts");
   }
 
-  // primary key exist lock then outer txn rollback
-  // if (txn_status.IsLocked()) {
-  //   return Status::TxnLockConflict(fmt::format("lock still exist, lock_info({})", lock_info.ShortDebugString()));
-  // }
+  // Although lock push min commit_ts, the lock is still active.
+  if (txn_status.IsLocked()) {
+    return Status::TxnLockConflict(fmt::format("lock still exist, lock_info({})", lock_info.ShortDebugString()));
+  }
 
   Status status;
 
