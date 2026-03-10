@@ -61,12 +61,20 @@ void TxnBatchRollbackTask::DoAsync() {
   std::unordered_map<int64_t, std::vector<std::string_view>> region_id_to_keys;
 
   auto meta_cache = stub.GetMetaCache();
+  std::shared_ptr<Region> cached_region = nullptr;
   for (const auto& key : next_batch) {
     std::shared_ptr<Region> tmp;
-    Status s = meta_cache->LookupRegionByKey(key, tmp);
-    if (!s.ok()) {
-      DoAsyncDone(s);
-      return;
+    if (cached_region != nullptr && 
+        key >= cached_region->GetRange().start_key && 
+        key < cached_region->GetRange().end_key) {
+      tmp = cached_region;
+    } else {
+      Status s = meta_cache->LookupRegionByKey(key, tmp);
+      if (!s.ok()) {
+        DoAsyncDone(s);
+        return;
+      }
+      cached_region = tmp;
     }
     auto iter = region_id_to_region.find(tmp->RegionId());
     if (iter == region_id_to_region.end()) {

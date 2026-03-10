@@ -16,9 +16,9 @@
 #define TXN_RESOLVE_LOCK_TASK_H
 
 #include <cstdint>
+#include <set>
 #include <string>
 #include <string_view>
-#include <unordered_set>
 #include <vector>
 
 #include "dingosdk/status.h"
@@ -55,7 +55,7 @@ class TxnResolveLockTask : public TxnTask {
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<TxnResolveLockRpc>> rpcs_;
   std::atomic<int> sub_tasks_count_{0};
-  std::unordered_set<std::string_view> next_keys_;
+  std::set<std::string_view> next_keys_;
 
   RWLock rw_lock_;
   Status status_;
