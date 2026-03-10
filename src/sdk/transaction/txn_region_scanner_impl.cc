@@ -118,16 +118,18 @@ Status TxnRegionScannerImpl::NextBatch(std::vector<KVPair>& kvs) {
     return status;
   }
 
-  const auto* response = rpc->Response();
+  auto* mut_response = rpc->MutableResponse();
 
-  for (const auto& kv : response->kvs()) {
+  for (auto& kv : *mut_response->mutable_kvs()) {
     DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] scan region({}) key({}) value({}).", txn_start_ts_,
                                     region->RegionId(), StringToHex(kv.key()), StringToHex(kv.value()));
-    kvs.push_back({kv.key(), kv.value()});
+
+    // Transfer ownership of the string from its underlying allocation
+    kvs.push_back({std::move(*kv.mutable_key()), std::move(*kv.mutable_value())});
   }
 
-  has_more_ = response->stream_meta().has_more();
-  stream_id_ = response->stream_meta().stream_id();
+  has_more_ = mut_response->stream_meta().has_more();
+  stream_id_ = mut_response->stream_meta().stream_id();
 
   return status;
 }
