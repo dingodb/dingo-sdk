@@ -19,12 +19,15 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <list>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "dingosdk/status.h"
 #include "fmt/core.h"
 #include "proto/store.pb.h"
+#include "sdk/utils/rw_lock.h"
 
 namespace dingodb {
 namespace sdk {
@@ -108,6 +111,12 @@ class TxnLockResolver {
   Status ResolveNormalLock(const pb::store::LockInfo& lock_info, int64_t start_ts, const TxnStatus& txn_status);
 
   const ClientStub& stub_;
+
+  // Local LRU cache to prevent thundering herd effect on the same lock_ts
+  RWLock cache_rw_lock_;
+  size_t max_cache_size_{10000};
+  std::list<int64_t> resolved_lock_lru_queue_;
+  std::unordered_map<int64_t, std::pair<std::shared_ptr<TxnStatus>, std::list<int64_t>::iterator>> resolved_lock_cache_;
 };
 
 }  // namespace sdk

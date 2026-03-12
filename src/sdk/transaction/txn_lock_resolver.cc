@@ -43,6 +43,29 @@ Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& conflict_lock_inf
                                     bool force_sync_commit) {
   DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] resolve lock, lock_info({}).", start_ts,
                                  conflict_lock_info.ShortDebugString());
+  // 1. Try hitting the local cache first
+  int64_t conflict_lock_ts = conflict_lock_info.lock_ts();
+  std::shared_ptr<TxnStatus> cached_status;
+  {
+    // Both read and LRU promotion require WriteLock / Mutex logic
+    WriteLockGuard guard(cache_rw_lock_);
+    auto iter = resolved_lock_cache_.find(conflict_lock_ts);
+    if (iter != resolved_lock_cache_.end()) {
+      cached_status = iter->second.first;
+      // Promote to front of LRU
+      resolved_lock_lru_queue_.splice(resolved_lock_lru_queue_.begin(), resolved_lock_lru_queue_, iter->second.second);
+    }
+  }
+
+  // If cached status is definitive (Committed or Rollbacked), use it to resolve immediately
+  if (cached_status != nullptr && (cached_status->IsCommitted() || cached_status->IsRollbacked())) {
+    DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] hit local cache for lock_ts({}), txn_status({}).", start_ts,
+                                   conflict_lock_ts, cached_status->ToString());
+    if (cached_status->primary_lock_info.use_async_commit() && !force_sync_commit) {
+      return ResolveLockSecondaryLocks(cached_status->primary_lock_info, start_ts, *cached_status, conflict_lock_info);
+    }
+    return ResolveNormalLock(conflict_lock_info, start_ts, *cached_status);
+  }
 
   // check primary key lock status
   TxnStatus txn_status;
@@ -90,6 +113,23 @@ Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& conflict_lock_inf
         return status;
       }
     } else {
+      // Save the definitive state to the cache and perform LRU eviction
+      if (txn_status.IsCommitted() || txn_status.IsRollbacked()) {
+        WriteLockGuard guard(cache_rw_lock_);
+        if (resolved_lock_cache_.find(conflict_lock_ts) == resolved_lock_cache_.end()) {
+          // insert into LRU if not present
+          resolved_lock_lru_queue_.push_front(conflict_lock_ts);
+          resolved_lock_cache_[conflict_lock_ts] = {std::make_shared<TxnStatus>(txn_status),
+                                                    resolved_lock_lru_queue_.begin()};
+
+          // check eviction
+          if (resolved_lock_cache_.size() > max_cache_size_) {
+            int64_t lru_lock_ts = resolved_lock_lru_queue_.back();
+            resolved_lock_lru_queue_.pop_back();
+            resolved_lock_cache_.erase(lru_lock_ts);
+          }
+        }
+      }
       break;
     }
     retry_times++;
