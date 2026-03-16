@@ -54,6 +54,11 @@ class CMakeBuild(build_ext):
             f"-DBUILD_INTEGRATION_TESTS=OFF",
             f"-DBUILD_UNIT_TESTS=OFF",
             f"-DBUILD_SDK_EXAMPLE=OFF",
+            *(
+                [f"-DTHIRD_PARTY_INSTALL_PATH={os.environ['THIRD_PARTY_INSTALL_PATH']}"]
+                if "THIRD_PARTY_INSTALL_PATH" in os.environ
+                else []
+            ),
         ]
 
         build_args = []

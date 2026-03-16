@@ -19,8 +19,13 @@ set(CMAKE_CXX_STANDARD 17)
 message("CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
 
 find_package(Python 3.6 COMPONENTS Interpreter Development)
- 
-add_subdirectory(pybind11)
+
+if(NOT THIRD_PARTY_INSTALL_PATH)
+  set(THIRD_PARTY_INSTALL_PATH "$ENV{HOME}/.local/dingo-eureka")
+endif()
+list(PREPEND CMAKE_PREFIX_PATH ${THIRD_PARTY_INSTALL_PATH})
+
+find_package(pybind11 REQUIRED)
 message(STATUS "Found pybind11 v${pybind11_VERSION}: ${pybind11_INCLUDE_DIRS}")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)

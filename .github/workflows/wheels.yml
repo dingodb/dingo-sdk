@@ -20,7 +20,7 @@ jobs:
       - name: Download the submodule
         run: |
           git submodule sync --recursive
-          git submodule update --init --recursive
+          git submodule update --init --recursive store-proto serial
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.19.1
         env:
