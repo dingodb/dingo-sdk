@@ -1,24 +1,25 @@
 [build-system]
-requires = [
-    "setuptools>=42",
-    "wheel",
-    "ninja",
-    "cmake>=3.30.1",
-]
-build-backend = "setuptools.build_meta"
+requires = ["scikit-build-core"]
+build-backend = "scikit_build_core.build"
 
-[tool.mypy]
-files = "setup.py"
-python_version = "3.7"
-strict = true
-show_error_codes = true
-enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
-warn_unreachable = true
+[project]
+name = "dingosdk"
+version = "0.3rc1.post9"
+description = "dingo-store python sdk"
+authors = [{name = "DingoDB", email = "dingodb@zetyun.com"}]
+readme = "python/README.md"
+requires-python = ">=3.9"
 
-[[tool.mypy.overrides]]
-module = ["ninja"]
-ignore_missing_imports = true
+[tool.scikit-build.wheel]
+exclude = ["lib/**", "include/**"]
 
+[tool.scikit-build.cmake.define]
+BUILD_PYTHON_SDK = "ON"
+SDK_ENABLE_GRPC = "OFF"
+BUILD_BENCHMARK = "OFF"
+BUILD_INTEGRATION_TESTS = "OFF"
+BUILD_UNIT_TESTS = "OFF"
+BUILD_SDK_EXAMPLE = "OFF"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -31,21 +32,18 @@ filterwarnings = [
 testpaths = ["tests"]
 
 [tool.cibuildwheel]
-# Setuptools bug causes collision between pypy and cpython artifacts
 before-build = "rm -rf {project}/build"
 build = "*-manylinux*"
 skip = "*-musllinux*"
 manylinux-x86_64-image = "dingodatabase/dingo-eureka:manylinux_2_34"
 
-
-# Install system library
 [tool.cibuildwheel.linux]
 before-all = [
 ]
 archs = ["x86_64"]
 
 [tool.ruff]
-target-version = "py37"
+target-version = "py39"
 
 [tool.ruff.lint]
 extend-select = [
@@ -55,6 +53,3 @@ extend-select = [
   "RUF",  # Ruff-specific
   "UP",   # pyupgrade
 ]
-
-[tool.myproject.settings]
-build_directory = "build"

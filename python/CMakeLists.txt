@@ -18,7 +18,7 @@ project(pysdk)
 set(CMAKE_CXX_STANDARD 17)
 message("CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
 
-find_package(Python 3.6 COMPONENTS Interpreter Development)
+find_package(Python 3.9 COMPONENTS Interpreter Development.Module REQUIRED)
 
 if(NOT THIRD_PARTY_INSTALL_PATH)
   set(THIRD_PARTY_INSTALL_PATH "$ENV{HOME}/.local/dingo-eureka")
@@ -50,6 +50,8 @@ target_link_libraries(dingosdk
 set_target_properties(dingosdk PROPERTIES
                                 INTERPROCEDURAL_OPTIMIZATION ON
                                 VISIBILITY_INLINES_HIDDEN ON)
+
+install(TARGETS dingosdk DESTINATION .)
 
 configure_file(examples/pysdk_rawkv_example.py pysdk_rawkv_example.py COPYONLY)
 configure_file(examples/pysdk_vector_example.py pysdk_vector_example.py COPYONLY)

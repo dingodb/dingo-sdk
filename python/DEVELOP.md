@@ -2,7 +2,7 @@
 
 ## 概述
 
-`dingosdk` 是一个基于 pybind11 的 C++ 扩展包，通过 `setuptools` + `CMake` 进行构建。支持两种场景：
+`dingosdk` 是一个基于 pybind11 的 C++ 扩展包，通过 `scikit-build-core` + `CMake` 进行构建。支持两种场景：
 
 - **本地开发**：editable 模式编译，代码修改无需重复安装
 - **CI 发布**：通过 cibuildwheel 构建 manylinux wheel，自动发布到 PyPI
@@ -13,8 +13,7 @@
 
 ```
 dingo-sdk/
-├── setup.py                  # 构建入口，定义 CMake 调用逻辑
-├── pyproject.toml            # 构建系统声明 + cibuildwheel 配置
+├── pyproject.toml            # 构建系统声明 + scikit-build-core 配置 + cibuildwheel 配置
 ├── CMakeLists.txt            # 顶层 CMake，BUILD_PYTHON_SDK=ON 时启用 python/
 ├── python/
 │   ├── CMakeLists.txt        # Python 扩展的 CMake 配置
@@ -28,25 +27,25 @@ dingo-sdk/
 
 ## 依赖说明
 
-### 构建工具（pyproject.toml 声明）
+### 构建工具
 
-| 依赖 | 版本 | 用途 |
-|------|------|------|
-| setuptools | >=42 | Python 包构建后端 |
-| cmake | >=3.30.1 | C++ 项目构建 |
-| ninja | - | 并行编译加速 |
-| wheel | - | 生成 .whl 文件 |
+| 依赖 | 用途 |
+|------|------|
+| scikit-build-core | Python 包构建后端，直接驱动 CMake |
+| cmake >= 3.23 | C++ 项目构建 |
+| ninja | 并行编译加速（可选，自动检测） |
+
+> scikit-build-core 会自动处理 CMake 调用、输出目录、wheel 打包，无需 `setup.py`。
 
 ### C++ 依赖（THIRD_PARTY_INSTALL_PATH）
 
-所有 C++ 依赖（pybind11、gRPC、protobuf、gflags 等）统一安装在 `THIRD_PARTY_INSTALL_PATH` 目录下。
+所有 C++ 依赖（pybind11、brpc、protobuf、gflags 等）统一安装在 `THIRD_PARTY_INSTALL_PATH` 目录下。
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `THIRD_PARTY_INSTALL_PATH` | `$HOME/.local/dingo-eureka` | C++ 依赖安装前缀 |
 
-> pybind11 使用系统安装版本（位于 `$THIRD_PARTY_INSTALL_PATH/share/cmake/pybind11`），
-> 不再依赖 git submodule。
+> pybind11 使用 `THIRD_PARTY_INSTALL_PATH` 中的系统安装版本，不再依赖 git submodule。
 
 ---
 
@@ -54,9 +53,10 @@ dingo-sdk/
 
 ### 前置条件
 
-1. 已安装 cmake >= 3.23、ninja、gcc/clang（支持 C++17）
+1. 已安装 cmake >= 3.23、gcc/clang（支持 C++17）
 2. 已安装 dingo-eureka 依赖包到 `$HOME/.local/dingo-eureka`（或自定义路径）
 3. Python >= 3.9
+4. 已安装 scikit-build-core：`pip install scikit-build-core`
 
 ### 安装命令
 
@@ -69,7 +69,7 @@ THIRD_PARTY_INSTALL_PATH=/custom/path pip install --no-build-isolation -e .
 ```
 
 > **必须加 `--no-build-isolation`**
-> 否则 pip 会创建隔离的临时虚拟环境，找不到 `THIRD_PARTY_INSTALL_PATH` 里的 C++ 依赖。
+> 否则 pip 会创建隔离的临时虚拟环境，导致 `THIRD_PARTY_INSTALL_PATH` 中的 C++ 依赖无法被找到。
 
 ### 验证安装
 
@@ -81,7 +81,7 @@ python3 -c "import dingosdk; print(dingosdk.__file__)"
 ### Debug 模式编译
 
 ```bash
-DEBUG=1 pip install --no-build-isolation -e .
+pip install --no-build-isolation -e . --config-settings=cmake.build-type=Debug
 ```
 
 ### 并行编译加速
@@ -98,25 +98,27 @@ CMAKE_BUILD_PARALLEL_LEVEL=8 pip install --no-build-isolation -e .
 pip install --no-build-isolation -e .
         │
         ▼
-   pyproject.toml          读取 build-system.requires
-        │                  安装 setuptools/cmake/ninja（当前环境）
+   pyproject.toml          读取 build-backend = scikit_build_core.build
+        │                  读取 [tool.scikit-build.cmake.define] 中的 CMake 参数
         ▼
-     setup.py              CMakeExtension("dingosdk") + CMakeBuild
-        │
-        ▼
-   cmake <sourcedir>       传入以下参数：
+ scikit-build-core         自动调用 cmake，传入以下参数：
         │                    -DBUILD_PYTHON_SDK=ON
         │                    -DSDK_ENABLE_GRPC=OFF
         │                    -DBUILD_BENCHMARK=OFF
         │                    -DBUILD_INTEGRATION_TESTS=OFF
         │                    -DBUILD_UNIT_TESTS=OFF
-        │                    -DTHIRD_PARTY_INSTALL_PATH=...（若设置了环境变量）
         ▼
- python/CMakeLists.txt     find_package(pybind11 REQUIRED)
-        │                    搜索路径：THIRD_PARTY_INSTALL_PATH/share/cmake/pybind11
-        │                    默认：$HOME/.local/dingo-eureka
+  根 CMakeLists.txt        编译 sdk 静态库
+        │                  add_subdirectory(python)（BUILD_PYTHON_SDK=ON）
         ▼
-  cmake --build .           编译 src/*.cc → dingosdk.cpython-*.so
+ python/CMakeLists.txt     查找 THIRD_PARTY_INSTALL_PATH（默认 $HOME/.local/dingo-eureka）
+        │                  find_package(pybind11 REQUIRED)
+        ▼
+  cmake --build .          编译 src/*.cc → dingosdk.cpython-*.so
+        │
+        ▼
+  install(TARGETS ...)     scikit-build-core 将 .so 打包进 wheel
+                           排除 lib/**、include/**（C++ 开发文件，Python 用户不需要）
 ```
 
 ---
@@ -132,6 +134,7 @@ pip install --no-build-isolation -e .
 
 ```yaml
 - actions/checkout          检出代码
+- git submodule update       仅拉取 store-proto 和 serial（pybind11 已改用系统库）
 - cibuildwheel@v2.19.1      在自定义 manylinux 镜像内构建
 - upload-artifact            保存 .whl 文件
 ```
@@ -140,10 +143,10 @@ cibuildwheel 配置（`pyproject.toml`）：
 
 ```toml
 [tool.cibuildwheel]
-before-build = "rm -rf {project}/build"           # 清理上次构建残留
-build = "*-manylinux*"                            # 只构建 manylinux 格式
-skip = "*-musllinux*"                             # 跳过 musl libc
-manylinux-x86_64-image = "dingodatabase/dingo-eureka:manylinux_2_34-v1.0"
+before-build = "rm -rf {project}/build"       # 清理上次构建残留
+build = "*-manylinux*"                        # 只构建 manylinux 格式
+skip = "*-musllinux*"                         # 跳过 musl libc
+manylinux-x86_64-image = "dingodatabase/dingo-eureka:manylinux_2_34"
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
@@ -151,8 +154,8 @@ archs = ["x86_64"]
 
 ### 关键：自定义 manylinux 镜像
 
-`dingodatabase/dingo-eureka:manylinux_2_34-v1.0` 是基于官方 manylinux 镜像定制的，
-预装了所有 C++ 依赖（pybind11、gRPC 等），对应本地的 `dingo-eureka` 依赖包。
+`dingodatabase/dingo-eureka:manylinux_2_34` 是基于官方 manylinux 镜像定制的，
+预装了所有 C++ 依赖（pybind11、brpc、protobuf 等），对应本地的 `dingo-eureka` 依赖包。
 因此 CI 内无需额外设置 `THIRD_PARTY_INSTALL_PATH`。
 
 ### 发布流程（upload_package.yml）
@@ -177,10 +180,13 @@ Build_wheel 成功 + 来自 main 分支的 push
 | 变量 | 场景 | 说明 |
 |------|------|------|
 | `THIRD_PARTY_INSTALL_PATH` | 本地 / CI | C++ 依赖路径，默认 `$HOME/.local/dingo-eureka` |
-| `DEBUG` | 本地 | 设为 `1` 时使用 Debug 模式编译 |
-| `CMAKE_GENERATOR` | 本地 | 覆盖 CMake 生成器，默认自动选择 Ninja |
-| `CMAKE_ARGS` | 本地 / CI | 追加额外的 CMake 参数 |
 | `CMAKE_BUILD_PARALLEL_LEVEL` | 本地 | 并行编译线程数 |
+
+> scikit-build-core 额外支持通过 `--config-settings` 传递 CMake 参数，例如：
+> ```bash
+> pip install --no-build-isolation -e . \
+>   --config-settings=cmake.define.THIRD_PARTY_INSTALL_PATH=/custom/path
+> ```
 
 ---
 
@@ -207,4 +213,4 @@ editable 模式下，修改 C++ 代码需要重新执行安装命令：
 ```bash
 pip install --no-build-isolation -e .
 ```
-修改纯 Python 代码则无需重新编译。
+纯 Python 代码修改则无需重新编译。
