@@ -15,20 +15,22 @@
 
 #include "vector_index_bindings.h"
 
-#include <pybind11/functional.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/shared_ptr.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
 
 #include <cstdint>
 #include <tuple>
 
 #include "sdk/vector/vector_index.h"
 
-void DefineVectorIndexBindings(pybind11::module& m) {
+void DefineVectorIndexBindings(nanobind::module_& m) {
   using namespace dingodb;
   using namespace dingodb::sdk;
-  namespace py = pybind11;
+  namespace py = nanobind;
 
-  py::class_<VectorIndex, std::shared_ptr<VectorIndex>>(m, "VectorIndex")
+  py::class_<VectorIndex>(m, "VectorIndex")
       .def("GetId", &VectorIndex::GetId)
       .def("GetSchemaId", &VectorIndex::GetSchemaId)
       .def("GetName", &VectorIndex::GetName)

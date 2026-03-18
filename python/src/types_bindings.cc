@@ -15,18 +15,18 @@
 
 #include "types_bindings.h"
 
-#include <pybind11/functional.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
 
 #include <cstdint>
 #include <tuple>
 
 #include "dingosdk/types.h"
 
-void DefineTypesBindings(pybind11::module& m) {
+void DefineTypesBindings(nanobind::module_& m) {
   using namespace dingodb;
   using namespace dingodb::sdk;
-  namespace py = pybind11;
+  namespace py = nanobind;
 
   py::enum_<Type>(m, "Type")
       .value("kBOOL", Type::kBOOL)

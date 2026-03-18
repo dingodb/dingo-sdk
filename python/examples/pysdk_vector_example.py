@@ -50,13 +50,13 @@ def prepare_vector_index():
 
 def post_clean(use_index_name=False):
     if use_index_name:
-        tmp, index_id = g_client.GetIndexId(g_schema_id, g_index_name)
+        tmp, index_id = g_client.GetVectorIndexId(g_schema_id, g_index_name)
         print(
             f"index_id: {index_id}, g_index_id: {g_index_id}, get indexid: {tmp.ToString()}"
         )
-        tmp = g_client.DropIndexByName(g_schema_id, g_index_name)
+        tmp = g_client.DropVectorIndexByName(g_schema_id, g_index_name)
     else:
-        tmp = g_client.DropIndex(g_index_id)
+        tmp = g_client.DropVectorIndexById(g_index_id)
 
     print(f"drop index status: {tmp.ToString()}, index_id: {g_index_id}")
     g_vector_ids.clear()
@@ -77,10 +77,10 @@ def vector_add(use_index_name=False):
 
     if use_index_name:
         add, vectors = g_vector_client.AddByIndexName(
-            g_schema_id, g_index_name, vectors, False, False
+            g_schema_id, g_index_name, vectors
         )
     else:
-        add, vectors = g_vector_client.AddByIndexId(g_index_id, vectors, False, False)
+        add, vectors = g_vector_client.AddByIndexId(g_index_id, vectors)
 
     for v in vectors:
         print(f"add vector: {v.ToString()}")
@@ -328,7 +328,7 @@ def index_with_auot_incre():
         vector_ids.append(id)
         delta += 1
 
-    add, vectors = g_vector_client.AddByIndexId(g_index_id, vectors, False, False)
+    add, vectors = g_vector_client.AddByIndexId(g_index_id, vectors)
 
     for v in vectors:
         print(f"add vector: {v.ToString()}")

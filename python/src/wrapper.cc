@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
 
 #include "client_bindings.h"
 #include "status_bindings.h"
@@ -22,7 +22,7 @@
 #include "document_index_bindings.h"
 #include "vector_index_bindings.h"
 
-PYBIND11_MODULE(dingosdk, m) {
+NB_MODULE(dingosdk, m) {
   m.doc() = "python sdk for dingo store, from https://github.com/dingodb/dingo-sdk";
 
   DefineStatusBindings(m);

@@ -15,37 +15,41 @@
 
 #include "document_bindings.h"
 
-#include <pybind11/functional.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/function.h>
+#include <nanobind/stl/map.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/tuple.h>
+#include <nanobind/stl/vector.h>
 
 #include <cstdint>
 #include <tuple>
 
 #include "dingosdk/document.h"
 
-void DefineDocumentBindings(pybind11::module& m) {
+void DefineDocumentBindings(nanobind::module_& m) {
   using namespace dingodb;
   using namespace dingodb::sdk;
-  namespace py = pybind11;
+  namespace py = nanobind;
 
   py::class_<DocumentColumn>(m, "DocumentColumn")
       .def(py::init<const std::string&, Type>())
-      .def_readwrite("key", &DocumentColumn::key)
-      .def_readwrite("type", &DocumentColumn::type);
+      .def_rw("key", &DocumentColumn::key)
+      .def_rw("type", &DocumentColumn::type);
 
   py::class_<DocumentSchema>(m, "DocumentSchema")
       .def(py::init<>())
       .def("AddColumn", &DocumentSchema::AddColumn)
-      .def_readwrite("cols", &DocumentSchema::cols);
+      .def_rw("cols", &DocumentSchema::cols);
 
   py::class_<DocumentIndexCreator>(m, "DocumentIndexCreator")
-      .def("SetSchemaId", &DocumentIndexCreator::SetSchemaId)
-      .def("SetName", &DocumentIndexCreator::SetName)
-      .def("SetRangePartitions", &DocumentIndexCreator::SetRangePartitions)
-      .def("SetReplicaNum", &DocumentIndexCreator::SetReplicaNum)
-      .def("SetAutoIncrementStart", &DocumentIndexCreator::SetAutoIncrementStart)
-      .def("SetSchema", &DocumentIndexCreator::SetSchema)
-      .def("SetJsonParams", &DocumentIndexCreator::SetJsonParams)
+      .def("SetSchemaId", [](DocumentIndexCreator& c, int64_t id) { c.SetSchemaId(id); })
+      .def("SetName", [](DocumentIndexCreator& c, const std::string& n) { c.SetName(n); })
+      .def("SetRangePartitions", [](DocumentIndexCreator& c, std::vector<int64_t> ids) { c.SetRangePartitions(ids); })
+      .def("SetReplicaNum", [](DocumentIndexCreator& c, int64_t n) { c.SetReplicaNum(n); })
+      .def("SetAutoIncrementStart", [](DocumentIndexCreator& c, int64_t id) { c.SetAutoIncrementStart(id); })
+      .def("SetSchema", [](DocumentIndexCreator& c, const DocumentSchema& s) { c.SetSchema(s); })
+      .def("SetJsonParams", [](DocumentIndexCreator& c, std::string& p) { c.SetJsonParams(p); })
       .def("Create", [](DocumentIndexCreator& documentindexcreator) -> std::tuple<Status, int64_t> {
         int64_t out_index_id;
         Status status = documentindexcreator.Create(out_index_id);
@@ -78,71 +82,71 @@ void DefineDocumentBindings(pybind11::module& m) {
       .def(py::init<>())
       .def(py::init<int64_t, Document>())
       .def(py::init<Document>())
-      .def_readwrite("id", &DocWithId::id)
-      .def_readwrite("doc", &DocWithId::doc)
+      .def_rw("id", &DocWithId::id)
+      .def_rw("doc", &DocWithId::doc)
       .def("ToString", &DocWithId::ToString);
 
   py::class_<DocQueryParam>(m, "DocQueryParam")
       .def(py::init<>())
-      .def_readwrite("doc_ids", &DocQueryParam::doc_ids)
-      .def_readwrite("with_scalar_data", &DocQueryParam::with_scalar_data)
-      .def_readwrite("selected_keys", &DocQueryParam::selected_keys);
+      .def_rw("doc_ids", &DocQueryParam::doc_ids)
+      .def_rw("with_scalar_data", &DocQueryParam::with_scalar_data)
+      .def_rw("selected_keys", &DocQueryParam::selected_keys);
 
   py::class_<DocQueryResult>(m, "DocQueryResult")
       .def(py::init<>())
-      .def_readwrite("docs", &DocQueryResult::docs)
+      .def_rw("docs", &DocQueryResult::docs)
       .def("ToString", &DocQueryResult::ToString);
 
   py::class_<DocSearchParam>(m, "DocSearchParam")
       .def(py::init<>())
-      .def_readwrite("top_n", &DocSearchParam::top_n)
-      .def_readwrite("query_string", &DocSearchParam::query_string)
-      .def_readwrite("use_id_filter", &DocSearchParam::use_id_filter)
-      .def_readwrite("doc_ids", &DocSearchParam::doc_ids)
-      .def_readwrite("column_names", &DocSearchParam::column_names)
-      .def_readwrite("with_scalar_data", &DocSearchParam::with_scalar_data)
-      .def_readwrite("selected_keys", &DocSearchParam::selected_keys)
-      .def_readwrite("query_limited", &DocSearchParam::query_limited);
+      .def_rw("top_n", &DocSearchParam::top_n)
+      .def_rw("query_string", &DocSearchParam::query_string)
+      .def_rw("use_id_filter", &DocSearchParam::use_id_filter)
+      .def_rw("doc_ids", &DocSearchParam::doc_ids)
+      .def_rw("column_names", &DocSearchParam::column_names)
+      .def_rw("with_scalar_data", &DocSearchParam::with_scalar_data)
+      .def_rw("selected_keys", &DocSearchParam::selected_keys)
+      .def_rw("query_limited", &DocSearchParam::query_limited);
 
   py::class_<DocWithStore>(m, "DocWithStore")
       .def(py::init<>())
-      .def_readwrite("doc_with_id", &DocWithStore::doc_with_id)
-      .def_readwrite("score", &DocWithStore::score)
+      .def_rw("doc_with_id", &DocWithStore::doc_with_id)
+      .def_rw("score", &DocWithStore::score)
       .def("ToString", &DocWithStore::ToString);
 
   py::class_<DocSearchResult>(m, "DocSearchResult")
       .def(py::init<>())
-      .def_readwrite("doc_sores", &DocSearchResult::doc_sores)
+      .def_rw("doc_sores", &DocSearchResult::doc_sores)
       .def("ToString", &DocSearchResult::ToString);
 
   py::class_<DocDeleteResult>(m, "DocDeleteResult")
       .def(py::init<>())
-      .def_readwrite("doc_id", &DocDeleteResult::doc_id)
-      .def_readwrite("deleted", &DocDeleteResult::deleted)
+      .def_rw("doc_id", &DocDeleteResult::doc_id)
+      .def_rw("deleted", &DocDeleteResult::deleted)
       .def("ToString", &DocDeleteResult::ToString);
 
   py::class_<DocScanQueryParam>(m, "DocScanQueryParam")
       .def(py::init<>())
-      .def_readwrite("doc_id_start", &DocScanQueryParam::doc_id_start)
-      .def_readwrite("doc_id_end", &DocScanQueryParam::doc_id_end)
-      .def_readwrite("is_reverse", &DocScanQueryParam::is_reverse)
-      .def_readwrite("max_scan_count", &DocScanQueryParam::max_scan_count)
-      .def_readwrite("with_scalar_data", &DocScanQueryParam::with_scalar_data)
-      .def_readwrite("selected_keys", &DocScanQueryParam::selected_keys);
+      .def_rw("doc_id_start", &DocScanQueryParam::doc_id_start)
+      .def_rw("doc_id_end", &DocScanQueryParam::doc_id_end)
+      .def_rw("is_reverse", &DocScanQueryParam::is_reverse)
+      .def_rw("max_scan_count", &DocScanQueryParam::max_scan_count)
+      .def_rw("with_scalar_data", &DocScanQueryParam::with_scalar_data)
+      .def_rw("selected_keys", &DocScanQueryParam::selected_keys);
 
   py::class_<DocScanQueryResult>(m, "DocScanQueryResult")
       .def(py::init<>())
-      .def_readwrite("docs", &DocScanQueryResult::docs)
+      .def_rw("docs", &DocScanQueryResult::docs)
       .def("ToString", &DocScanQueryResult::ToString);
 
   py::class_<DocIndexMetricsResult>(m, "DocIndexMetricsResult")
       .def(py::init<>())
-      .def_readwrite("total_num_docs", &DocIndexMetricsResult::total_num_docs)
-      .def_readwrite("total_num_tokens", &DocIndexMetricsResult::total_num_tokens)
-      .def_readwrite("max_doc_id", &DocIndexMetricsResult::max_doc_id)
-      .def_readwrite("min_doc_id", &DocIndexMetricsResult::min_doc_id)
-      .def_readwrite("meta_json", &DocIndexMetricsResult::meta_json)
-      .def_readwrite("json_parameter", &DocIndexMetricsResult::json_parameter)
+      .def_rw("total_num_docs", &DocIndexMetricsResult::total_num_docs)
+      .def_rw("total_num_tokens", &DocIndexMetricsResult::total_num_tokens)
+      .def_rw("max_doc_id", &DocIndexMetricsResult::max_doc_id)
+      .def_rw("min_doc_id", &DocIndexMetricsResult::min_doc_id)
+      .def_rw("meta_json", &DocIndexMetricsResult::meta_json)
+      .def_rw("json_parameter", &DocIndexMetricsResult::json_parameter)
       .def("ToString", &DocIndexMetricsResult::ToString);
 
   py::class_<DocumentClient>(m, "DocumentClient")

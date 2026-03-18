@@ -15,29 +15,32 @@
 
 #include "vector_bindings.h"
 
-#include <pybind11/functional.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/function.h>
+#include <nanobind/stl/map.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/tuple.h>
+#include <nanobind/stl/vector.h>
 
 #include <cstdint>
 #include <tuple>
 
 #include "dingosdk/vector.h"
 
-void DefineVectorBindings(pybind11::module& m) {
+void DefineVectorBindings(nanobind::module_& m) {
   using namespace dingodb;
   using namespace dingodb::sdk;
-  namespace py = pybind11;
+  namespace py = nanobind;
 
   py::class_<RegionStatus>(m, "RegionStatus")
       .def(py::init<>())
-      .def_readwrite("region_id", &RegionStatus::region_id)
-      .def_readwrite("status", &RegionStatus::status);
+      .def_rw("region_id", &RegionStatus::region_id)
+      .def_rw("status", &RegionStatus::status);
 
   py::class_<ErrStatusResult>(m, "ErrStatusResult")
       .def(py::init<>())
       .def("ToString", &ErrStatusResult::ToString)
-      .def_readwrite("region_status", &ErrStatusResult::region_status);
+      .def_rw("region_status", &ErrStatusResult::region_status);
 
   py::enum_<DiskANNRegionState>(m, "DiskANNRegionState")
       .value("kBuildFailed", DiskANNRegionState::kBuildFailed)
@@ -51,13 +54,13 @@ void DefineVectorBindings(pybind11::module& m) {
 
   py::class_<RegionState>(m, "RegionState")
       .def(py::init<>())
-      .def_readwrite("region_id", &RegionState::region_id)
-      .def_readwrite("state", &RegionState::state);
+      .def_rw("region_id", &RegionState::region_id)
+      .def_rw("state", &RegionState::state);
 
   py::class_<StateResult>(m, "StateResult")
       .def(py::init<>())
       .def("ToString", &StateResult::ToString)
-      .def_readwrite("region_states", &StateResult::region_states);
+      .def_rw("region_states", &StateResult::region_states);
 
   m.def("RegionStateToString", &RegionStateToString, "description: RegionStateToString");
 
@@ -94,106 +97,106 @@ void DefineVectorBindings(pybind11::module& m) {
   py::class_<FlatParam>(m, "FlatParam")
       .def(py::init<int32_t, MetricType>())
       .def_static("Type", &FlatParam::Type)
-      .def_readwrite("dimension", &FlatParam::dimension)
-      .def_readwrite("metric_type", &FlatParam::metric_type);
+      .def_rw("dimension", &FlatParam::dimension)
+      .def_rw("metric_type", &FlatParam::metric_type);
 
   py::class_<IvfFlatParam>(m, "IvfFlatParam")
       .def(py::init<int32_t, MetricType>())
       .def_static("Type", &IvfFlatParam::Type)
-      .def_readwrite("dimension", &IvfFlatParam::dimension)
-      .def_readwrite("metric_type", &IvfFlatParam::metric_type)
-      .def_readwrite("ncentroids", &IvfFlatParam::ncentroids);
+      .def_rw("dimension", &IvfFlatParam::dimension)
+      .def_rw("metric_type", &IvfFlatParam::metric_type)
+      .def_rw("ncentroids", &IvfFlatParam::ncentroids);
 
   py::class_<IvfPqParam>(m, "IvfPqParam")
       .def(py::init<int32_t, MetricType>())
       .def_static("Type", &IvfPqParam::Type)
-      .def_readwrite("dimension", &IvfPqParam::dimension)
-      .def_readwrite("metric_type", &IvfPqParam::metric_type)
-      .def_readwrite("ncentroids", &IvfPqParam::ncentroids)
-      .def_readwrite("nsubvector", &IvfPqParam::nsubvector)
-      .def_readwrite("bucket_init_size", &IvfPqParam::bucket_init_size)
-      .def_readwrite("bucket_max_size", &IvfPqParam::bucket_max_size)
-      .def_readwrite("nbits_per_idx", &IvfPqParam::nbits_per_idx);
+      .def_rw("dimension", &IvfPqParam::dimension)
+      .def_rw("metric_type", &IvfPqParam::metric_type)
+      .def_rw("ncentroids", &IvfPqParam::ncentroids)
+      .def_rw("nsubvector", &IvfPqParam::nsubvector)
+      .def_rw("bucket_init_size", &IvfPqParam::bucket_init_size)
+      .def_rw("bucket_max_size", &IvfPqParam::bucket_max_size)
+      .def_rw("nbits_per_idx", &IvfPqParam::nbits_per_idx);
 
   py::class_<HnswParam>(m, "HnswParam")
       .def(py::init<int32_t, MetricType, int32_t>())
       .def_static("Type", &HnswParam::Type)
-      .def_readwrite("dimension", &HnswParam::dimension)
-      .def_readwrite("metric_type", &HnswParam::metric_type)
-      .def_readwrite("ef_construction", &HnswParam::ef_construction)
-      .def_readwrite("max_elements", &HnswParam::max_elements)
-      .def_readwrite("nlinks", &HnswParam::nlinks);
+      .def_rw("dimension", &HnswParam::dimension)
+      .def_rw("metric_type", &HnswParam::metric_type)
+      .def_rw("ef_construction", &HnswParam::ef_construction)
+      .def_rw("max_elements", &HnswParam::max_elements)
+      .def_rw("nlinks", &HnswParam::nlinks);
 
   py::class_<DiskAnnParam>(m, "DiskAnnParam")
       .def(py::init<int32_t, MetricType, ValueType>())
       .def_static("Type", &DiskAnnParam::Type)
-      .def_readwrite("dimension", &DiskAnnParam::dimension)
-      .def_readwrite("metric_type", &DiskAnnParam::metric_type)
-      .def_readwrite("value_type", &DiskAnnParam::value_type)
-      .def_readwrite("max_degree", &DiskAnnParam::max_degree)
-      .def_readwrite("search_list_size", &DiskAnnParam::search_list_size);
+      .def_rw("dimension", &DiskAnnParam::dimension)
+      .def_rw("metric_type", &DiskAnnParam::metric_type)
+      .def_rw("value_type", &DiskAnnParam::value_type)
+      .def_rw("max_degree", &DiskAnnParam::max_degree)
+      .def_rw("search_list_size", &DiskAnnParam::search_list_size);
 
   py::class_<BruteForceParam>(m, "BruteForceParam")
       .def(py::init<int32_t, MetricType>())
       .def_static("Type", &BruteForceParam::Type)
-      .def_readwrite("dimension", &BruteForceParam::dimension)
-      .def_readwrite("metric_type", &BruteForceParam::metric_type);
+      .def_rw("dimension", &BruteForceParam::dimension)
+      .def_rw("metric_type", &BruteForceParam::metric_type);
 
   py::class_<BinaryFlatParam>(m, "BinaryFlatParam")
       .def(py::init<int32_t, MetricType>())
       .def_static("Type", &BinaryFlatParam::Type)
-      .def_readwrite("dimension", &BinaryFlatParam::dimension)
-      .def_readwrite("metric_type", &BinaryFlatParam::metric_type);
+      .def_rw("dimension", &BinaryFlatParam::dimension)
+      .def_rw("metric_type", &BinaryFlatParam::metric_type);
 
   py::class_<BinaryIvfFlatParam>(m, "BinaryIvfFlatParam")
       .def(py::init<int32_t, MetricType>())
       .def_static("Type", &BinaryIvfFlatParam::Type)
-      .def_readwrite("dimension", &BinaryIvfFlatParam::dimension)
-      .def_readwrite("metric_type", &BinaryIvfFlatParam::metric_type)
-      .def_readwrite("ncentroids", &BinaryIvfFlatParam::ncentroids);
+      .def_rw("dimension", &BinaryIvfFlatParam::dimension)
+      .def_rw("metric_type", &BinaryIvfFlatParam::metric_type)
+      .def_rw("ncentroids", &BinaryIvfFlatParam::ncentroids);
 
   py::class_<VectorScalarColumnSchema>(m, "VectorScalarColumnSchema")
-      .def(py::init<const std::string&, Type, bool>(), py::arg(), py::arg(), py::arg() = false)
-      .def_readwrite("key", &VectorScalarColumnSchema::key)
-      .def_readwrite("type", &VectorScalarColumnSchema::type)
-      .def_readwrite("speed", &VectorScalarColumnSchema::speed);
+      .def(py::init<const std::string&, Type, bool>(), py::arg("key"), py::arg("type"), py::arg("speed") = false)
+      .def_rw("key", &VectorScalarColumnSchema::key)
+      .def_rw("type", &VectorScalarColumnSchema::type)
+      .def_rw("speed", &VectorScalarColumnSchema::speed);
 
   py::class_<VectorScalarSchema>(m, "VectorScalarSchema")
       .def(py::init<>())
       .def("AddScalarColumn", &VectorScalarSchema::AddScalarColumn)
-      .def_readwrite("cols", &VectorScalarSchema::cols);
+      .def_rw("cols", &VectorScalarSchema::cols);
 
   py::class_<Vector>(m, "Vector")
       .def(py::init<>())
       .def(py::init<ValueType, int32_t>())
       .def("Size", &Vector::Size)
       .def("ToString", &Vector::ToString)
-      .def_readwrite("dimension", &Vector::dimension)
-      .def_readwrite("value_type", &Vector::value_type)
-      .def_readwrite("float_values", &Vector::float_values)
-      .def_readwrite("binary_values", &Vector::binary_values);
+      .def_rw("dimension", &Vector::dimension)
+      .def_rw("value_type", &Vector::value_type)
+      .def_rw("float_values", &Vector::float_values)
+      .def_rw("binary_values", &Vector::binary_values);
 
   py::class_<ScalarField>(m, "ScalarField")
       .def(py::init<>())
-      .def_readwrite("bool_data", &ScalarField::bool_data)
-      .def_readwrite("long_data", &ScalarField::long_data)
-      .def_readwrite("double_data", &ScalarField::double_data)
-      .def_readwrite("string_data", &ScalarField::string_data);
+      .def_rw("bool_data", &ScalarField::bool_data)
+      .def_rw("long_data", &ScalarField::long_data)
+      .def_rw("double_data", &ScalarField::double_data)
+      .def_rw("string_data", &ScalarField::string_data);
 
   py::class_<ScalarValue>(m, "ScalarValue")
       .def(py::init<>())
       .def("ToString", &ScalarValue::ToString)
-      .def_readwrite("type", &ScalarValue::type)
-      .def_readwrite("fields", &ScalarValue::fields);
+      .def_rw("type", &ScalarValue::type)
+      .def_rw("fields", &ScalarValue::fields);
 
   py::class_<VectorWithId>(m, "VectorWithId")
       .def(py::init<>())
       .def(py::init<int64_t, Vector>())
       .def(py::init<Vector>())
       .def("ToString", &VectorWithId::ToString)
-      .def_readwrite("id", &VectorWithId::id)
-      .def_readwrite("vector", &VectorWithId::vector)
-      .def_readwrite("scalar_data", &VectorWithId::scalar_data);
+      .def_rw("id", &VectorWithId::id)
+      .def_rw("vector", &VectorWithId::vector)
+      .def_rw("scalar_data", &VectorWithId::scalar_data);
 
   py::enum_<FilterSource>(m, "FilterSource")
       .value("kNoneFilterSource", FilterSource::kNoneFilterSource)
@@ -214,104 +217,104 @@ void DefineVectorBindings(pybind11::module& m) {
 
   py::class_<SearchParam>(m, "SearchParam")
       .def(py::init<>())
-      .def_readwrite("topk", &SearchParam::topk)
-      .def_readwrite("with_vector_data", &SearchParam::with_vector_data)
-      .def_readwrite("with_scalar_data", &SearchParam::with_scalar_data)
-      .def_readwrite("selected_keys", &SearchParam::selected_keys)
-      .def_readwrite("with_table_data", &SearchParam::with_table_data)
-      .def_readwrite("enable_range_search", &SearchParam::enable_range_search)
-      .def_readwrite("radius", &SearchParam::radius)
-      .def_readwrite("filter_source", &SearchParam::filter_source)
-      .def_readwrite("filter_type", &SearchParam::filter_type)
-      .def_readwrite("is_negation", &SearchParam::is_negation)
-      .def_readwrite("is_sorted", &SearchParam::is_sorted)
-      .def_readwrite("vector_ids", &SearchParam::vector_ids)
-      .def_readwrite("use_brute_force", &SearchParam::use_brute_force)
-      .def_readwrite("extra_params", &SearchParam::extra_params)
-      .def_readwrite("langchain_expr_json", &SearchParam::langchain_expr_json)
-      .def_readwrite("beamwidth", &SearchParam::beamwidth)
-      .def_readwrite("is_scalar_speed_up_with_document", &SearchParam::is_scalar_speed_up_with_document)
-      .def_readwrite("query_string", &SearchParam::query_string);
+      .def_rw("topk", &SearchParam::topk)
+      .def_rw("with_vector_data", &SearchParam::with_vector_data)
+      .def_rw("with_scalar_data", &SearchParam::with_scalar_data)
+      .def_rw("selected_keys", &SearchParam::selected_keys)
+      .def_rw("with_table_data", &SearchParam::with_table_data)
+      .def_rw("enable_range_search", &SearchParam::enable_range_search)
+      .def_rw("radius", &SearchParam::radius)
+      .def_rw("filter_source", &SearchParam::filter_source)
+      .def_rw("filter_type", &SearchParam::filter_type)
+      .def_rw("is_negation", &SearchParam::is_negation)
+      .def_rw("is_sorted", &SearchParam::is_sorted)
+      .def_rw("vector_ids", &SearchParam::vector_ids)
+      .def_rw("use_brute_force", &SearchParam::use_brute_force)
+      .def_rw("extra_params", &SearchParam::extra_params)
+      .def_rw("langchain_expr_json", &SearchParam::langchain_expr_json)
+      .def_rw("beamwidth", &SearchParam::beamwidth)
+      .def_rw("is_scalar_speed_up_with_document", &SearchParam::is_scalar_speed_up_with_document)
+      .def_rw("query_string", &SearchParam::query_string);
 
   py::class_<VectorWithDistance>(m, "VectorWithDistance")
       .def(py::init<>())
       .def("ToString", &VectorWithDistance::ToString)
-      .def_readwrite("vector_data", &VectorWithDistance::vector_data)
-      .def_readwrite("distance", &VectorWithDistance::distance)
-      .def_readwrite("metric_type", &VectorWithDistance::metric_type);
+      .def_rw("vector_data", &VectorWithDistance::vector_data)
+      .def_rw("distance", &VectorWithDistance::distance)
+      .def_rw("metric_type", &VectorWithDistance::metric_type);
 
   py::class_<SearchResult>(m, "SearchResult")
       .def(py::init<>())
       .def(py::init<VectorWithId>())
       .def("ToString", &SearchResult::ToString)
-      .def_readwrite("id", &SearchResult::id)
-      .def_readwrite("vector_datas", &SearchResult::vector_datas);
+      .def_rw("id", &SearchResult::id)
+      .def_rw("vector_datas", &SearchResult::vector_datas);
 
   py::class_<DeleteResult>(m, "DeleteResult")
       .def(py::init<>())
       .def("ToString", &DeleteResult::ToString)
-      .def_readwrite("vector_id", &DeleteResult::vector_id)
-      .def_readwrite("deleted", &DeleteResult::deleted);
+      .def_rw("vector_id", &DeleteResult::vector_id)
+      .def_rw("deleted", &DeleteResult::deleted);
 
   py::class_<QueryParam>(m, "QueryParam")
       .def(py::init<>())
-      .def_readwrite("vector_ids", &QueryParam::vector_ids)
-      .def_readwrite("with_vector_data", &QueryParam::with_vector_data)
-      .def_readwrite("with_scalar_data", &QueryParam::with_scalar_data)
-      .def_readwrite("selected_keys", &QueryParam::selected_keys)
-      .def_readwrite("with_table_data", &QueryParam::with_table_data);
+      .def_rw("vector_ids", &QueryParam::vector_ids)
+      .def_rw("with_vector_data", &QueryParam::with_vector_data)
+      .def_rw("with_scalar_data", &QueryParam::with_scalar_data)
+      .def_rw("selected_keys", &QueryParam::selected_keys)
+      .def_rw("with_table_data", &QueryParam::with_table_data);
 
   py::class_<QueryResult>(m, "QueryResult")
       .def(py::init<>())
       .def("ToString", &QueryResult::ToString)
-      .def_readwrite("vectors", &QueryResult::vectors);
+      .def_rw("vectors", &QueryResult::vectors);
 
   py::class_<ScanQueryParam>(m, "ScanQueryParam")
       .def(py::init<>())
-      .def_readwrite("vector_id_start", &ScanQueryParam::vector_id_start)
-      .def_readwrite("vector_id_end", &ScanQueryParam::vector_id_end)
-      .def_readwrite("max_scan_count", &ScanQueryParam::max_scan_count)
-      .def_readwrite("is_reverse", &ScanQueryParam::is_reverse)
-      .def_readwrite("with_vector_data", &ScanQueryParam::with_vector_data)
-      .def_readwrite("with_scalar_data", &ScanQueryParam::with_scalar_data)
-      .def_readwrite("selected_keys", &ScanQueryParam::selected_keys)
-      .def_readwrite("with_table_data", &ScanQueryParam::with_table_data)
-      .def_readwrite("use_scalar_filter", &ScanQueryParam::use_scalar_filter)
-      .def_readwrite("scalar_data", &ScanQueryParam::scalar_data);
+      .def_rw("vector_id_start", &ScanQueryParam::vector_id_start)
+      .def_rw("vector_id_end", &ScanQueryParam::vector_id_end)
+      .def_rw("max_scan_count", &ScanQueryParam::max_scan_count)
+      .def_rw("is_reverse", &ScanQueryParam::is_reverse)
+      .def_rw("with_vector_data", &ScanQueryParam::with_vector_data)
+      .def_rw("with_scalar_data", &ScanQueryParam::with_scalar_data)
+      .def_rw("selected_keys", &ScanQueryParam::selected_keys)
+      .def_rw("with_table_data", &ScanQueryParam::with_table_data)
+      .def_rw("use_scalar_filter", &ScanQueryParam::use_scalar_filter)
+      .def_rw("scalar_data", &ScanQueryParam::scalar_data);
 
   py::class_<ScanQueryResult>(m, "ScanQueryResult")
       .def(py::init<>())
       .def("ToString", &ScanQueryResult::ToString)
-      .def_readwrite("vectors", &ScanQueryResult::vectors);
+      .def_rw("vectors", &ScanQueryResult::vectors);
 
   py::class_<IndexMetricsResult>(m, "IndexMetricsResult")
       .def(py::init<>())
       .def("ToString", &IndexMetricsResult::ToString)
-      .def_readwrite("index_type", &IndexMetricsResult::index_type)
-      .def_readwrite("count", &IndexMetricsResult::count)
-      .def_readwrite("deleted_count", &IndexMetricsResult::deleted_count)
-      .def_readwrite("max_vector_id", &IndexMetricsResult::max_vector_id)
-      .def_readwrite("min_vector_id", &IndexMetricsResult::min_vector_id)
-      .def_readwrite("memory_bytes", &IndexMetricsResult::memory_bytes);
+      .def_rw("index_type", &IndexMetricsResult::index_type)
+      .def_rw("count", &IndexMetricsResult::count)
+      .def_rw("deleted_count", &IndexMetricsResult::deleted_count)
+      .def_rw("max_vector_id", &IndexMetricsResult::max_vector_id)
+      .def_rw("min_vector_id", &IndexMetricsResult::min_vector_id)
+      .def_rw("memory_bytes", &IndexMetricsResult::memory_bytes);
 
   py::class_<VectorIndexCreator>(m, "VectorIndexCreator")
-      .def("SetSchemaId", &VectorIndexCreator::SetSchemaId)
-      .def("SetName", &VectorIndexCreator::SetName)
-      .def("SetRangePartitions", &VectorIndexCreator::SetRangePartitions)
-      .def("SetReplicaNum", &VectorIndexCreator::SetReplicaNum)
-      .def("SetFlatParam", &VectorIndexCreator::SetFlatParam)
-      .def("SetIvfFlatParam", &VectorIndexCreator::SetIvfFlatParam)
-      .def("SetIvfPqParam", &VectorIndexCreator::SetIvfPqParam)
-      .def("SetHnswParam", &VectorIndexCreator::SetHnswParam)
-      .def("SetDiskAnnParam", &VectorIndexCreator::SetDiskAnnParam)
-      .def("SetBruteForceParam", &VectorIndexCreator::SetBruteForceParam)
-      .def("SetBinaryFlatParam", &VectorIndexCreator::SetBinaryFlatParam)
-      .def("SetBinaryIvfFlatParam", &VectorIndexCreator::SetBinaryIvfFlatParam)
-      .def("SetAutoIncrementStart", &VectorIndexCreator::SetAutoIncrementStart)
-      .def("SetScalarSchema", &VectorIndexCreator::SetScalarSchema)
-      .def("SetEnableScalarSpeedUpWithDocument", &VectorIndexCreator::SetEnableScalarSpeedUpWithDocument)
-      .def("SetDocumentSchema", &VectorIndexCreator::SetDocumentSchema)
-      .def("SetJsonParams", &VectorIndexCreator::SetJsonParams)
+      .def("SetSchemaId", [](VectorIndexCreator& c, int64_t id) { c.SetSchemaId(id); })
+      .def("SetName", [](VectorIndexCreator& c, const std::string& n) { c.SetName(n); })
+      .def("SetRangePartitions", [](VectorIndexCreator& c, std::vector<int64_t> ids) { c.SetRangePartitions(ids); })
+      .def("SetReplicaNum", [](VectorIndexCreator& c, int64_t n) { c.SetReplicaNum(n); })
+      .def("SetFlatParam", [](VectorIndexCreator& c, const FlatParam& p) { c.SetFlatParam(p); })
+      .def("SetIvfFlatParam", [](VectorIndexCreator& c, const IvfFlatParam& p) { c.SetIvfFlatParam(p); })
+      .def("SetIvfPqParam", [](VectorIndexCreator& c, const IvfPqParam& p) { c.SetIvfPqParam(p); })
+      .def("SetHnswParam", [](VectorIndexCreator& c, const HnswParam& p) { c.SetHnswParam(p); })
+      .def("SetDiskAnnParam", [](VectorIndexCreator& c, const DiskAnnParam& p) { c.SetDiskAnnParam(p); })
+      .def("SetBruteForceParam", [](VectorIndexCreator& c, const BruteForceParam& p) { c.SetBruteForceParam(p); })
+      .def("SetBinaryFlatParam", [](VectorIndexCreator& c, const BinaryFlatParam& p) { c.SetBinaryFlatParam(p); })
+      .def("SetBinaryIvfFlatParam", [](VectorIndexCreator& c, const BinaryIvfFlatParam& p) { c.SetBinaryIvfFlatParam(p); })
+      .def("SetAutoIncrementStart", [](VectorIndexCreator& c, int64_t id) { c.SetAutoIncrementStart(id); })
+      .def("SetScalarSchema", [](VectorIndexCreator& c, const VectorScalarSchema& s) { c.SetScalarSchema(s); })
+      .def("SetEnableScalarSpeedUpWithDocument", [](VectorIndexCreator& c, bool e) { c.SetEnableScalarSpeedUpWithDocument(e); })
+      .def("SetDocumentSchema", [](VectorIndexCreator& c, const DocumentSchema& s) { c.SetDocumentSchema(s); })
+      .def("SetJsonParams", [](VectorIndexCreator& c, std::string& p) { c.SetJsonParams(p); })
       .def("Create", [](VectorIndexCreator& vectorindexcreator) -> std::tuple<Status, int64_t> {
         int64_t out_index_id;
         Status status = vectorindexcreator.Create(out_index_id);

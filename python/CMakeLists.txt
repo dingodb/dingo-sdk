@@ -25,13 +25,13 @@ if(NOT THIRD_PARTY_INSTALL_PATH)
 endif()
 list(PREPEND CMAKE_PREFIX_PATH ${THIRD_PARTY_INSTALL_PATH})
 
-find_package(pybind11 REQUIRED)
-message(STATUS "Found pybind11 v${pybind11_VERSION}: ${pybind11_INCLUDE_DIRS}")
+find_package(nanobind CONFIG REQUIRED)
+message(STATUS "Found nanobind v${nanobind_VERSION}")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-pybind11_add_module(dingosdk 
-  src/wrapper.cc 
+nanobind_add_module(dingosdk NB_STATIC
+  src/wrapper.cc
   src/status_bindings.cc
   src/client_bindings.cc
   src/vector_bindings.cc
@@ -43,7 +43,6 @@ pybind11_add_module(dingosdk
 
 target_link_libraries(dingosdk
   PRIVATE
-  pybind11::headers
   sdk
 )
 

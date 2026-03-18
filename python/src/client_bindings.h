@@ -15,8 +15,8 @@
 #ifndef DINGODB_PYTHON_SDK_CLIENT_BINDINGS_H_
 #define DINGODB_PYTHON_SDK_CLIENT_BINDINGS_H_
 
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
 
-void DefineClientBindings(pybind11::module& m);
+void DefineClientBindings(nanobind::module_& m);
 
 #endif  // DINGODB_PYTHON_SDK_CLIENT_BINDINGS_H_

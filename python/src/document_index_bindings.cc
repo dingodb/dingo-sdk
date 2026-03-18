@@ -15,20 +15,22 @@
 
 #include "document_index_bindings.h"
 
-#include <pybind11/functional.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/shared_ptr.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
 
 #include <cstdint>
 #include <tuple>
 
 #include "sdk/document/document_index.h"
 
-void DefineDocumentIndexBindings(pybind11::module& m) {
+void DefineDocumentIndexBindings(nanobind::module_& m) {
   using namespace dingodb;
   using namespace dingodb::sdk;
-  namespace py = pybind11;
+  namespace py = nanobind;
 
-  py::class_<DocumentIndex, std::shared_ptr<DocumentIndex>>(m, "DocumentIndex")
+  py::class_<DocumentIndex>(m, "DocumentIndex")
       .def("GetId", &DocumentIndex::GetId)
       .def("GetSchemaId", &DocumentIndex::GetSchemaId)
       .def("GetName", &DocumentIndex::GetName)
@@ -39,5 +41,4 @@ void DefineDocumentIndexBindings(pybind11::module& m) {
       .def("GetIncrementStartId", &DocumentIndex::GetIncrementStartId)
       .def("GetSchema", &DocumentIndex::GetSchema)
       .def("ToString", &DocumentIndex::ToString);
- 
 }

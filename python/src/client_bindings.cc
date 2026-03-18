@@ -14,8 +14,12 @@
 
 #include "client_bindings.h"
 
-#include <pybind11/functional.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/function.h>
+#include <nanobind/stl/shared_ptr.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/tuple.h>
+#include <nanobind/stl/vector.h>
 
 #include <cstdint>
 #include <tuple>
@@ -24,10 +28,10 @@
 #include "sdk/document/document_index.h"
 #include "sdk/vector/vector_index.h"
 
-void DefineClientBindings(pybind11::module& m) {
+void DefineClientBindings(nanobind::module_& m) {
   using namespace dingodb;
   using namespace dingodb::sdk;
-  namespace py = pybind11;
+  namespace py = nanobind;
 
   py::class_<Client>(m, "Client")
       .def_static("BuildAndInitLog",
@@ -140,14 +144,14 @@ void DefineClientBindings(pybind11::module& m) {
   py::class_<KVPair>(m, "KVPair")
       .def(py::init<>())
       .def(py::init<const std::string&, const std::string&>(), py::arg("key"), py::arg("value"))
-      .def_readwrite("key", &KVPair::key)
-      .def_readwrite("value", &KVPair::value);
+      .def_rw("key", &KVPair::key)
+      .def_rw("value", &KVPair::value);
 
   py::class_<KeyOpState>(m, "KeyOpState")
       .def(py::init<>())
       .def(py::init<const std::string&, bool>(), py::arg("key"), py::arg("state"))
-      .def_readwrite("key", &KeyOpState::key)
-      .def_readwrite("state", &KeyOpState::state);
+      .def_rw("key", &KeyOpState::key)
+      .def_rw("state", &KeyOpState::state);
 
   py::class_<RawKV>(m, "RawKV")
       .def("Get",
@@ -182,13 +186,13 @@ void DefineClientBindings(pybind11::module& m) {
            [](RawKV& rawkv, const std::string& start_key, const std::string& end_key) {
              int64_t out_delete_count;
              Status status = rawkv.DeleteRangeNonContinuous(start_key, end_key, out_delete_count);
-             return status;
+             return std::make_tuple(status, out_delete_count);
            })
       .def("DeleteRange",
            [](RawKV& rawkv, const std::string& start_key, const std::string& end_key) {
              int64_t out_delete_count;
              Status status = rawkv.DeleteRange(start_key, end_key, out_delete_count);
-             return status;
+             return std::make_tuple(status, out_delete_count);
            })
       .def("CompareAndSet",
            [](RawKV& rawkv, const std::string& key, const std::string& value, const std::string& expected_value) {
@@ -218,9 +222,9 @@ void DefineClientBindings(pybind11::module& m) {
 
   py::class_<TransactionOptions>(m, "TransactionOptions")
       .def(py::init<>())
-      .def_readwrite("kind", &TransactionOptions::kind)
-      .def_readwrite("isolation", &TransactionOptions::isolation)
-      .def_readwrite("keep_alive_ms", &TransactionOptions::keep_alive_ms);
+      .def_rw("kind", &TransactionOptions::kind)
+      .def_rw("isolation", &TransactionOptions::isolation)
+      .def_rw("keep_alive_ms", &TransactionOptions::keep_alive_ms);
 
   py::class_<Transaction>(m, "Transaction")
       .def("Get",
@@ -256,14 +260,14 @@ void DefineClientBindings(pybind11::module& m) {
       .value("kXDPROCKS", EngineType::kXDPROCKS);
 
   py::class_<RegionCreator>(m, "RegionCreator")
-      .def("SetRegionName", &RegionCreator::SetRegionName)
-      .def("SetRange", &RegionCreator::SetRange)
-      .def("SetEngineType", &RegionCreator::SetEngineType)
-      .def("SetReplicaNum", &RegionCreator::SetReplicaNum)
-      .def("Wait", &RegionCreator::Wait)
+      .def("SetRegionName", [](RegionCreator& c, const std::string& name) { c.SetRegionName(name); })
+      .def("SetRange", [](RegionCreator& c, const std::string& lb, const std::string& ub) { c.SetRange(lb, ub); })
+      .def("SetEngineType", [](RegionCreator& c, EngineType t) { c.SetEngineType(t); })
+      .def("SetReplicaNum", [](RegionCreator& c, int64_t n) { c.SetReplicaNum(n); })
+      .def("Wait", [](RegionCreator& c, bool w) { c.Wait(w); })
       .def("Create",
-           [](RegionCreator& regioncreator, int64_t region_id) -> std::tuple<Status, int64_t> {
-             int64_t out_region_id = region_id;
+           [](RegionCreator& regioncreator) -> std::tuple<Status, int64_t> {
+             int64_t out_region_id = 0;
              Status status = regioncreator.Create(out_region_id);
              return std::make_tuple(status, out_region_id);
            })

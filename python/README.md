@@ -51,7 +51,7 @@ status, vector_client = client.NewVectorClient()
 vector = dingosdk.Vector(dingosdk.ValueType.kFloat, 2)
 vector.float_values = [1.0, 2.0]
 entry = dingosdk.VectorWithId(1, vector)
-vector_client.AddByIndexId(index_id, [entry], False, False)
+vector_client.AddByIndexId(index_id, [entry])
 
 # Search
 query = dingosdk.Vector(dingosdk.ValueType.kFloat, 2)

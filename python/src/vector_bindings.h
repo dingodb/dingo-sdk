@@ -15,8 +15,8 @@
 #ifndef DINGODB_PYTHON_SDK_VECTOR_BINDINGS_H_
 #define DINGODB_PYTHON_SDK_VECTOR_BINDINGS_H_
 
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
 
-void DefineVectorBindings(pybind11::module& m);
+void DefineVectorBindings(nanobind::module_& m);
 
 #endif  // DINGODB_PYTHON_SDK_VECTOR_BINDINGS_H_

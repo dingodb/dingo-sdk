@@ -14,23 +14,23 @@
 
 #include "status_bindings.h"
 
-#include <pybind11/functional.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
 
 #include <cstdint>
 #include <tuple>
 
 #include "dingosdk/status.h"
 
-void DefineStatusBindings(pybind11::module& m) {
+void DefineStatusBindings(nanobind::module_& m) {
   using namespace dingodb;
   using namespace dingodb::sdk;
-  namespace py = pybind11;
+  namespace py = nanobind;
 
   py::class_<Status>(m, "Status")
       .def(py::init<>())
       .def("ok", &Status::ok)
-      .def_static("OK", py::overload_cast<>(&Status::OK))
+      .def_static("OK", static_cast<Status (*)()>(&Status::OK))
       .def("IsOK", &Status::IsOK)
       .def("IsNotFound", &Status::IsNotFound)
       .def("IsCorruption", &Status::IsCorruption)

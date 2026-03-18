@@ -2,7 +2,7 @@
 
 ## 概述
 
-`dingosdk` 是一个基于 pybind11 的 C++ 扩展包，通过 `scikit-build-core` + `CMake` 进行构建。支持两种场景：
+`dingosdk` 是一个基于 nanobind 的 C++ 扩展包，通过 `scikit-build-core` + `CMake` 进行构建。支持两种场景：
 
 - **本地开发**：editable 模式编译，代码修改无需重复安装
 - **CI 发布**：通过 cibuildwheel 构建 manylinux wheel，自动发布到 PyPI
@@ -17,7 +17,7 @@ dingo-sdk/
 ├── CMakeLists.txt            # 顶层 CMake，BUILD_PYTHON_SDK=ON 时启用 python/
 ├── python/
 │   ├── CMakeLists.txt        # Python 扩展的 CMake 配置
-│   └── src/                  # pybind11 绑定源码（.cc 文件）
+│   └── src/                  # nanobind 绑定源码（.cc 文件）
 └── .github/workflows/
     ├── wheels.yml            # CI 构建 wheel
     └── upload_package.yml    # CI 发布到 PyPI
@@ -39,13 +39,13 @@ dingo-sdk/
 
 ### C++ 依赖（THIRD_PARTY_INSTALL_PATH）
 
-所有 C++ 依赖（pybind11、brpc、protobuf、gflags 等）统一安装在 `THIRD_PARTY_INSTALL_PATH` 目录下。
+所有 C++ 依赖（nanobind、brpc、protobuf、gflags 等）统一安装在 `THIRD_PARTY_INSTALL_PATH` 目录下。
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `THIRD_PARTY_INSTALL_PATH` | `$HOME/.local/dingo-eureka` | C++ 依赖安装前缀 |
 
-> pybind11 使用 `THIRD_PARTY_INSTALL_PATH` 中的系统安装版本，不再依赖 git submodule。
+> nanobind 使用 `THIRD_PARTY_INSTALL_PATH` 中的系统安装版本，不再依赖 git submodule。
 
 ---
 
@@ -112,7 +112,7 @@ pip install --no-build-isolation -e .
         │                  add_subdirectory(python)（BUILD_PYTHON_SDK=ON）
         ▼
  python/CMakeLists.txt     查找 THIRD_PARTY_INSTALL_PATH（默认 $HOME/.local/dingo-eureka）
-        │                  find_package(pybind11 REQUIRED)
+        │                  find_package(nanobind CONFIG REQUIRED)
         ▼
   cmake --build .          编译 src/*.cc → dingosdk.cpython-*.so
         │
@@ -134,7 +134,7 @@ pip install --no-build-isolation -e .
 
 ```yaml
 - actions/checkout          检出代码
-- git submodule update       仅拉取 store-proto 和 serial（pybind11 已改用系统库）
+- git submodule update       仅拉取 store-proto 和 serial（nanobind 已改用系统库）
 - cibuildwheel@v2.19.1      在自定义 manylinux 镜像内构建
 - upload-artifact            保存 .whl 文件
 ```
@@ -155,7 +155,7 @@ archs = ["x86_64"]
 ### 关键：自定义 manylinux 镜像
 
 `dingodatabase/dingo-eureka:manylinux_2_34` 是基于官方 manylinux 镜像定制的，
-预装了所有 C++ 依赖（pybind11、brpc、protobuf 等），对应本地的 `dingo-eureka` 依赖包。
+预装了所有 C++ 依赖（nanobind、brpc、protobuf 等），对应本地的 `dingo-eureka` 依赖包。
 因此 CI 内无需额外设置 `THIRD_PARTY_INSTALL_PATH`。
 
 ### 发布流程（upload_package.yml）
@@ -192,11 +192,11 @@ Build_wheel 成功 + 来自 main 分支的 push
 
 ## 常见问题
 
-**Q: `find_package(pybind11) failed` 报错**
+**Q: `find_package(nanobind) failed` 报错**
 
 检查 `THIRD_PARTY_INSTALL_PATH` 是否正确，且目录下存在：
 ```
-$THIRD_PARTY_INSTALL_PATH/share/cmake/pybind11/pybind11Config.cmake
+$THIRD_PARTY_INSTALL_PATH/lib/cmake/nanobind/nanobindConfig.cmake
 ```
 
 **Q: 编译后 import 报符号找不到**
