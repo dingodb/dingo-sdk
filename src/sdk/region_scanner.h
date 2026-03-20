@@ -20,12 +20,17 @@
 #include <optional>
 #include <vector>
 
+#include <memory>
+
 #include "dingosdk/client.h"
 #include "sdk/region.h"
 #include "sdk/utils/callback.h"
 
 namespace dingodb {
 namespace sdk {
+
+class Tracker;
+using TrackerPtr = std::shared_ptr<Tracker>;
 
 class ClientStub;
 class RegionScanner {
@@ -71,19 +76,22 @@ struct ScannerOptions {
   std::string end_key;
   std::optional<const TransactionOptions> txn_options;
   std::optional<int64_t> start_ts;
+  TrackerPtr tracker;
 
   explicit ScannerOptions(const ClientStub& p_stub, std::shared_ptr<Region> p_region, std::string p_start_key,
                           std::string p_end_key)
       : stub(p_stub), region(std::move(p_region)), start_key(std::move(p_start_key)), end_key(std::move(p_end_key)) {}
 
   explicit ScannerOptions(const ClientStub& p_stub, std::shared_ptr<Region> p_region, std::string p_start_key,
-                          std::string p_end_key, const TransactionOptions p_txn_options, int64_t p_start_ts)
+                          std::string p_end_key, const TransactionOptions p_txn_options, int64_t p_start_ts,
+                          TrackerPtr p_tracker = nullptr)
       : stub(p_stub),
         region(std::move(p_region)),
         start_key(std::move(p_start_key)),
         end_key(std::move(p_end_key)),
         txn_options(p_txn_options),
-        start_ts(p_start_ts) {}
+        start_ts(p_start_ts),
+        tracker(std::move(p_tracker)) {}
 };
 
 class RegionScannerFactory {

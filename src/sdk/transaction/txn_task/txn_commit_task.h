@@ -51,6 +51,8 @@ class TxnCommitTask : public TxnTask {
 
   Status ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary);
 
+  bool NeedRetry() override;
+
   const std::vector<std::string> keys_;
   bool is_primary_{false};
   std::shared_ptr<TxnImpl> txn_impl_;

@@ -310,7 +310,12 @@ Status TxnImpl::ProcessScanState(ScanState& scan_state, uint64_t limit, std::vec
 Status TxnImpl::DoScan(const std::string& start_key, const std::string& end_key, uint64_t limit,
                        std::vector<KVPair>& out_kvs) {
   auto start_time = TimestampUs();
-  SCOPED_CLEANUP(GetTracer()->IncrementReadSdkTime(TimestampUs() - start_time););
+  uint64_t rpc_time_before = GetTracer()->ReadRpcTime();
+  SCOPED_CLEANUP({
+    uint64_t rpc_time_added = GetTracer()->ReadRpcTime() - rpc_time_before;
+    uint64_t total_time = TimestampUs() - start_time;
+    GetTracer()->IncrementReadSdkTime(total_time > rpc_time_added ? total_time - rpc_time_added : 0);
+  });
 
   // check whether region exist
   RegionPtr region;
@@ -376,7 +381,8 @@ Status TxnImpl::DoScan(const std::string& start_key, const std::string& end_key,
       DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] scan region({}) range[{}, {}).", ID(), region->RegionId(),
                                       StringToHex(amend_start_key), StringToHex(amend_end_key));
 
-      ScannerOptions scan_options(stub_, region, amend_start_key, amend_end_key, options_, start_ts_.load());
+      ScannerOptions scan_options(stub_, region, amend_start_key, amend_end_key, options_, start_ts_.load(),
+                                   tracker_);
       CHECK(stub_.GetTxnRegionScannerFactory()->NewRegionScanner(scan_options, scanner).IsOK());
       CHECK(scanner->Open().ok());
 

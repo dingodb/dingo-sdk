@@ -32,7 +32,7 @@ namespace sdk {
 
 TxnRegionScannerImpl::TxnRegionScannerImpl(const ClientStub& stub, RegionPtr region,
                                            const TransactionOptions& txn_options, int64_t txn_start_ts,
-                                           std::string start_key, std::string end_key)
+                                           std::string start_key, std::string end_key, TrackerPtr tracker)
     : RegionScanner(stub, region),
       txn_options_(txn_options),
       txn_start_ts_(txn_start_ts),
@@ -40,7 +40,8 @@ TxnRegionScannerImpl::TxnRegionScannerImpl(const ClientStub& stub, RegionPtr reg
       end_key_(std::move(end_key)),
       opened_(false),
       has_more_(false),
-      batch_size_(FLAGS_scan_batch_size) {}
+      batch_size_(FLAGS_scan_batch_size),
+      tracker_(std::move(tracker)) {}
 
 TxnRegionScannerImpl::~TxnRegionScannerImpl() { Close(); }
 
@@ -93,16 +94,29 @@ Status TxnRegionScannerImpl::NextBatch(std::vector<KVPair>& kvs) {
     rpc = GenTxnScanRpc(resolved_lock);
     DINGO_RETURN_NOT_OK(LogAndSendRpc(stub, *rpc, region));
 
+    if (tracker_) {
+      tracker_->IncrementReadRpcTime(rpc->ElapsedTimeUs());
+      tracker_->IncrementReadRpcRetryCount(rpc->GetRetryTimes());
+      tracker_->IncrementSleepTime(rpc->GetSleepTimesUs());
+      tracker_->IncrementSleepCount(rpc->GetSleepCount());
+    }
+
     const auto* response = rpc->Response();
     if (response->has_txn_result()) {
       const auto& txn_result = response->txn_result();
       status = CheckTxnResultInfo(txn_result);
       if (status.IsTxnLockConflict()) {
+        auto lock_start = TimestampUs();
         status = stub.GetTxnLockResolver()->ResolveLock(txn_result.locked(), txn_start_ts_);
+        if (tracker_) {
+          tracker_->IncrementResolveLockTime(TimestampUs() - lock_start);
+        }
         if (status.ok()) {
+          if (tracker_) tracker_->IncrementReadRetryCount(1);
           continue;
         } else if (status.IsPushMinCommitTs()) {
           resolved_lock = txn_result.locked().lock_ts();
+          if (tracker_) tracker_->IncrementReadRetryCount(1);
           continue;
         }
       }
@@ -151,7 +165,12 @@ Status TxnRegionScannerImpl::SetBatchSize(int64_t size) {
 bool TxnRegionScannerImpl::IsNeedRetry(int& times) {
   bool retry = times++ < FLAGS_txn_op_max_retry;
   if (retry) {
-    SleepUs(FLAGS_txn_op_delay_ms * 1000);
+    uint64_t sleep_us = FLAGS_txn_op_delay_ms * 1000;
+    SleepUs(sleep_us);
+    if (tracker_) {
+      tracker_->IncrementSleepTime(sleep_us);
+      tracker_->IncrementSleepCount(1);
+    }
   }
 
   return retry;
@@ -178,7 +197,8 @@ Status TxnRegionScannerFactoryImpl::NewRegionScanner(const ScannerOptions& optio
       "end_key({}) should little than region range end_key({})", options.end_key, options.region->GetRange().end_key);
 
   RegionScannerPtr tmp(new TxnRegionScannerImpl(options.stub, options.region, options.txn_options.value(),
-                                                options.start_ts.value(), options.start_key, options.end_key));
+                                                options.start_ts.value(), options.start_key, options.end_key,
+                                                options.tracker));
   scanner = std::move(tmp);
 
   return Status::OK();
