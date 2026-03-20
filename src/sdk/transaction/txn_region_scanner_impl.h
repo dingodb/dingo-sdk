@@ -21,6 +21,7 @@
 
 #include "dingosdk/client.h"
 #include "dingosdk/status.h"
+#include "sdk/common/tracker.h"
 #include "sdk/region_scanner.h"
 #include "sdk/rpc/store_rpc.h"
 
@@ -33,7 +34,8 @@ class TestBase;
 class TxnRegionScannerImpl : public RegionScanner {
  public:
   explicit TxnRegionScannerImpl(const ClientStub& stub, RegionPtr region, const TransactionOptions& txn_options,
-                                int64_t txn_start_ts, std::string start_key, std::string end_key);
+                                int64_t txn_start_ts, std::string start_key, std::string end_key,
+                                TrackerPtr tracker = nullptr);
 
   ~TxnRegionScannerImpl() override;
 
@@ -66,7 +68,7 @@ class TxnRegionScannerImpl : public RegionScanner {
  private:
   std::unique_ptr<TxnScanRpc> GenTxnScanRpc(uint64_t resolved_lock);
 
-  static bool IsNeedRetry(int& times);
+  bool IsNeedRetry(int& times);
 
   const TransactionOptions txn_options_;
   int64_t txn_start_ts_;
@@ -76,6 +78,7 @@ class TxnRegionScannerImpl : public RegionScanner {
   bool opened_;
   bool has_more_;
   std::string stream_id_;
+  TrackerPtr tracker_;
 };
 
 class TxnRegionScannerFactoryImpl final : public RegionScannerFactory {

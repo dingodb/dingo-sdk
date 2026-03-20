@@ -66,8 +66,9 @@ static Status LogAndSendRpc(const ClientStub& stub, StoreClientRpc& rpc, std::sh
   StoreRpcController controller(stub, rpc, region);
   Status s = controller.Call();
 
-  DINGO_LOG_IF(INFO, fLB::FLAGS_log_rpc_time) << fmt::format("[rpc.{}][{}ms][region.{}] rpc finish", rpc.Method(),
-                                                             TimestampMs() - start_time_ms, region->RegionId());
+  DINGO_LOG_IF(INFO, fLB::FLAGS_log_rpc_time)
+      << fmt::format("[rpc.{}][{}ms][region.{}] [response.{}]rpc finish", rpc.Method(), TimestampMs() - start_time_ms,
+                     region->RegionId(), rpc.Response()->ShortDebugString());
   return s;
 }
 

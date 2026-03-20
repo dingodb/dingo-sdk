@@ -116,6 +116,19 @@ class UnaryRpc : public Rpc {
       DINGO_LOG(INFO) << fmt::format("[sdk.trace.rpc][{}][{:.6f}s][endpoint({})] Full rpc info {}", Method(),
                                      (end_time - start_time) / 1e6, endpoint2str(controller.remote_side()).c_str(),
                                      str);
+
+      // Print ElapsedTime array from response_info.time_info
+      const auto& elapsed_times = response->response_info().time_info().elapsed_times();
+      if (elapsed_times.size() > 0) {
+        std::string elapsed_str;
+        for (int i = 0; i < elapsed_times.size(); ++i) {
+          const auto& et = elapsed_times[i];
+          if (i > 0) elapsed_str += ", ";
+          elapsed_str += fmt::format("{{name:{}, time_us:{}, skip_version:{}}}", et.name(), et.time_us(), et.skip_version());
+        }
+        DINGO_LOG(INFO) << fmt::format("[sdk.trace.rpc][{}][request_id:{}] ElapsedTimes [{}]",
+                                       Method(), controller.log_id(), elapsed_str);
+      }
     }
     TraceRpcPerformance(end_time - start_time, Method(), endpoint2str(controller.remote_side()).c_str(), str);
 

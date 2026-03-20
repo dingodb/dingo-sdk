@@ -17,6 +17,7 @@
 
 #include <fmt/format.h>
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -166,33 +167,37 @@ struct KeyOpState {
 };
 
 struct TraceMetrics {
-  uint64_t total_time_us;
+  std::atomic<uint64_t> total_time_us{0};
 
   struct Metric {
-    uint64_t sdk_time_us;
-    uint64_t rpc_time_us;
-    uint64_t retry_count;
-    uint64_t rpc_retry_count;
+    std::atomic<uint64_t> sdk_time_us{0};
+    std::atomic<uint64_t> rpc_time_us{0};
+    std::atomic<uint64_t> retry_count{0};
+    std::atomic<uint64_t> rpc_retry_count{0};
+
+    std::string ToString() const {
+      return fmt::format("{} {} {} {}", sdk_time_us.load(std::memory_order_relaxed),
+                         rpc_time_us.load(std::memory_order_relaxed), retry_count.load(std::memory_order_relaxed),
+                         rpc_retry_count.load(std::memory_order_relaxed));
+    }
   };
 
   Metric read_metric;
   Metric prewrite_metric;
   Metric commit_metric;
 
-  uint64_t resolve_lock_time_us;
+  std::atomic<uint64_t> resolve_lock_time_us{0};
 
-  uint64_t sleep_time_us;
-  uint64_t sleep_count;
+  std::atomic<uint64_t> sleep_time_us{0};
+  std::atomic<uint64_t> sleep_count{0};
 
-  std::string ToString() {
+  std::string ToString() const {
     return fmt::format(
-        "total_time_us({}) read({} {} {} {}) prewrite({} {} {} {}) commit({} {} {} {}) "
+        "total_time_us({}) read({}) prewrite({}) commit({}) "
         "resolve_lock_time_us({}) sleep({} {})",
-        total_time_us, read_metric.sdk_time_us, read_metric.rpc_time_us, read_metric.retry_count,
-        read_metric.rpc_retry_count, prewrite_metric.sdk_time_us, prewrite_metric.rpc_time_us,
-        prewrite_metric.retry_count, prewrite_metric.rpc_retry_count, commit_metric.sdk_time_us,
-        commit_metric.rpc_time_us, commit_metric.retry_count, commit_metric.rpc_retry_count, resolve_lock_time_us,
-        sleep_time_us, sleep_count);
+        total_time_us.load(std::memory_order_relaxed), read_metric.ToString(), prewrite_metric.ToString(),
+        commit_metric.ToString(), resolve_lock_time_us.load(std::memory_order_relaxed),
+        sleep_time_us.load(std::memory_order_relaxed), sleep_count.load(std::memory_order_relaxed));
   }
 };
 

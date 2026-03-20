@@ -185,6 +185,14 @@ void TxnCommitTask::TxnCommitRpcCallback(const Status& status, TxnCommitRpc* rpc
   }
 }
 
+bool TxnCommitTask::NeedRetry() {
+  bool retry = TxnTask::NeedRetry();
+  if (retry) {
+    txn_impl_->GetTracer()->IncrementCommitRetryCount(1);
+  }
+  return retry;
+}
+
 Status TxnCommitTask::ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary) {
   std::string pk = txn_impl_->GetPrimaryKey();
   int64_t txn_id = txn_impl_->ID();
