@@ -46,6 +46,10 @@ class Rpc {
 
   void SetStatus(const Status& s) { status = s; }
 
+  void SetTxnId(uint64_t id) { txn_id = id; }
+
+  uint64_t GetTxnId() const { return txn_id; }
+
   void IncRetryTimes() { retry_times++; }
 
   int GetRetryTimes() const { return retry_times; }
@@ -88,6 +92,7 @@ class Rpc {
   std::string cmd;
   EndPoint end_point;
   Status status;
+  uint64_t txn_id{0};
   int retry_times{0};
   uint64_t sleep_time_us{0};
   uint64_t sleep_count{0};

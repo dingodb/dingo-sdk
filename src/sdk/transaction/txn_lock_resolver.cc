@@ -89,6 +89,10 @@ Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& conflict_lock_inf
         }
         if (conflict_lock_info.lock_ttl() > current_ts) {
           // lock ttl not expired, wait and retry
+          DINGO_LOG(INFO) << fmt::format(
+              "[sdk.txn.{}] sleep {}ms, reason: TxnNotFound and lock_ttl({}) > current_ts({}), lock_info({}).",
+              start_ts, FLAGS_txn_check_status_interval_ms, conflict_lock_info.lock_ttl(), current_ts,
+              conflict_lock_info.ShortDebugString());
           SleepUs(FLAGS_txn_check_status_interval_ms * 1000);
         } else {
           // lock ttl expired, next check will rollback txn if not exist
@@ -107,6 +111,10 @@ Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& conflict_lock_inf
         }
         if (txn_status.primary_lock_info.lock_ts() > 0 && txn_status.primary_lock_info.lock_ttl() > current_ts) {
           // lock ttl not expired, wait and retry
+          DINGO_LOG(INFO) << fmt::format(
+              "[sdk.txn.{}] sleep {}ms, reason: TxnLockConflict and lock_ttl({}) > current_ts({}), lock_info({}).",
+              start_ts, FLAGS_txn_check_status_interval_ms, txn_status.primary_lock_info.lock_ttl(), current_ts,
+              txn_status.primary_lock_info.ShortDebugString());
           SleepUs(FLAGS_txn_check_status_interval_ms * 1000);
         }
       } else {
@@ -183,7 +191,7 @@ Status TxnLockResolver::ResolveNormalLock(const pb::store::LockInfo& lock_info, 
     return Status::OK();
   }
   std::vector<std::string> keys = {lock_info.key()};
-  TxnResolveLockTask task_resolve_lock(stub_, lock_info.lock_ts(), keys, txn_status.commit_ts);
+  TxnResolveLockTask task_resolve_lock(stub_, lock_info.lock_ts(), keys, txn_status.commit_ts, start_ts);
   status = task_resolve_lock.Run();
   if (!status.IsOK()) {
     DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] resolve lock fail, lock_ts({}) key({}) txn_status({}) status({}).",
@@ -227,7 +235,8 @@ Status TxnLockResolver::ResolveLockSecondaryLocks(const pb::store::LockInfo& pri
   std::vector<std::string> secondary_keys(primary_lock_info.secondaries().begin(),
                                           primary_lock_info.secondaries().end());
   TxnCheckSecondaryLocksTask txn_check_secondary_locks_task(stub_, std::move(secondary_keys),
-                                                            primary_lock_info.lock_ts(), txn_secondary_lock_status);
+                                                            primary_lock_info.lock_ts(), txn_secondary_lock_status,
+                                                            start_ts);
   Status status = txn_check_secondary_locks_task.Run();
   if (!status.ok()) {
     DINGO_LOG(WARNING) << fmt::format(
@@ -252,7 +261,8 @@ Status TxnLockResolver::ResolveLockSecondaryLocks(const pb::store::LockInfo& pri
       keys_to_rollback.push_back(lock.key());
     }
 
-    TxnResolveLockTask task_resolve_lock(stub_, primary_lock_info.lock_ts(), keys_to_rollback, 0 /* commit_ts */);
+    TxnResolveLockTask task_resolve_lock(stub_, primary_lock_info.lock_ts(), keys_to_rollback, 0 /* commit_ts */,
+                                         start_ts);
     status = task_resolve_lock.Run();
     if (!status.ok()) {
       DINGO_LOG(WARNING) << fmt::format(
@@ -278,7 +288,7 @@ Status TxnLockResolver::ResolveLockSecondaryLocks(const pb::store::LockInfo& pri
 
     // commit all locked keys
     TxnResolveLockTask task_resolve_lock(stub_, primary_lock_info.lock_ts(), keys_to_commit,
-                                         txn_secondary_lock_status.commit_ts);
+                                         txn_secondary_lock_status.commit_ts, start_ts);
     status = task_resolve_lock.Run();
     if (!status.ok()) {
       DINGO_LOG(WARNING) << fmt::format(
@@ -316,7 +326,7 @@ Status TxnLockResolver::ResolveLockSecondaryLocks(const pb::store::LockInfo& pri
         primary_lock_info.ShortDebugString());
 
     // commit all keys
-    TxnResolveLockTask task_resolve_lock(stub_, primary_lock_info.lock_ts(), keys_to_commit, min_commit_ts);
+    TxnResolveLockTask task_resolve_lock(stub_, primary_lock_info.lock_ts(), keys_to_commit, min_commit_ts, start_ts);
     status = task_resolve_lock.Run();
     if (!status.ok()) {
       DINGO_LOG(WARNING) << fmt::format(

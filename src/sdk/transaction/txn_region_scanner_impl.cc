@@ -65,6 +65,7 @@ std::unique_ptr<TxnScanRpc> TxnRegionScannerImpl::GenTxnScanRpc(uint64_t resolve
   auto rpc = std::make_unique<TxnScanRpc>();
 
   rpc->MutableRequest()->set_start_ts(txn_start_ts_);
+  rpc->SetTxnId(txn_start_ts_);
   FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch(), {resolved_lock},
                  ToIsolationLevel(txn_options_.isolation));
 
@@ -166,6 +167,9 @@ bool TxnRegionScannerImpl::IsNeedRetry(int& times) {
   bool retry = times++ < FLAGS_txn_op_max_retry;
   if (retry) {
     uint64_t sleep_us = FLAGS_txn_op_delay_ms * 1000;
+    DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] sleep {}ms, reason: scan retry({}/{}), region({}).",
+                                   txn_start_ts_, FLAGS_txn_op_delay_ms, times, FLAGS_txn_op_max_retry,
+                                   region->RegionId());
     SleepUs(sleep_us);
     if (tracker_) {
       tracker_->IncrementSleepTime(sleep_us);

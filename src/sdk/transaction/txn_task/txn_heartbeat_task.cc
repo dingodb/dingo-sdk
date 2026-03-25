@@ -49,6 +49,7 @@ void TxnHeartbeatTask::DoAsync() {
   FillRpcContext(*rpc_.MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch(),
                  pb::store::IsolationLevel::SnapshotIsolation);
   rpc_.MutableRequest()->set_start_ts(lock_ts_);
+  rpc_.SetTxnId(lock_ts_);
   rpc_.MutableRequest()->set_primary_lock(primary_key_);
   rpc_.MutableRequest()->set_advise_lock_ttl(physical_ts_ + FLAGS_txn_heartbeat_lock_delay_ms);
 

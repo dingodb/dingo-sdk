@@ -134,6 +134,7 @@ void TxnPrewriteTask::DoAsync() {
     auto rpc = std::make_unique<TxnPrewriteRpc>();
     rpc->MutableRequest()->Clear();
     rpc->MutableRequest()->set_start_ts(txn_impl_->GetStartTs());
+    rpc->SetTxnId(txn_impl_->GetStartTs());
     FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch(),
                    ToIsolationLevel(txn_impl_->GetOptions().isolation));
     rpc->MutableRequest()->set_primary_lock(primary_key_);
@@ -164,6 +165,7 @@ void TxnPrewriteTask::DoAsync() {
         rpc = std::make_unique<TxnPrewriteRpc>();
         rpc->MutableRequest()->Clear();
         rpc->MutableRequest()->set_start_ts(txn_impl_->GetStartTs());
+        rpc->SetTxnId(txn_impl_->GetStartTs());
         FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch(),
                        ToIsolationLevel(txn_impl_->GetOptions().isolation));
         rpc->MutableRequest()->set_primary_lock(primary_key_);
@@ -339,6 +341,7 @@ bool TxnPrewriteTask::NeedRetry() {
   if (IsRetryError()) {
     retry_count_++;
     if (retry_count_ < FLAGS_txn_prewrite_max_retry) {
+      txn_impl_->GetTracer()->IncrementPrewriteRetryCount(1);
       return true;
     } else {
       std::string msg =
