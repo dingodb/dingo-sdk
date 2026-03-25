@@ -107,6 +107,9 @@ void StoreRpcController::SendStoreRpc() {
 void StoreRpcController::MaybeDelay() {
   if (NeedDelay(status_)) {
     auto delay_ms = FLAGS_store_rpc_retry_delay_ms;
+    DINGO_LOG(INFO) << fmt::format("[sdk.rpc.{}] txn_id:{} method:{} region({}) sleep {}ms, reason: {}",
+                                   rpc_.LogId(), rpc_.GetTxnId(), rpc_.Method(), region_->RegionId(), delay_ms,
+                                   status_.ToString());
     rpc_.IncSleepCount();
     rpc_.IncSleepTimesUs(FLAGS_coordinator_interaction_delay_ms * 1000);
     SleepUs(delay_ms * 1000);

@@ -33,11 +33,13 @@ namespace sdk {
 class TxnCheckSecondaryLocksTask : public TxnTask {
  public:
   TxnCheckSecondaryLocksTask(const ClientStub& stub, const std::vector<std::string> secondary_keys,
-                             int64_t primary_lock_start_ts, TxnSecondaryLockStatus& txn_check_secondary_status)
+                             int64_t primary_lock_start_ts, TxnSecondaryLockStatus& txn_check_secondary_status,
+                             int64_t caller_start_ts = 0)
       : TxnTask(stub),
         secondary_keys_(secondary_keys),
         primary_lock_start_ts_(primary_lock_start_ts),
-        txn_check_secondary_status_(txn_check_secondary_status) {}
+        txn_check_secondary_status_(txn_check_secondary_status),
+        caller_start_ts_(caller_start_ts) {}
 
   ~TxnCheckSecondaryLocksTask() override = default;
 
@@ -54,6 +56,7 @@ class TxnCheckSecondaryLocksTask : public TxnTask {
   TxnSecondaryLockStatus& txn_check_secondary_status_;
   std::set<std::string_view> next_keys_;
   int64_t primary_lock_start_ts_{0};
+  int64_t caller_start_ts_{0};
 
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<TxnCheckSecondaryLocksRpc>> rpcs_;

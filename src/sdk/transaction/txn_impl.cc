@@ -225,6 +225,8 @@ Status TxnImpl::Rollback() { return DoRollback(); }
 bool TxnImpl::IsNeedRetry(int& times) {
   bool retry = times++ < FLAGS_txn_op_max_retry;
   if (retry) {
+    DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] sleep {}ms, reason: txn op retry({}/{}).",
+                                   GetStartTs(), FLAGS_txn_op_delay_ms, times, FLAGS_txn_op_max_retry);
     SleepUs(FLAGS_txn_op_delay_ms * 1000);
   }
 

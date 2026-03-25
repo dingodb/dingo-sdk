@@ -34,8 +34,9 @@ namespace sdk {
 
 class TxnResolveLockTask : public TxnTask {
  public:
-  TxnResolveLockTask(const ClientStub& stub, int64_t lock_ts, const std::vector<std::string>& keys, int64_t commit_ts)
-      : TxnTask(stub), lock_ts_(lock_ts), keys_(keys), commit_ts_(commit_ts) {}
+  TxnResolveLockTask(const ClientStub& stub, int64_t lock_ts, const std::vector<std::string>& keys, int64_t commit_ts,
+                     int64_t caller_start_ts = 0)
+      : TxnTask(stub), lock_ts_(lock_ts), keys_(keys), commit_ts_(commit_ts), caller_start_ts_(caller_start_ts) {}
 
   ~TxnResolveLockTask() override = default;
 
@@ -51,6 +52,7 @@ class TxnResolveLockTask : public TxnTask {
   int64_t lock_ts_{0};
   const std::vector<std::string>& keys_;
   int64_t commit_ts_{0};
+  int64_t caller_start_ts_{0};
 
   std::vector<StoreRpcController> controllers_;
   std::vector<std::unique_ptr<TxnResolveLockRpc>> rpcs_;

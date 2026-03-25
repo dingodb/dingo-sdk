@@ -98,6 +98,7 @@ void TxnBatchGetTask::DoAsync() {
     auto rpc = std::make_unique<TxnBatchGetRpc>();
     rpc->MutableRequest()->Clear();
     rpc->MutableRequest()->set_start_ts(txn_impl_->GetStartTs());
+    rpc->SetTxnId(txn_impl_->GetStartTs());
     FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch(), {resolved_lock},
                    ToIsolationLevel(txn_impl_->GetOptions().isolation));
     for (const auto& key : entry.second) {

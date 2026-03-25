@@ -77,3 +77,5 @@ contrib/xdprocks/
 
 # allure-reports
 allure-reports/
+# Claude
+CLAUDE.md

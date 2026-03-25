@@ -97,6 +97,7 @@ void TxnCheckSecondaryLocksTask::DoAsync() {
     auto rpc = std::make_unique<TxnCheckSecondaryLocksRpc>();
     rpc->MutableRequest()->Clear();
     rpc->MutableRequest()->set_start_ts(primary_lock_start_ts_);
+    rpc->SetTxnId(caller_start_ts_);
     FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch(),
                    pb::store::IsolationLevel::SnapshotIsolation);
     for (const auto& key : entry.second) {

@@ -94,6 +94,7 @@ void TxnResolveLockTask::DoAsync() {
     FillRpcContext(*rpc->MutableRequest()->mutable_context(), region->RegionId(), region->GetEpoch(),
                    pb::store::IsolationLevel::SnapshotIsolation);
     rpc->MutableRequest()->set_start_ts(lock_ts_);
+    rpc->SetTxnId(caller_start_ts_);
     rpc->MutableRequest()->set_commit_ts(commit_ts_);
     for (const auto& key : entry.second) {
       *rpc->MutableRequest()->add_keys() = key;
