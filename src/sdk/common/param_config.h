@@ -78,6 +78,8 @@ DECLARE_bool(enable_txn_async_commit);
 
 DECLARE_bool(log_rpc_time);
 
+DECLARE_bool(enable_rocksdb_perf_metric);
+
 DECLARE_int64(txn_heartbeat_interval_ms);
 DECLARE_int64(txn_heartbeat_lock_delay_ms);
 

@@ -194,7 +194,7 @@ struct TraceMetrics {
   std::string ToString() const {
     return fmt::format(
         "total_time_us({}) read({}) prewrite({}) commit({}) "
-        "resolve_lock_time_us({}) sleep({} {})",
+        "resolve_lock({}) sleep({} {})",
         total_time_us.load(std::memory_order_relaxed), read_metric.ToString(), prewrite_metric.ToString(),
         commit_metric.ToString(), resolve_lock_time_us.load(std::memory_order_relaxed),
         sleep_time_us.load(std::memory_order_relaxed), sleep_count.load(std::memory_order_relaxed));

@@ -119,6 +119,55 @@ class UnaryRpc : public Rpc {
     }
     TraceRpcPerformance(end_time - start_time, Method(), endpoint2str(controller.remote_side()).c_str(), str);
 
+    if (FLAGS_enable_rocksdb_perf_metric && !controller.Failed()) {
+      const auto* descriptor = response->GetDescriptor();
+      const auto* reflection = response->GetReflection();
+      const auto* field = descriptor->FindFieldByName("response_info");
+      if (field != nullptr && reflection->HasField(*response, field)) {
+        const auto& response_info = reflection->GetMessage(*response, field);
+        const auto* time_info_field = response_info.GetDescriptor()->FindFieldByName("time_info");
+        if (time_info_field != nullptr && response_info.GetReflection()->HasField(response_info, time_info_field)) {
+          const auto& time_info = response_info.GetReflection()->GetMessage(response_info, time_info_field);
+          const auto* ti_ref = time_info.GetReflection();
+          const auto* ti_desc = time_info.GetDescriptor();
+          const auto* elapsed_times_field = ti_desc->FindFieldByName("elapsed_times");
+          uint64_t total_time_ns = ti_ref->GetInt64(time_info, ti_desc->FindFieldByName("total_rpc_time_ns"));
+          std::string elapsed_str;
+          if (elapsed_times_field != nullptr) {
+            int count = ti_ref->FieldSize(time_info, elapsed_times_field);
+            for (int i = 0; i < count; i++) {
+              const auto& et = ti_ref->GetRepeatedMessage(time_info, elapsed_times_field, i);
+              const auto* et_ref = et.GetReflection();
+              const auto* et_desc = et.GetDescriptor();
+              std::string name = et_ref->GetString(et, et_desc->FindFieldByName("name"));
+              uint64_t time_us = et_ref->GetUInt64(et, et_desc->FindFieldByName("time_us"));
+              int64_t skip_version = et_ref->GetInt64(et, et_desc->FindFieldByName("skip_version"));
+              uint64_t io_time_ns = 0;
+              uint64_t cache_hit_count = 0;
+              uint64_t internal_skipped_count = 0;
+              const auto* perf_field = et_desc->FindFieldByName("rocksdb_perf_summary");
+              if (perf_field != nullptr && et_ref->HasField(et, perf_field)) {
+                const auto& perf = et_ref->GetMessage(et, perf_field);
+                const auto* perf_ref = perf.GetReflection();
+                const auto* perf_desc = perf.GetDescriptor();
+                io_time_ns = perf_ref->GetUInt64(perf, perf_desc->FindFieldByName("io_time_ns"));
+                cache_hit_count = perf_ref->GetUInt64(perf, perf_desc->FindFieldByName("cache_hit_count"));
+                internal_skipped_count =
+                    perf_ref->GetUInt64(perf, perf_desc->FindFieldByName("internal_skipped_count"));
+              }
+              elapsed_str += fmt::format(" {}({} {} {} {} {})", name, time_us, skip_version, io_time_ns / 1000,
+                                         cache_hit_count, internal_skipped_count);
+            }
+            if (GetTxnId() != 0) {
+              // only print txn log
+              DINGO_LOG(INFO) << fmt::format("[sdk][{}][{}] total_time_us({}) {}", GetTxnId(), Method(),
+                                             total_time_ns / 1000, elapsed_str);
+            }
+          }
+        }
+      }
+    }
+
     brpc_ctx->cb();
   }
 
