@@ -18,8 +18,8 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 #include "sdk/transaction/txn_region_scanner_impl.h"
-#include "../mock_client_stub.h"
-#include "../mock_rpc_client.h"
+#include "mock_client_stub.h"
+#include "mock_rpc_client.h"
 #include "proto/error.pb.h"
 
 namespace dingodb {
