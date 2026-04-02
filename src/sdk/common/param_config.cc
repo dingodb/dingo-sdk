@@ -65,6 +65,8 @@ DEFINE_bool(enable_txn_async_commit, true, "enable txn async commit");
 
 DEFINE_bool(log_rpc_time, false, "log rpc time");
 
+DEFINE_bool(enable_rocksdb_perf_metric, false, "log response TimeInfo from server side, use for debug");
+
 DEFINE_int64(txn_heartbeat_interval_ms, 1000, "txn heartbeat interval time");
 DEFINE_int64(txn_heartbeat_lock_delay_ms, 20000, "txn heartbeat lock delay time");
 
