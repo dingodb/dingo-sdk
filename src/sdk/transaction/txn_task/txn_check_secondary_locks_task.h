@@ -59,7 +59,7 @@ class TxnCheckSecondaryLocksTask : public TxnTask {
   int64_t caller_start_ts_{0};
 
   std::vector<StoreRpcController> controllers_;
-  std::vector<std::unique_ptr<TxnCheckSecondaryLocksRpc>> rpcs_;
+  std::vector<std::shared_ptr<TxnCheckSecondaryLocksRpc>> rpcs_;
   RWLock rw_lock_;
   Status status_;
   std::atomic<int> sub_tasks_count_{0};

@@ -15,6 +15,8 @@
 #ifndef DINGODB_SDK_STORE_RPC_CONTROLLER_H_
 #define DINGODB_SDK_STORE_RPC_CONTROLLER_H_
 
+#include <memory>
+
 #include "dingosdk/status.h"
 #include "proto/error.pb.h"
 #include "sdk/client_stub.h"
@@ -30,6 +32,13 @@ class StoreRpcController {
   explicit StoreRpcController(const ClientStub& stub, Rpc& rpc);
 
   explicit StoreRpcController(const ClientStub& stub, Rpc& rpc, RegionPtr region);
+
+  // Use this constructor when the Rpc object's lifetime must be extended beyond
+  // the caller's vector (e.g. txn tasks that clear rpcs_ on retry).
+  explicit StoreRpcController(const ClientStub& stub, std::shared_ptr<Rpc> rpc, RegionPtr region);
+
+  StoreRpcController(const StoreRpcController& other);
+  StoreRpcController(StoreRpcController&& other) noexcept;
 
   virtual ~StoreRpcController();
 
@@ -79,6 +88,9 @@ class StoreRpcController {
   static const pb::error::Error& GetResponseError(Rpc& rpc);
 
   const ClientStub& stub_;
+  // rpc_shared_ must be declared before rpc_ so it is constructed first;
+  // the shared_ptr constructor binds rpc_ to *rpc_shared_.
+  std::shared_ptr<Rpc> rpc_shared_;
   Rpc& rpc_;
   RegionPtr region_;
   int rpc_retry_times_;

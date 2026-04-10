@@ -125,13 +125,15 @@ void TxnPrewriteTask::DoAsync() {
     }
   }
 
+  controllers_.reserve(mutations_.size());
+  rpcs_.reserve(mutations_.size());
   for (const auto& entry : region_id_to_mutations) {
     auto region_id = entry.first;
     auto iter = region_id_to_region.find(region_id);
     CHECK(iter != region_id_to_region.end());
     auto region = iter->second;
 
-    auto rpc = std::make_unique<TxnPrewriteRpc>();
+    auto rpc = std::make_shared<TxnPrewriteRpc>();
     rpc->MutableRequest()->Clear();
     rpc->MutableRequest()->set_start_ts(txn_impl_->GetStartTs());
     rpc->SetTxnId(txn_impl_->GetStartTs());
@@ -157,12 +159,11 @@ void TxnPrewriteTask::DoAsync() {
       if (rpc->MutableRequest()->mutations_size() == FLAGS_txn_max_batch_count) {
         DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] precommit key, region({}) mutations({}) equal max batch count.",
                                        txn_impl_->ID(), region->RegionId(), rpc->MutableRequest()->mutations_size());
-        StoreRpcController controller(stub, *rpc, region);
-        controllers_.push_back(std::move(controller));
-        rpcs_.push_back(std::move(rpc));
+        controllers_.emplace_back(stub, rpc, region);
+        rpcs_.push_back(rpc);
 
         // reset rpc
-        rpc = std::make_unique<TxnPrewriteRpc>();
+        rpc = std::make_shared<TxnPrewriteRpc>();
         rpc->MutableRequest()->Clear();
         rpc->MutableRequest()->set_start_ts(txn_impl_->GetStartTs());
         rpc->SetTxnId(txn_impl_->GetStartTs());
@@ -187,9 +188,8 @@ void TxnPrewriteTask::DoAsync() {
       TxnMutation2MutationPB(*mutation, rpc->MutableRequest()->add_mutations());
     }
 
-    StoreRpcController controller(stub, *rpc, region);
-    controllers_.push_back(std::move(controller));
-    rpcs_.push_back(std::move(rpc));
+    controllers_.emplace_back(stub, rpc, region);
+    rpcs_.push_back(rpc);
   }
 
   CHECK(rpcs_.size() == controllers_.size());

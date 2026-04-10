@@ -88,13 +88,15 @@ void TxnCommitTask::DoAsync() {
     region_id_to_keys[tmp->RegionId()].push_back(key);
   }
 
+  controllers_.reserve(next_keys_.size());
+  rpcs_.reserve(next_keys_.size());
   for (const auto& entry : region_id_to_keys) {
     auto region_id = entry.first;
     auto iter = region_id_to_region.find(region_id);
     CHECK(iter != region_id_to_region.end());
     auto region = iter->second;
 
-    auto rpc = std::make_unique<TxnCommitRpc>();
+    auto rpc = std::make_shared<TxnCommitRpc>();
     rpc->MutableRequest()->Clear();
     rpc->MutableRequest()->set_start_ts(txn_impl_->GetStartTs());
     rpc->SetTxnId(txn_impl_->GetStartTs());
@@ -106,12 +108,11 @@ void TxnCommitTask::DoAsync() {
       if (rpc->MutableRequest()->keys_size() == FLAGS_txn_max_batch_count) {
         DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] commit key, region({}) keys({}) equal max batch count.",
                                        txn_impl_->ID(), region->RegionId(), rpc->MutableRequest()->keys_size());
-        StoreRpcController controller(stub, *rpc, region);
-        controllers_.push_back(std::move(controller));
-        rpcs_.push_back(std::move(rpc));
+        controllers_.emplace_back(stub, rpc, region);
+        rpcs_.push_back(rpc);
 
         // reset rpc
-        rpc = std::make_unique<TxnCommitRpc>();
+        rpc = std::make_shared<TxnCommitRpc>();
         rpc->MutableRequest()->set_start_ts(txn_impl_->GetStartTs());
         rpc->SetTxnId(txn_impl_->GetStartTs());
         rpc->MutableRequest()->set_commit_ts(txn_impl_->GetCommitTs());
@@ -122,9 +123,8 @@ void TxnCommitTask::DoAsync() {
       *fill = key;
     }
 
-    StoreRpcController controller(stub, *rpc, region);
-    controllers_.push_back(std::move(controller));
-    rpcs_.push_back(std::move(rpc));
+    controllers_.emplace_back(stub, rpc, region);
+    rpcs_.push_back(rpc);
   }
 
   CHECK(rpcs_.size() == controllers_.size());

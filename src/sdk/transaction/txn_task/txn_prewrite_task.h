@@ -71,7 +71,7 @@ class TxnPrewriteTask : public TxnTask {
   uint64_t& min_commit_ts_;
 
   std::vector<StoreRpcController> controllers_;
-  std::vector<std::unique_ptr<TxnPrewriteRpc>> rpcs_;
+  std::vector<std::shared_ptr<TxnPrewriteRpc>> rpcs_;
   std::shared_ptr<TxnImpl> txn_impl_;
 
   bool need_retry_{false};
