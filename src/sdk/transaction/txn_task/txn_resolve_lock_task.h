@@ -55,7 +55,7 @@ class TxnResolveLockTask : public TxnTask {
   int64_t caller_start_ts_{0};
 
   std::vector<StoreRpcController> controllers_;
-  std::vector<std::unique_ptr<TxnResolveLockRpc>> rpcs_;
+  std::vector<std::shared_ptr<TxnResolveLockRpc>> rpcs_;
   std::atomic<int> sub_tasks_count_{0};
   std::set<std::string_view> next_keys_;
 

@@ -57,7 +57,7 @@ class TxnBatchGetTask : public TxnTask {
   std::unordered_map<int64_t, uint64_t> region_id_to_resolved_lock_;
 
   std::vector<StoreRpcController> controllers_;
-  std::vector<std::unique_ptr<TxnBatchGetRpc>> rpcs_;
+  std::vector<std::shared_ptr<TxnBatchGetRpc>> rpcs_;
   bool need_retry_{false};
 
   RWLock rw_lock_;

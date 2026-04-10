@@ -76,6 +76,8 @@ void RawKvBatchPutIfAbsentTask::DoAsync() {
   controllers_.clear();
   rpcs_.clear();
 
+  controllers_.reserve(region_keys.size());
+  rpcs_.reserve(region_keys.size());
   for (const auto& entry : region_keys) {
     auto region_id = entry.first;
 
@@ -94,8 +96,7 @@ void RawKvBatchPutIfAbsentTask::DoAsync() {
       fill->set_value(kv->value);
     }
 
-    StoreRpcController controller(stub, *rpc, region);
-    controllers_.push_back(controller);
+    controllers_.emplace_back(stub, *rpc, region);
 
     rpcs_.push_back(std::move(rpc));
   }

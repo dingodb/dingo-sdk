@@ -86,6 +86,8 @@ void TxnCheckSecondaryLocksTask::DoAsync() {
     region_id_to_keys[tmp->RegionId()].push_back(key);
   }
 
+  controllers_.reserve(region_id_to_keys.size());
+  rpcs_.reserve(region_id_to_keys.size());
   for (const auto& entry : region_id_to_keys) {
     auto region_id = entry.first;
     auto iter = region_id_to_region.find(region_id);
@@ -94,7 +96,7 @@ void TxnCheckSecondaryLocksTask::DoAsync() {
 
     uint64_t resolved_lock = 0;
 
-    auto rpc = std::make_unique<TxnCheckSecondaryLocksRpc>();
+    auto rpc = std::make_shared<TxnCheckSecondaryLocksRpc>();
     rpc->MutableRequest()->Clear();
     rpc->MutableRequest()->set_start_ts(primary_lock_start_ts_);
     rpc->SetTxnId(caller_start_ts_);
@@ -103,9 +105,8 @@ void TxnCheckSecondaryLocksTask::DoAsync() {
     for (const auto& key : entry.second) {
       *rpc->MutableRequest()->add_keys() = key;
     }
-    StoreRpcController controller(stub, *rpc, region);
-    controllers_.push_back(std::move(controller));
-    rpcs_.push_back(std::move(rpc));
+    controllers_.emplace_back(stub, rpc, region);
+    rpcs_.push_back(rpc);
   }
   CHECK(rpcs_.size() == controllers_.size());
   sub_tasks_count_.store(rpcs_.size());

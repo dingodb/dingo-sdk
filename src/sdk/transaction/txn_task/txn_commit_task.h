@@ -58,7 +58,7 @@ class TxnCommitTask : public TxnTask {
   std::shared_ptr<TxnImpl> txn_impl_;
 
   std::vector<StoreRpcController> controllers_;
-  std::vector<std::unique_ptr<TxnCommitRpc>> rpcs_;
+  std::vector<std::shared_ptr<TxnCommitRpc>> rpcs_;
   std::set<std::string_view> next_keys_;
 
   std::atomic<int> sub_tasks_count_{0};

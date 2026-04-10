@@ -34,10 +34,31 @@ namespace dingodb {
 namespace sdk {
 
 StoreRpcController::StoreRpcController(const ClientStub& stub, Rpc& rpc, RegionPtr region)
-    : stub_(stub), rpc_(rpc), region_(std::move(region)), rpc_retry_times_(0) {}
+    : stub_(stub), rpc_shared_(nullptr), rpc_(rpc), region_(std::move(region)), rpc_retry_times_(0) {}
 
 StoreRpcController::StoreRpcController(const ClientStub& stub, Rpc& rpc)
-    : stub_(stub), rpc_(rpc), region_(nullptr), rpc_retry_times_(0) {}
+    : stub_(stub), rpc_shared_(nullptr), rpc_(rpc), region_(nullptr), rpc_retry_times_(0) {}
+
+StoreRpcController::StoreRpcController(const ClientStub& stub, std::shared_ptr<Rpc> rpc, RegionPtr region)
+    : stub_(stub), rpc_shared_(std::move(rpc)), rpc_(*rpc_shared_), region_(std::move(region)), rpc_retry_times_(0) {}
+
+StoreRpcController::StoreRpcController(const StoreRpcController& other)
+    : stub_(other.stub_),
+      rpc_shared_(other.rpc_shared_),
+      rpc_(other.rpc_),
+      region_(other.region_),
+      rpc_retry_times_(other.rpc_retry_times_),
+      status_(other.status_),
+      call_back_(other.call_back_) {}
+
+StoreRpcController::StoreRpcController(StoreRpcController&& other) noexcept
+    : stub_(other.stub_),
+      rpc_shared_(std::move(other.rpc_shared_)),
+      rpc_(other.rpc_),
+      region_(std::move(other.region_)),
+      rpc_retry_times_(other.rpc_retry_times_),
+      status_(std::move(other.status_)),
+      call_back_(std::move(other.call_back_)) {}
 
 StoreRpcController::~StoreRpcController() = default;
 
