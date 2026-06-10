@@ -34,7 +34,7 @@ namespace sdk {
 class TxnBatchRollbackTask : public TxnTask {
  public:
   TxnBatchRollbackTask(const ClientStub& stub, const std::vector<std::string> keys, std::shared_ptr<TxnImpl> txn_impl)
-      : TxnTask(stub), keys_(keys), txn_impl_(txn_impl){}
+      : TxnTask(stub, txn_impl->GetTracer(), txn_impl->GetStartTs()), keys_(keys), txn_impl_(txn_impl) {}
 
   ~TxnBatchRollbackTask() override = default;
 

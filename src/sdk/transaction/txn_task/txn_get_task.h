@@ -31,7 +31,11 @@ namespace sdk {
 class TxnGetTask : public TxnTask {
  public:
   TxnGetTask(const ClientStub& stub, const std::string& key, std::string& value, std::shared_ptr<TxnImpl> txn_impl)
-      : TxnTask(stub), key_(key), value_(value), txn_impl_(txn_impl), store_rpc_controller_(stub, rpc_) {}
+      : TxnTask(stub, txn_impl->GetTracer(), txn_impl->GetStartTs()),
+        key_(key),
+        value_(value),
+        txn_impl_(txn_impl),
+        store_rpc_controller_(stub, rpc_) {}
 
   ~TxnGetTask() override = default;
 

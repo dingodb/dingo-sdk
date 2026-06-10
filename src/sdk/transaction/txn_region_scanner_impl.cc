@@ -166,9 +166,10 @@ Status TxnRegionScannerImpl::SetBatchSize(int64_t size) {
 bool TxnRegionScannerImpl::IsNeedRetry(int& times) {
   bool retry = times++ < FLAGS_txn_op_max_retry;
   if (retry) {
-    uint64_t sleep_us = FLAGS_txn_op_delay_ms * 1000;
+    int64_t delay_ms = BackoffDelayMs(FLAGS_txn_op_delay_ms, times, FLAGS_txn_op_max_delay_ms);
+    uint64_t sleep_us = delay_ms * 1000;
     DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] sleep {}ms, reason: scan retry({}/{}), region({}).",
-                                   txn_start_ts_, FLAGS_txn_op_delay_ms, times, FLAGS_txn_op_max_retry,
+                                   txn_start_ts_, delay_ms, times, FLAGS_txn_op_max_retry,
                                    region->RegionId());
     SleepUs(sleep_us);
     if (tracker_) {

@@ -63,10 +63,13 @@ DECLARE_int64(raw_kv_delay_ms);
 DECLARE_int64(raw_kv_max_retry);
 
 DECLARE_int64(txn_op_delay_ms);
+DECLARE_int64(txn_op_max_delay_ms);
 DECLARE_int64(txn_op_max_retry);
+DECLARE_int64(txn_resolved_lock_retry_delay_ms);
 
 DECLARE_int64(txn_prewrite_delay_ms);
 DECLARE_int64(txn_prewrite_max_retry);
+DECLARE_int64(txn_mem_lock_conflict_delay_ms);
 DECLARE_bool(enable_txn_concurrent_prewrite);
 
 DECLARE_int64(vector_op_delay_ms);

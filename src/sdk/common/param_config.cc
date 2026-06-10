@@ -46,11 +46,15 @@ DEFINE_int64(store_rpc_max_retry, 600, "store rpc max retry times, use case: wro
 
 DEFINE_int64(scan_batch_size, 1000, "scan batch size, use for region scanner");
 
-DEFINE_int64(txn_op_delay_ms, 300, "txn op delay ms");
+DEFINE_int64(txn_op_delay_ms, 5, "txn op initial retry delay ms, doubled per retry up to txn_op_max_delay_ms");
+DEFINE_int64(txn_op_max_delay_ms, 300, "txn op max retry delay ms, upper bound of the exponential backoff");
 DEFINE_int64(txn_op_max_retry, 20, "txn op max retry times");
+DEFINE_int64(txn_resolved_lock_retry_delay_ms, 0, "txn op retry delay ms after lock resolved successfully");
 
 DEFINE_int64(txn_prewrite_delay_ms, 500, "txn prewrite delay ms");
 DEFINE_int64(txn_prewrite_max_retry, 300, "txn prewrite max retry");
+DEFINE_int64(txn_mem_lock_conflict_delay_ms, 5,
+             "retry delay ms on store in-memory lock conflict, the lock is transient so keep it short");
 DEFINE_bool(enable_txn_concurrent_prewrite, true, "enable txn concurrent prewrite");
 
 DEFINE_int64(raw_kv_delay_ms, 500, "raw kv backoff delay ms");
@@ -70,7 +74,7 @@ DEFINE_bool(enable_rocksdb_perf_metric, false, "log response TimeInfo from serve
 DEFINE_int64(txn_heartbeat_interval_ms, 1000, "txn heartbeat interval time");
 DEFINE_int64(txn_heartbeat_lock_delay_ms, 20000, "txn heartbeat lock delay time");
 
-DEFINE_int64(txn_check_status_interval_ms, 100, "txn check status interval ms");
+DEFINE_int64(txn_check_status_interval_ms, 5, "txn check status interval ms");
 
 DEFINE_uint32(stale_period_us, 1000, "stale period us default 1000 us, used for tso provider");
 DEFINE_uint32(tso_batch_size, 256, "tso batch size default 256, used for tso provider");

@@ -230,6 +230,157 @@ TEST_F(SDKTxnImplTest, BatchGet) {
   }
 }
 
+TEST_F(SDKTxnImplTest, BatchGetLockConflictResolvedRetryImmediately) {
+  std::vector<std::string> keys;
+  keys.emplace_back("b");
+
+  auto txn = NewTransactionImpl(options);
+
+  auto mock_lock = PrepareLockInfo();
+  mock_lock.set_key("b");
+
+  EXPECT_CALL(*rpc_client, SendRpc)
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        auto* txn_rpc = dynamic_cast<TxnBatchGetRpc*>(&rpc);
+        CHECK_NOTNULL(txn_rpc);
+        // first batch get hit lock
+        *txn_rpc->MutableResponse()->mutable_txn_result()->mutable_locked() = mock_lock;
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        auto* txn_rpc = dynamic_cast<TxnBatchGetRpc*>(&rpc);
+        CHECK_NOTNULL(txn_rpc);
+        auto* kv = txn_rpc->MutableResponse()->add_kvs();
+        kv->set_key("b");
+        kv->set_value("b");
+        cb();
+      });
+
+  EXPECT_CALL(*txn_lock_resolver, ResolveLock)
+      .WillOnce([&](const pb::store::LockInfo& lock_info, int64_t caller_start_ts, bool /*force_sync_commit*/) {
+        EXPECT_TRUE(LockInfoEqual(lock_info, mock_lock));
+        EXPECT_EQ(caller_start_ts, txn->TEST_GetStartTs());
+        return Status::OK();
+      });
+
+  std::vector<KVPair> kvs;
+  Status s = txn->BatchGet(keys, kvs);
+  EXPECT_TRUE(s.ok());
+  ASSERT_EQ(kvs.size(), 1);
+  EXPECT_EQ(kvs[0].value, "b");
+
+  // retry after a successful resolve must not back off
+  EXPECT_EQ(txn->GetTracer()->ReadRetryCount(), 1);
+  EXPECT_EQ(txn->GetTracer()->SleepTime(), 0);
+  EXPECT_EQ(txn->GetTracer()->SleepTimeCount(), 0);
+}
+
+TEST_F(SDKTxnImplTest, BatchGetResolveLockFailBackoffRecorded) {
+  int64_t saved_delay_ms = FLAGS_txn_op_delay_ms;
+  FLAGS_txn_op_delay_ms = 5;
+
+  std::vector<std::string> keys;
+  keys.emplace_back("b");
+
+  auto txn = NewTransactionImpl(options);
+
+  auto mock_lock = PrepareLockInfo();
+  mock_lock.set_key("b");
+
+  EXPECT_CALL(*rpc_client, SendRpc)
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        auto* txn_rpc = dynamic_cast<TxnBatchGetRpc*>(&rpc);
+        CHECK_NOTNULL(txn_rpc);
+        *txn_rpc->MutableResponse()->mutable_txn_result()->mutable_locked() = mock_lock;
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        auto* txn_rpc = dynamic_cast<TxnBatchGetRpc*>(&rpc);
+        CHECK_NOTNULL(txn_rpc);
+        *txn_rpc->MutableResponse()->mutable_txn_result()->mutable_locked() = mock_lock;
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        auto* txn_rpc = dynamic_cast<TxnBatchGetRpc*>(&rpc);
+        CHECK_NOTNULL(txn_rpc);
+        auto* kv = txn_rpc->MutableResponse()->add_kvs();
+        kv->set_key("b");
+        kv->set_value("b");
+        cb();
+      });
+
+  EXPECT_CALL(*txn_lock_resolver, ResolveLock)
+      .WillOnce([&](const pb::store::LockInfo& /*lock_info*/, int64_t /*caller_start_ts*/,
+                    bool /*force_sync_commit*/) { return Status::Incomplete(pb::error::EREGION_VERSION, "mock"); })
+      .WillOnce([&](const pb::store::LockInfo& /*lock_info*/, int64_t /*caller_start_ts*/,
+                    bool /*force_sync_commit*/) { return Status::OK(); });
+
+  std::vector<KVPair> kvs;
+  Status s = txn->BatchGet(keys, kvs);
+  EXPECT_TRUE(s.ok());
+  ASSERT_EQ(kvs.size(), 1);
+
+  // the failure-path backoff must be recorded into sleep metrics
+  EXPECT_EQ(txn->GetTracer()->SleepTime(), FLAGS_txn_op_delay_ms * 1000);
+  EXPECT_EQ(txn->GetTracer()->SleepTimeCount(), 1);
+
+  FLAGS_txn_op_delay_ms = saved_delay_ms;
+}
+
+TEST_F(SDKTxnImplTest, BatchGetRetryBackoffEscalates) {
+  int64_t saved_delay_ms = FLAGS_txn_op_delay_ms;
+  FLAGS_txn_op_delay_ms = 5;
+
+  std::vector<std::string> keys;
+  keys.emplace_back("b");
+
+  auto txn = NewTransactionImpl(options);
+
+  auto mock_lock = PrepareLockInfo();
+  mock_lock.set_key("b");
+
+  // three rpcs: locked, locked, success
+  EXPECT_CALL(*rpc_client, SendRpc)
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        auto* txn_rpc = dynamic_cast<TxnBatchGetRpc*>(&rpc);
+        CHECK_NOTNULL(txn_rpc);
+        *txn_rpc->MutableResponse()->mutable_txn_result()->mutable_locked() = mock_lock;
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        auto* txn_rpc = dynamic_cast<TxnBatchGetRpc*>(&rpc);
+        CHECK_NOTNULL(txn_rpc);
+        *txn_rpc->MutableResponse()->mutable_txn_result()->mutable_locked() = mock_lock;
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        auto* txn_rpc = dynamic_cast<TxnBatchGetRpc*>(&rpc);
+        CHECK_NOTNULL(txn_rpc);
+        auto* kv = txn_rpc->MutableResponse()->add_kvs();
+        kv->set_key("b");
+        kv->set_value("b");
+        cb();
+      });
+
+  // resolve fails twice with a retryable error, both retries go through backoff
+  EXPECT_CALL(*txn_lock_resolver, ResolveLock)
+      .WillOnce([&](const pb::store::LockInfo& /*lock_info*/, int64_t /*caller_start_ts*/,
+                    bool /*force_sync_commit*/) { return Status::Incomplete(pb::error::EREGION_VERSION, "mock"); })
+      .WillOnce([&](const pb::store::LockInfo& /*lock_info*/, int64_t /*caller_start_ts*/,
+                    bool /*force_sync_commit*/) { return Status::Incomplete(pb::error::EREGION_VERSION, "mock"); });
+
+  std::vector<KVPair> kvs;
+  Status s = txn->BatchGet(keys, kvs);
+  EXPECT_TRUE(s.ok());
+  ASSERT_EQ(kvs.size(), 1);
+
+  // exponential backoff: 1st retry 5ms, 2nd retry 10ms
+  EXPECT_EQ(txn->GetTracer()->SleepTime(), (5 + 10) * 1000);
+  EXPECT_EQ(txn->GetTracer()->SleepTimeCount(), 2);
+
+  FLAGS_txn_op_delay_ms = saved_delay_ms;
+}
+
 TEST_F(SDKTxnImplTest, BatchGetFromBuffer) {
   std::vector<KVPair> kvs;
   kvs.push_back({"b", "b"});

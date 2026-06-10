@@ -17,6 +17,7 @@
 
 #include "dingosdk/status.h"
 #include "sdk/client_stub.h"
+#include "sdk/common/tracker.h"
 #include "sdk/utils/callback.h"
 #include "sdk/utils/rw_lock.h"
 #include "sdk/utils/scoped_cleanup.h"
@@ -26,7 +27,8 @@ namespace sdk {
 
 class TxnTask {
  public:
-  TxnTask(const ClientStub& stub) : stub(stub) {}
+  TxnTask(const ClientStub& stub, TrackerPtr tracker = nullptr, int64_t txn_id = 0)
+      : stub(stub), tracker(tracker), txn_id(txn_id) {}
   virtual ~TxnTask() = default;
 
   Status Run();
@@ -44,7 +46,12 @@ class TxnTask {
 
   void DoAsyncRetry();
 
+  // schedule DoAsync after delay_ms; delay is recorded into tracker sleep metrics
+  void ScheduleRetry(int64_t delay_ms);
+
   const ClientStub& stub;
+  TrackerPtr tracker;
+  int64_t txn_id;
 
   // prewrite requires special processing
   virtual void BackoffAndRetry();

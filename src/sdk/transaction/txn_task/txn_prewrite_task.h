@@ -37,7 +37,7 @@ class TxnPrewriteTask : public TxnTask {
                   const std::map<std::string, const TxnMutation*>& mutations, std::shared_ptr<TxnImpl> txn_impl,
                   const std::map<std::string, const TxnMutation*>& mutations_ordinarykeys_for_async_commit,
                   bool& is_one_pc, bool& use_async_commit, uint64_t& min_commit_ts)
-      : TxnTask(stub),
+      : TxnTask(stub, txn_impl->GetTracer(), txn_impl->GetStartTs()),
         primary_key_(primary_key),
         mutations_(mutations),
         txn_impl_(txn_impl),

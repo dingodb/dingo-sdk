@@ -147,6 +147,16 @@ static const pb::error::Error& GetRpcResponseError(Rpc& rpc) {
   return *error;
 }
 
+// exponential backoff: retry_times is 1-based, the first retry uses base_ms and
+// each subsequent retry doubles the delay until max_delay_ms
+static int64_t BackoffDelayMs(int64_t base_ms, int64_t retry_times, int64_t max_delay_ms) {
+  int64_t delay_ms = base_ms;
+  for (int64_t i = 1; i < retry_times && delay_ms < max_delay_ms; i++) {
+    delay_ms *= 2;
+  }
+  return delay_ms < max_delay_ms ? delay_ms : max_delay_ms;
+}
+
 static bool IsRetryErrorCode(int32_t error_code) {
   return error_code == pb::error::EREGION_VERSION || error_code == pb::error::EREGION_NOT_FOUND ||
          error_code == pb::error::EKEY_OUT_OF_RANGE || error_code == pb::error::EVECTOR_INDEX_NOT_READY ||

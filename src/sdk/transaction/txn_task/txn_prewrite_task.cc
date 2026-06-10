@@ -329,7 +329,12 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
 }
 
 void TxnPrewriteTask::BackoffAndRetry() {
-  stub.GetTxnActuator()->Schedule([this] { DoAsync(); }, FLAGS_txn_prewrite_delay_ms);
+  // store in-memory lock is transient, retry quickly and escalate on repeated conflicts
+  int64_t delay_ms =
+      status_.IsTxnMemLockConflict()
+          ? BackoffDelayMs(FLAGS_txn_mem_lock_conflict_delay_ms, retry_count_, FLAGS_txn_op_max_delay_ms)
+          : FLAGS_txn_prewrite_delay_ms;
+  ScheduleRetry(delay_ms);
 }
 
 bool TxnPrewriteTask::IsRetryError() {

@@ -36,7 +36,10 @@ class TxnCommitTask : public TxnTask {
  public:
   TxnCommitTask(const ClientStub& stub, const std::vector<std::string> keys, std::shared_ptr<TxnImpl> txn_impl,
                 bool is_primary)
-      : TxnTask(stub), keys_(keys), txn_impl_(txn_impl), is_primary_(is_primary) {}
+      : TxnTask(stub, txn_impl->GetTracer(), txn_impl->GetStartTs()),
+        keys_(keys),
+        txn_impl_(txn_impl),
+        is_primary_(is_primary) {}
 
   ~TxnCommitTask() override = default;
 
