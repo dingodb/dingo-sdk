@@ -86,7 +86,8 @@ bool TxnTask::NeedRetry() {
 void TxnTask::DoAsyncRetry() {
   retry_count_++;
   if (retry_count_ < FLAGS_txn_op_max_retry) {
-    BackoffAndRetry();
+    // lock already resolved, retry without the failure backoff
+    ScheduleRetry(FLAGS_txn_resolved_lock_retry_delay_ms);
   } else {
     std::string msg = fmt::format("Fail task:{} retry too times:{}, last op : txn resolve lock", Name(), retry_count_);
     status_ = Status::Aborted(status_.Errno(), msg);
@@ -95,7 +96,21 @@ void TxnTask::DoAsyncRetry() {
 }
 
 void TxnTask::BackoffAndRetry() {
-  stub.GetTxnActuator()->Schedule([this] { DoAsync(); }, FLAGS_txn_op_delay_ms);
+  ScheduleRetry(BackoffDelayMs(FLAGS_txn_op_delay_ms, retry_count_, FLAGS_txn_op_max_delay_ms));
+}
+
+void TxnTask::ScheduleRetry(int64_t delay_ms) {
+  if (delay_ms > 0) {
+    DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] sleep {}ms, reason: task {} backoff retry({}/{}).", txn_id, delay_ms,
+                                   Name(), retry_count_, FLAGS_txn_op_max_retry);
+    if (tracker != nullptr) {
+      tracker->IncrementSleepTime(delay_ms * 1000);
+      tracker->IncrementSleepCount(1);
+    }
+    stub.GetTxnActuator()->Schedule([this] { DoAsync(); }, delay_ms);
+  } else {
+    stub.GetTxnActuator()->Execute([this] { DoAsync(); });
+  }
 }
 
 void TxnTask::FireCallback() {

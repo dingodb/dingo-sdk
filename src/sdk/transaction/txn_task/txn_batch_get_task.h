@@ -35,7 +35,10 @@ class TxnBatchGetTask : public TxnTask {
  public:
   TxnBatchGetTask(const ClientStub& stub, const std::vector<std::string>& key, std::vector<KVPair>& out_kvs,
                   std::shared_ptr<TxnImpl> txn_impl)
-      : TxnTask(stub), keys_(key), out_kvs_(out_kvs), txn_impl_(txn_impl) {}
+      : TxnTask(stub, txn_impl->GetTracer(), txn_impl->GetStartTs()),
+        keys_(key),
+        out_kvs_(out_kvs),
+        txn_impl_(txn_impl) {}
 
   ~TxnBatchGetTask() override = default;
 

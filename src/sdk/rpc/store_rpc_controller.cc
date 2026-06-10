@@ -127,12 +127,16 @@ void StoreRpcController::SendStoreRpc() {
 
 void StoreRpcController::MaybeDelay() {
   if (NeedDelay(status_)) {
-    auto delay_ms = FLAGS_store_rpc_retry_delay_ms;
+    // store in-memory lock is transient, retry quickly and escalate on repeated conflicts
+    auto delay_ms = status_.IsTxnMemLockConflict()
+                        ? BackoffDelayMs(FLAGS_txn_mem_lock_conflict_delay_ms, rpc_retry_times_,
+                                         FLAGS_store_rpc_retry_delay_ms)
+                        : FLAGS_store_rpc_retry_delay_ms;
     DINGO_LOG(INFO) << fmt::format("[sdk.rpc.{}] txn_id:{} method:{} region({}) sleep {}ms, reason: {}",
                                    rpc_.LogId(), rpc_.GetTxnId(), rpc_.Method(), region_->RegionId(), delay_ms,
                                    status_.ToString());
     rpc_.IncSleepCount();
-    rpc_.IncSleepTimesUs(FLAGS_coordinator_interaction_delay_ms * 1000);
+    rpc_.IncSleepTimesUs(delay_ms * 1000);
     SleepUs(delay_ms * 1000);
   }
 }

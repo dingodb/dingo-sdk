@@ -375,6 +375,43 @@ TEST_F(SDKStoreRpcControllerTest, RequestFullThenSuccess) {
   EXPECT_EQ(rpc.Response()->value(), "pong");
 }
 
+TEST_F(SDKStoreRpcControllerTest, MemLockConflictThenSuccess) {
+  KvGetRpc rpc;
+  std::string key = "d";
+  rpc.MutableRequest()->set_key(key);
+  std::shared_ptr<Region> region;
+  Status got = meta_cache->LookupRegionByKey(key, region);
+  EXPECT_TRUE(got.IsOK());
+
+  StoreRpcController controller(*stub, rpc, region);
+
+  EXPECT_CALL(*rpc_client, SendRpc)
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        auto* kv_rpc = dynamic_cast<KvGetRpc*>(&rpc);
+        CHECK_NOTNULL(kv_rpc);
+
+        auto* response = kv_rpc->MutableResponse();
+        response->mutable_error()->set_errcode(pb::error::ETXN_MEMORY_LOCK_CONFLICT);
+        cb();
+      })
+      .WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+        rpc.Reset();
+        auto* kv_rpc = dynamic_cast<KvGetRpc*>(&rpc);
+        CHECK_NOTNULL(kv_rpc);
+        kv_rpc->MutableResponse()->set_value("pong");
+        cb();
+      });
+
+  Status call = controller.Call();
+  EXPECT_TRUE(call.IsOK());
+  EXPECT_EQ(rpc.Response()->value(), "pong");
+
+  // mem lock conflict retries with the short dedicated delay, and the recorded
+  // sleep metric must match the actual delay
+  EXPECT_EQ(rpc.GetSleepCount(), 1);
+  EXPECT_EQ(rpc.GetSleepTimesUs(), FLAGS_txn_mem_lock_conflict_delay_ms * 1000);
+}
+
 TEST_F(SDKStoreRpcControllerTest, OtherErrorCode) {
   std::string key = "d";
 
