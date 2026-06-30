@@ -101,8 +101,10 @@ Status TxnBuffer::Range(const std::string& start_key, const std::string& end_key
     return Status::OK();
   }
 
+  // NOTE: end_iter may equal mutation_map_.begin() when all buffered keys sort
+  // at or after end_key. That is a valid empty-range case: start_iter ==
+  // end_iter, the loop below runs zero times and we return an empty result.
   const auto end_iter = mutation_map_.lower_bound(end_key);
-  CHECK(end_iter != mutation_map_.begin());
 
   while (start_iter != end_iter) {
     mutations.push_back(start_iter->second);

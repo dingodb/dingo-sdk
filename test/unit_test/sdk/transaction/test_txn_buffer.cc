@@ -117,6 +117,35 @@ TEST_F(SDKTxnBufferTest, Range) {
   EXPECT_TRUE(to_check.find("c") != to_check.cend());
 }
 
+TEST_F(SDKTxnBufferTest, RangeAllKeysAfterEnd) {
+  // All buffered keys sort at or after end_key. The range [a, b) contains no
+  // buffered mutation, so Range must return OK with an empty result instead of
+  // aborting on a CHECK (regression for txn_buffer.cc:105).
+  Status tmp;
+  tmp = txn_buffer->Put("z", "rz");
+  EXPECT_TRUE(tmp.ok());
+
+  std::vector<TxnMutation> mutations;
+  tmp = txn_buffer->Range("a", "b", mutations);
+  EXPECT_TRUE(tmp.ok());
+  EXPECT_EQ(mutations.size(), 0);
+}
+
+TEST_F(SDKTxnBufferTest, RangeEndKeyEqualsSmallestKey) {
+  // end_key equals the smallest buffered key: lower_bound(end_key) == begin().
+  // The half-open range [a, b) excludes end_key, so the result must be empty.
+  Status tmp;
+  tmp = txn_buffer->Put("b", "rb");
+  EXPECT_TRUE(tmp.ok());
+  tmp = txn_buffer->Put("c", "rc");
+  EXPECT_TRUE(tmp.ok());
+
+  std::vector<TxnMutation> mutations;
+  tmp = txn_buffer->Range("a", "b", mutations);
+  EXPECT_TRUE(tmp.ok());
+  EXPECT_EQ(mutations.size(), 0);
+}
+
 }  // namespace sdk
 
 }  // namespace dingodb
