@@ -79,50 +79,11 @@ Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& conflict_lock_inf
     TxnCheckStatusTask task_check_status(stub_, conflict_lock_info.lock_ts(), conflict_lock_info.primary_lock(),
                                          start_ts, txn_status, force_sync_commit, rollback_if_not_exist);
     status = task_check_status.Run();
-    if (!status.ok()) {
-      if (status.IsTxnNotFound()) {
-        // check lock ttl expired
-        int64_t current_ts;
-        Status status1 = stub_.GetTsoProvider()->GenPhysicalTs(2, current_ts);
-        if (!status1.ok()) {
-          return status1;
-        }
-        if (conflict_lock_info.lock_ttl() > current_ts) {
-          // lock ttl not expired, wait and retry
-          DINGO_LOG(INFO) << fmt::format(
-              "[sdk.txn.{}] sleep {}ms, reason: TxnNotFound and lock_ttl({}) > current_ts({}), lock_info({}).",
-              start_ts, FLAGS_txn_check_status_interval_ms, conflict_lock_info.lock_ttl(), current_ts,
-              conflict_lock_info.ShortDebugString());
-          SleepUs(FLAGS_txn_check_status_interval_ms * 1000);
-        } else {
-          // lock ttl expired, next check will rollback txn if not exist
-          rollback_if_not_exist = true;
-        }
-      } else if (status.IsTxnLockConflict()) {
-        // if lock.ts > current_start_ts, return write conflict
-        if (txn_status.primary_lock_info.lock_ts() > start_ts) {
-          return Status::TxnWriteConflict(txn_status.primary_lock_info.ShortDebugString());
-        }
-        // check lock ttl expired
-        int64_t current_ts;
-        Status status1 = stub_.GetTsoProvider()->GenPhysicalTs(2, current_ts);
-        if (!status1.ok()) {
-          return status1;
-        }
-        if (txn_status.primary_lock_info.lock_ts() > 0 && txn_status.primary_lock_info.lock_ttl() > current_ts) {
-          // lock ttl not expired, wait and retry
-          DINGO_LOG(INFO) << fmt::format(
-              "[sdk.txn.{}] sleep {}ms, reason: TxnLockConflict and lock_ttl({}) > current_ts({}), lock_info({}).",
-              start_ts, FLAGS_txn_check_status_interval_ms, txn_status.primary_lock_info.lock_ttl(), current_ts,
-              txn_status.primary_lock_info.ShortDebugString());
-          SleepUs(FLAGS_txn_check_status_interval_ms * 1000);
-        }
-      } else {
-        return status;
-      }
-    } else {
-      // Save the definitive state to the cache and perform LRU eviction
-      if (txn_status.IsCommitted() || txn_status.IsRollbacked()) {
+    if (status.ok()) {
+      // Save the definitive state to the cache and perform LRU eviction.
+      // A state that still carries a live lock (e.g. an async commit primary lock reported
+      // via txn_result) is not definitive and must not be cached.
+      if ((txn_status.IsCommitted() || txn_status.IsRollbacked()) && txn_status.primary_lock_info.lock_ts() == 0) {
         WriteLockGuard guard(cache_rw_lock_);
         if (resolved_lock_cache_.find(conflict_lock_ts) == resolved_lock_cache_.end()) {
           // insert into LRU if not present
@@ -140,14 +101,47 @@ Status TxnLockResolver::ResolveLock(const pb::store::LockInfo& conflict_lock_inf
       }
       break;
     }
+
+    if (!status.IsTxnNotFound()) {
+      DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] check primary lock status fail, lock_info({}), status({}).",
+                                        start_ts, conflict_lock_info.ShortDebugString(), status.ToString());
+      return status;
+    }
+
+    // TxnNotFound: the primary has neither a lock nor a commit/rollback record, the txn may
+    // still be prewriting (e.g. primary prewrite retrying after a region epoch change), so
+    // no lock may be removed based on this result.
+    int64_t current_ts;
+    Status status1 = stub_.GetTsoProvider()->GenPhysicalTs(2, current_ts);
+    if (!status1.ok()) {
+      return status1;
+    }
+    if (conflict_lock_info.lock_ttl() > current_ts) {
+      // lock ttl not expired, wait in place and re-check
+      DINGO_LOG(INFO) << fmt::format(
+          "[sdk.txn.{}] sleep {}ms, reason: TxnNotFound and lock_ttl({}) > current_ts({}), lock_info({}).", start_ts,
+          FLAGS_txn_check_status_interval_ms, conflict_lock_info.lock_ttl(), current_ts,
+          conflict_lock_info.ShortDebugString());
+      SleepUs(FLAGS_txn_check_status_interval_ms * 1000);
+    } else if (!rollback_if_not_exist) {
+      // Lock ttl expired: ask the store to durably write a rollback record on the primary
+      // if the txn still does not exist, only then may the conflict lock be removed.
+      rollback_if_not_exist = true;
+    } else {
+      // The store keeps reporting txn_not_found even with rollback_if_not_exist, bail out
+      // fail-closed without touching any lock.
+      DINGO_LOG(WARNING) << fmt::format(
+          "[sdk.txn.{}] check status still TxnNotFound with rollback_if_not_exist, lock_info({}).", start_ts,
+          conflict_lock_info.ShortDebugString());
+      return status;
+    }
     retry_times++;
   }
 
   if (!status.ok()) {
     DINGO_LOG(WARNING) << fmt::format(
         "[sdk.txn.{}] check primary lock status fail, retry_times({}), max_retry_times({}), interval_ms({}) "
-        "rollback_if_not_exist({}), "
-        "lock_info({}), status({}).",
+        "rollback_if_not_exist({}), lock_info({}), status({}).",
         start_ts, retry_times, max_retry_times, FLAGS_txn_check_status_interval_ms, rollback_if_not_exist,
         conflict_lock_info.ShortDebugString(), status.ToString());
     return status;
@@ -169,8 +163,9 @@ Status TxnLockResolver::ResolveNormalLock(const pb::store::LockInfo& lock_info, 
     return Status::PushMinCommitTs("push min_commit_ts");
   }
 
-  // Although lock push min commit_ts, the lock is still active.
-  if (txn_status.IsLocked()) {
+  // Although lock push min commit_ts, the lock is still active. A primary lock reported via
+  // txn_result also means the txn is alive even if the top-level ttl/commit_ts are unset.
+  if (txn_status.IsLocked() || (txn_status.commit_ts <= 0 && txn_status.primary_lock_info.lock_ts() > 0)) {
     return Status::TxnLockConflict(fmt::format("lock still exist, lock_info({})", lock_info.ShortDebugString()));
   }
 
@@ -208,27 +203,28 @@ Status TxnLockResolver::ResolveLockSecondaryLocks(const pb::store::LockInfo& pri
                                                   const pb::store::LockInfo& conflict_lock_info) {
   DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] lock use async commit, lock_info({}), txn_status({}).", start_ts,
                                   primary_lock_info.ShortDebugString(), txn_status.ToString());
-  //  check lock ttl expired
-  // int64_t retry_times = 0;
-  // int64_t max_retry_times = (FLAGS_txn_heartbeat_lock_delay_ms / FLAGS_txn_check_status_interval_ms) + 1;
-  // while (retry_times < max_retry_times) {
-  //   int64_t current_ts;
-  //   Status status1 = stub_.GetTsoProvider()->GenPhysicalTs(2, current_ts);
-  //   if (!status1.ok()) {
-  //     return status1;
-  //   }
-  //   if (txn_status.primary_lock_info.lock_ttl() > current_ts) {
-  //     // lock ttl not expired, can not resolve lock now
-  //     DINGO_LOG(DEBUG) << fmt::format(
-  //         "[sdk.txn.{}] async commit lock ttl not expired, lock_info({}), txn_status({}), current_ts({}).", start_ts,
-  //         primary_lock_info.ShortDebugString(), txn_status.ToString(), current_ts);
 
-  //     retry_times++;
-  //     SleepUs(FLAGS_txn_check_status_interval_ms * 1000);
-  //     continue;
-  //   }
-  //   break;
-  // }
+  // The store pushed the txn's min_commit_ts above the caller's start_ts: a snapshot read can
+  // safely proceed without waiting for this lock, same as the normal lock path.
+  if (txn_status.IsMinCommitTSPushed()) {
+    return Status::PushMinCommitTs("push min_commit_ts");
+  }
+
+  // Only resolve an async commit txn whose primary lock ttl has expired: a live txn may still
+  // be prewriting, and breaking one of its locks would let it pass the commit point while a
+  // key is already rolled back (partial commit / lost update).
+  int64_t current_ts;
+  Status status1 = stub_.GetTsoProvider()->GenPhysicalTs(2, current_ts);
+  if (!status1.ok()) {
+    return status1;
+  }
+  if (primary_lock_info.lock_ttl() > current_ts) {
+    DINGO_LOG(INFO) << fmt::format(
+        "[sdk.txn.{}] async commit lock ttl not expired, can not resolve now, lock_info({}), current_ts({}).",
+        start_ts, primary_lock_info.ShortDebugString(), current_ts);
+    return Status::TxnLockConflict(
+        fmt::format("async commit primary lock alive, lock_info({})", primary_lock_info.ShortDebugString()));
+  }
 
   // check secondary locks status
   TxnSecondaryLockStatus txn_secondary_lock_status;

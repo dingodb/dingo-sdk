@@ -14,6 +14,7 @@
 
 #include <glog/logging.h>
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -1422,6 +1423,218 @@ TEST_F(SDKTxnLockResolverTest, TxnNotFoundTTLExpired) {
 
   Status s = lock_resolver->ResolveLock(fake_lock, Tso2Timestamp(init_tso));
   EXPECT_TRUE(s.ok());
+}
+
+TEST_F(SDKTxnLockResolverTest, TxnNotFoundLockNotExpiredNotResolved) {
+  // Regression for async-commit lost update: the writer's primary prewrite is delayed
+  // (e.g. region epoch mismatch backoff retry), so CheckTxnStatus returns txn_not_found
+  // while the conflict lock TTL is still alive. The resolver must NOT roll back any
+  // lock; it waits in place and re-checks until its loop bound, then reports TxnNotFound.
+  int64_t saved_lock_delay_ms = FLAGS_txn_heartbeat_lock_delay_ms;
+  int64_t saved_interval_ms = FLAGS_txn_check_status_interval_ms;
+  // shrink the in-resolver wait loop bound (max_retry_times = delay / interval + 1)
+  FLAGS_txn_heartbeat_lock_delay_ms = 20;
+  FLAGS_txn_check_status_interval_ms = 1;
+
+  std::string key = "b";
+  auto fake_lock = PrepareLockInfo();
+  fake_lock.set_key(key);
+  CHECK(fake_lock.lock_ttl() == INT64_MAX);  // lock ttl not expired
+
+  std::shared_ptr<Region> region;
+  CHECK(meta_cache->LookupRegionByKey(fake_lock.primary_lock(), region).IsOK());
+  CHECK_NOTNULL(region.get());
+
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
+    auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
+    EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
+    t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
+    auto* ts = t_rpc->MutableResponse()->mutable_start_timestamp();
+    *ts = CurrentFakeTso();
+
+    return Status::OK();
+  });
+
+  std::atomic<int> check_rpc_count{0};
+  std::atomic<int> other_rpc_count{0};
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+    auto* txn_rpc = dynamic_cast<TxnCheckTxnStatusRpc*>(&rpc);
+    if (txn_rpc != nullptr) {
+      check_rpc_count++;
+      // ttl not expired, must not ask the store to rollback
+      EXPECT_EQ(txn_rpc->Request()->rollback_if_not_exist(), false);
+      auto* no_txn = txn_rpc->MutableResponse()->mutable_txn_result()->mutable_txn_not_found();
+      no_txn->set_start_ts(txn_rpc->Request()->lock_ts());
+      no_txn->set_primary_key(txn_rpc->Request()->primary_key());
+    } else {
+      // any other rpc (e.g. TxnResolveLockRpc) would touch the live txn's locks
+      other_rpc_count++;
+    }
+    cb();
+  });
+
+  Status s = lock_resolver->ResolveLock(fake_lock, Tso2Timestamp(init_tso));
+  EXPECT_TRUE(s.IsTxnNotFound()) << s.ToString();
+  // waited in place and re-checked more than once
+  EXPECT_GE(check_rpc_count.load(), 2);
+  EXPECT_EQ(other_rpc_count.load(), 0);
+
+  FLAGS_txn_heartbeat_lock_delay_ms = saved_lock_delay_ms;
+  FLAGS_txn_check_status_interval_ms = saved_interval_ms;
+}
+
+TEST_F(SDKTxnLockResolverTest, TxnNotFoundEscalatedStillNotFound) {
+  // Conflict lock ttl expired: the resolver escalates with rollback_if_not_exist=true so
+  // the store durably rollbacks the primary first. If the store still reports
+  // txn_not_found after the escalated check, bail out fail-closed without touching locks.
+  std::string key = "b";
+  auto fake_lock = PrepareLockInfo();
+  fake_lock.set_key(key);
+  fake_lock.set_lock_ttl(0);  // lock ttl expired
+
+  std::shared_ptr<Region> region;
+  CHECK(meta_cache->LookupRegionByKey(fake_lock.primary_lock(), region).IsOK());
+  CHECK_NOTNULL(region.get());
+
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
+    auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
+    EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
+    t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
+    auto* ts = t_rpc->MutableResponse()->mutable_start_timestamp();
+    *ts = CurrentFakeTso();
+
+    return Status::OK();
+  });
+
+  std::atomic<int> check_rpc_count{0};
+  std::atomic<int> other_rpc_count{0};
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+    auto* txn_rpc = dynamic_cast<TxnCheckTxnStatusRpc*>(&rpc);
+    if (txn_rpc != nullptr) {
+      int count = ++check_rpc_count;
+      // first probe without rollback, the escalated one with rollback
+      EXPECT_EQ(txn_rpc->Request()->rollback_if_not_exist(), count > 1);
+      auto* no_txn = txn_rpc->MutableResponse()->mutable_txn_result()->mutable_txn_not_found();
+      no_txn->set_start_ts(txn_rpc->Request()->lock_ts());
+      no_txn->set_primary_key(txn_rpc->Request()->primary_key());
+    } else {
+      other_rpc_count++;
+    }
+    cb();
+  });
+
+  Status s = lock_resolver->ResolveLock(fake_lock, Tso2Timestamp(init_tso));
+  EXPECT_TRUE(s.IsTxnNotFound()) << s.ToString();
+  EXPECT_EQ(check_rpc_count.load(), 2);
+  EXPECT_EQ(other_rpc_count.load(), 0);
+}
+
+TEST_F(SDKTxnLockResolverTest, AsyncCommitCaseMinCommitTsPushed) {
+  // The store pushed the async commit txn's min_commit_ts above the reader's start_ts:
+  // the reader can proceed without waiting for the live lock.
+  std::string key = "b0000000";
+  auto fake_lock = PrepareAsyncCommitOrdinaryLockInfo();
+  fake_lock.set_key(key);
+
+  std::shared_ptr<Region> region;
+  CHECK(meta_cache->LookupRegionByKey(fake_lock.primary_lock(), region).IsOK());
+  CHECK_NOTNULL(region.get());
+
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
+    auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
+    EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
+    t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
+    auto* ts = t_rpc->MutableResponse()->mutable_start_timestamp();
+    *ts = CurrentFakeTso();
+
+    return Status::OK();
+  });
+
+  EXPECT_CALL(*rpc_client, SendRpc).WillOnce([&](Rpc& rpc, std::function<void()> cb) {
+    auto* txn_rpc = dynamic_cast<TxnCheckTxnStatusRpc*>(&rpc);
+    CHECK_NOTNULL(txn_rpc);
+
+    const auto* request = txn_rpc->Request();
+    EXPECT_EQ(request->primary_key(), fake_lock.primary_lock());
+    EXPECT_EQ(request->lock_ts(), fake_lock.lock_ts());
+
+    // live async commit primary lock, min_commit_ts pushed for the caller
+    txn_rpc->MutableResponse()->set_action(pb::store::MinCommitTSPushed);
+    auto* lock_info = txn_rpc->MutableResponse()->mutable_txn_result()->mutable_locked();
+    lock_info->set_key("a0000000");
+    lock_info->set_primary_lock("a0000000");
+    lock_info->set_lock_ts(1);
+    lock_info->set_lock_ttl(INT64_MAX);
+    lock_info->set_txn_size(1);
+    lock_info->set_lock_type(pb::store::Op::Put);
+    lock_info->set_use_async_commit(true);
+    lock_info->set_min_commit_ts(10);
+    lock_info->add_secondaries("b0000000");
+    lock_info->add_secondaries("d0000000");
+    lock_info->add_secondaries("f0000000");
+
+    cb();
+  });
+
+  Status s = lock_resolver->ResolveLock(fake_lock, Tso2Timestamp(init_tso));
+  EXPECT_TRUE(s.IsPushMinCommitTs()) << s.ToString();
+}
+
+TEST_F(SDKTxnLockResolverTest, TxnNotFoundNotCached) {
+  // A txn_not_found probe result is not a definitive txn state, it must not be cached:
+  // a second ResolveLock for the same lock_ts has to re-check the primary lock status.
+  int64_t saved_lock_delay_ms = FLAGS_txn_heartbeat_lock_delay_ms;
+  int64_t saved_interval_ms = FLAGS_txn_check_status_interval_ms;
+  // shrink the in-resolver wait loop bound (max_retry_times = delay / interval + 1)
+  FLAGS_txn_heartbeat_lock_delay_ms = 20;
+  FLAGS_txn_check_status_interval_ms = 1;
+
+  std::string key = "b";
+  auto fake_lock = PrepareLockInfo();
+  fake_lock.set_key(key);
+  CHECK(fake_lock.lock_ttl() == INT64_MAX);  // lock ttl not expired
+
+  std::shared_ptr<Region> region;
+  CHECK(meta_cache->LookupRegionByKey(fake_lock.primary_lock(), region).IsOK());
+  CHECK_NOTNULL(region.get());
+
+  EXPECT_CALL(*tso_rpc_controller, SyncCall).WillRepeatedly([&](Rpc& rpc) {
+    auto* t_rpc = dynamic_cast<TsoServiceRpc*>(&rpc);
+    EXPECT_EQ(t_rpc->Request()->op_type(), pb::meta::OP_GEN_TSO);
+    t_rpc->MutableResponse()->set_count(FLAGS_tso_batch_size);
+    auto* ts = t_rpc->MutableResponse()->mutable_start_timestamp();
+    *ts = CurrentFakeTso();
+
+    return Status::OK();
+  });
+
+  std::atomic<int> check_rpc_count{0};
+  std::atomic<int> other_rpc_count{0};
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+    auto* txn_rpc = dynamic_cast<TxnCheckTxnStatusRpc*>(&rpc);
+    if (txn_rpc != nullptr) {
+      check_rpc_count++;
+      auto* no_txn = txn_rpc->MutableResponse()->mutable_txn_result()->mutable_txn_not_found();
+      no_txn->set_start_ts(txn_rpc->Request()->lock_ts());
+      no_txn->set_primary_key(txn_rpc->Request()->primary_key());
+    } else {
+      other_rpc_count++;
+    }
+    cb();
+  });
+
+  Status s1 = lock_resolver->ResolveLock(fake_lock, Tso2Timestamp(init_tso));
+  EXPECT_TRUE(s1.IsTxnNotFound()) << s1.ToString();
+  int checks_after_first = check_rpc_count.load();
+  EXPECT_GE(checks_after_first, 1);
+
+  Status s2 = lock_resolver->ResolveLock(fake_lock, Tso2Timestamp(init_tso));
+  EXPECT_TRUE(s2.IsTxnNotFound()) << s2.ToString();
+  EXPECT_GT(check_rpc_count.load(), checks_after_first);
+  EXPECT_EQ(other_rpc_count.load(), 0);
+
+  FLAGS_txn_heartbeat_lock_delay_ms = saved_lock_delay_ms;
+  FLAGS_txn_check_status_interval_ms = saved_interval_ms;
 }
 
 }  // namespace sdk
