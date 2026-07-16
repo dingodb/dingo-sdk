@@ -15,9 +15,15 @@
 #include <gflags/gflags_declare.h>
 #include <unistd.h>
 
+#include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <memory>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <vector>
 
 #include "dingosdk/client.h"
 #include "dingosdk/status.h"
@@ -325,6 +331,155 @@ TEST_F(SDKTxnImplTest, BatchGetResolveLockFailBackoffRecorded) {
   EXPECT_EQ(txn->GetTracer()->SleepTimeCount(), 1);
 
   FLAGS_txn_op_delay_ms = saved_delay_ms;
+}
+
+// Completes each mocked SendRpc callback on its own thread, mirroring brpc
+// worker-thread completions.
+struct AsyncMockRpcCompleter {
+  std::atomic<int> send_seq{0};
+  std::mutex mutex;
+  std::vector<std::thread> threads;
+
+  void Dispatch(std::function<void()> fn) {
+    std::lock_guard<std::mutex> guard(mutex);
+    threads.emplace_back(std::move(fn));
+  }
+
+  void JoinAll() {
+    int expected = send_seq.load();
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (std::chrono::steady_clock::now() < deadline) {
+      {
+        std::lock_guard<std::mutex> guard(mutex);
+        if (static_cast<int>(threads.size()) >= expected) {
+          break;
+        }
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    std::lock_guard<std::mutex> guard(mutex);
+    for (auto& t : threads) {
+      if (t.joinable()) {
+        t.join();
+      }
+    }
+  }
+};
+
+// After a successful lock resolve the next round is scheduled with zero delay
+// (txn_resolved_lock_retry_delay_ms defaults to 0). That new round must not
+// free or mutate per-round state (rpcs/controllers) that the previous round's
+// issuing loop still uses, and the task must not complete while an issuing
+// DoAsync frame is still on the stack. Run under TSan this catches the
+// cross-round races that crash MDS in production (core in Region::IsStale).
+TEST_F(SDKTxnImplTest, BatchGetRetryRoundKeepsPreviousRoundAlive) {
+  const std::vector<std::string> keys{"b", "d", "f"};  // spans 3 regions -> 3 rpcs per round
+  const int fanout = static_cast<int>(keys.size());
+  constexpr int kConflictRounds = 8;  // must stay below FLAGS_txn_op_max_retry
+
+  auto txn = NewTransactionImpl(options);
+
+  auto mock_lock = PrepareLockInfo();
+  mock_lock.set_key("b");
+
+  AsyncMockRpcCompleter completer;
+
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+    auto* txn_rpc = dynamic_cast<TxnBatchGetRpc*>(&rpc);
+    CHECK_NOTNULL(txn_rpc);
+    int seq = completer.send_seq.fetch_add(1);
+    bool conflict = (seq / fanout) < kConflictRounds;
+
+    completer.Dispatch([txn_rpc, conflict, &mock_lock, cb = std::move(cb)] {
+      if (conflict) {
+        *txn_rpc->MutableResponse()->mutable_txn_result()->mutable_locked() = mock_lock;
+      } else {
+        for (const auto& key : txn_rpc->Request()->keys()) {
+          auto* kv = txn_rpc->MutableResponse()->add_kvs();
+          kv->set_key(key);
+          kv->set_value(key);
+        }
+      }
+      // rpc, controller and task must stay valid for the whole chain
+      cb();
+    });
+
+    if (seq % fanout == fanout - 1) {
+      // stall the issuing loop so the completed round schedules the next
+      // round while this DoAsync frame is still on the stack
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+  });
+
+  std::vector<KVPair> kvs;
+  Status s = txn->BatchGet(keys, kvs);
+
+  completer.JoinAll();
+
+  EXPECT_TRUE(s.ok()) << s.ToString();
+  ASSERT_EQ(kvs.size(), keys.size());
+  for (const auto& kv : kvs) {
+    EXPECT_EQ(kv.key, kv.value);
+  }
+  EXPECT_EQ(txn->GetTracer()->ReadRetryCount(), kConflictRounds);
+}
+
+// Callbacks of the same round that take the PushMinCommitTs path record their
+// resolved lock ts concurrently; those writes must be synchronized with the
+// task lock. Run under TSan this catches the unsynchronized unordered_map
+// writes.
+TEST_F(SDKTxnImplTest, BatchGetConcurrentPushMinCommitTsCallbacks) {
+  const std::vector<std::string> keys{"b", "d", "f"};
+  const int fanout = static_cast<int>(keys.size());
+  constexpr int kConflictRounds = 4;
+
+  auto txn = NewTransactionImpl(options);
+
+  auto mock_lock = PrepareLockInfo();
+  mock_lock.set_key("b");
+
+  EXPECT_CALL(*txn_lock_resolver, ResolveLock)
+      .WillRepeatedly(testing::Return(Status::PushMinCommitTs("mock push min_commit_ts")));
+
+  AsyncMockRpcCompleter completer;
+  std::atomic<int> arrivals{0};
+
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+    auto* txn_rpc = dynamic_cast<TxnBatchGetRpc*>(&rpc);
+    CHECK_NOTNULL(txn_rpc);
+    int seq = completer.send_seq.fetch_add(1);
+    bool conflict = (seq / fanout) < kConflictRounds;
+
+    completer.Dispatch([txn_rpc, conflict, fanout, &mock_lock, &arrivals, cb = std::move(cb)] {
+      if (conflict) {
+        *txn_rpc->MutableResponse()->mutable_txn_result()->mutable_locked() = mock_lock;
+        // wait until every callback of this round arrived so the
+        // PushMinCommitTs bookkeeping runs concurrently
+        int my = arrivals.fetch_add(1) + 1;
+        int target = ((my - 1) / fanout + 1) * fanout;
+        auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        while (arrivals.load() < target && std::chrono::steady_clock::now() < deadline) {
+          std::this_thread::yield();
+        }
+      } else {
+        for (const auto& key : txn_rpc->Request()->keys()) {
+          auto* kv = txn_rpc->MutableResponse()->add_kvs();
+          kv->set_key(key);
+          kv->set_value(key);
+        }
+      }
+      cb();
+    });
+  });
+
+  std::vector<KVPair> kvs;
+  Status s = txn->BatchGet(keys, kvs);
+
+  completer.JoinAll();
+
+  EXPECT_TRUE(s.ok()) << s.ToString();
+  ASSERT_EQ(kvs.size(), keys.size());
+  EXPECT_EQ(txn->GetTracer()->ReadRetryCount(), kConflictRounds);
 }
 
 TEST_F(SDKTxnImplTest, BatchGetRetryBackoffEscalates) {

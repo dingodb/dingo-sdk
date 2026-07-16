@@ -115,7 +115,11 @@ class UnaryRpc : public Rpc {
     }
     TraceRpcPerformance(end_time - start_time, Method(), context->peer(), str);
 
-    grpc_ctx->cb();
+    // Move the callback onto this frame before invoking: the chain may
+    // release the last owner of this rpc, so neither the callback storage nor
+    // any other member may be touched once it starts running.
+    RpcCallback cb = std::move(grpc_ctx->cb);
+    cb();
   }
 
   void Reset() override {

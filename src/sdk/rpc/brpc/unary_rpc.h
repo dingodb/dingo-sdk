@@ -183,7 +183,11 @@ class UnaryRpc : public Rpc {
       }
     }
 
-    brpc_ctx->cb();
+    // Move the callback onto this frame before invoking: the chain may
+    // release the last owner of this rpc, so neither the callback storage nor
+    // any other member may be touched once it starts running.
+    RpcCallback cb = std::move(brpc_ctx->cb);
+    cb();
   }
 
   void Reset() override {
