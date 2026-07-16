@@ -50,6 +50,17 @@ Status TxnPrewriteTask::Init() {
 }
 
 void TxnPrewriteTask::DoAsync() {
+  // Owns this frame's +1 pending count. Declared before the tracer cleanup so
+  // it runs after it (reverse destruction order): once released, the last
+  // finished sub task may complete the task and destroy it, so nothing may
+  // touch task state afterwards.
+  std::shared_ptr<Round> round;
+  SCOPED_CLEANUP({
+    if (round) {
+      FinishSubTask(round);
+    }
+  });
+
   auto start_time = TimestampUs();
   SCOPED_CLEANUP(txn_impl_->GetTracer()->IncrementPrewriteSdkTime(TimestampUs() - start_time););
 
@@ -62,12 +73,11 @@ void TxnPrewriteTask::DoAsync() {
   }
 
   if (next_batch.empty()) {
-    DoAsyncDone(Status::OK());
+    // completes via the round release above
+    round = std::make_shared<Round>();
+    round->pending.store(1);
     return;
   }
-
-  rpcs_.clear();
-  controllers_.clear();
 
   std::unordered_map<int64_t, std::shared_ptr<Region>> region_id_to_region;
   std::unordered_map<int64_t, std::vector<const TxnMutation*>> region_id_to_mutations;
@@ -77,7 +87,13 @@ void TxnPrewriteTask::DoAsync() {
     std::shared_ptr<Region> tmp;
     Status s = meta_cache->LookupRegionByKey(mutation->key, tmp);
     if (!s.ok()) {
-      DoAsyncDone(s);
+      {
+        WriteLockGuard guard(rw_lock_);
+        status_ = s;
+        need_retry_ = false;
+      }
+      round = std::make_shared<Round>();
+      round->pending.store(1);
       return;
     }
     auto iter = region_id_to_region.find(tmp->RegionId());
@@ -103,7 +119,13 @@ void TxnPrewriteTask::DoAsync() {
       DINGO_LOG(ERROR) << fmt::format("[sdk.txn.{}] 1pc but region count({}) > 1.", txn_impl_->ID(),
                                       region_id_to_region.size());
       is_one_pc_ = false;
-      DoAsyncDone(Status::InvalidArgument("1pc but region count > 1"));
+      {
+        WriteLockGuard guard(rw_lock_);
+        status_ = Status::InvalidArgument("1pc but region count > 1");
+        need_retry_ = false;
+      }
+      round = std::make_shared<Round>();
+      round->pending.store(1);
       return;
     }
   }
@@ -112,7 +134,13 @@ void TxnPrewriteTask::DoAsync() {
   Status status = stub.GetTsoProvider()->GenPhysicalTs(2, physical_ts);
 
   if (!status.ok()) {
-    DoAsyncDone(status);
+    {
+      WriteLockGuard guard(rw_lock_);
+      status_ = status;
+      need_retry_ = false;
+    }
+    round = std::make_shared<Round>();
+    round->pending.store(1);
     return;
   }
 
@@ -120,13 +148,20 @@ void TxnPrewriteTask::DoAsync() {
   if (is_one_pc_ || use_async_commit_) {
     status = stub.GetTsoProvider()->GenTs(2, commit_ts);
     if (!status.ok()) {
-      DoAsyncDone(status);
+      {
+        WriteLockGuard guard(rw_lock_);
+        status_ = status;
+        need_retry_ = false;
+      }
+      round = std::make_shared<Round>();
+      round->pending.store(1);
       return;
     }
   }
 
-  controllers_.reserve(mutations_.size());
-  rpcs_.reserve(mutations_.size());
+  round = std::make_shared<Round>();
+  round->controllers.reserve(mutations_.size());
+  round->rpcs.reserve(mutations_.size());
   for (const auto& entry : region_id_to_mutations) {
     auto region_id = entry.first;
     auto iter = region_id_to_region.find(region_id);
@@ -159,8 +194,8 @@ void TxnPrewriteTask::DoAsync() {
       if (rpc->MutableRequest()->mutations_size() == FLAGS_txn_max_batch_count) {
         DINGO_LOG(INFO) << fmt::format("[sdk.txn.{}] precommit key, region({}) mutations({}) equal max batch count.",
                                        txn_impl_->ID(), region->RegionId(), rpc->MutableRequest()->mutations_size());
-        controllers_.emplace_back(stub, rpc, region);
-        rpcs_.push_back(rpc);
+        round->controllers.emplace_back(stub, rpc, region);
+        round->rpcs.push_back(rpc);
 
         // reset rpc
         rpc = std::make_shared<TxnPrewriteRpc>();
@@ -188,21 +223,26 @@ void TxnPrewriteTask::DoAsync() {
       TxnMutation2MutationPB(*mutation, rpc->MutableRequest()->add_mutations());
     }
 
-    controllers_.emplace_back(stub, rpc, region);
-    rpcs_.push_back(rpc);
+    round->controllers.emplace_back(stub, rpc, region);
+    round->rpcs.push_back(rpc);
   }
 
-  CHECK(rpcs_.size() == controllers_.size());
+  CHECK(round->rpcs.size() == round->controllers.size());
 
-  sub_tasks_count_.store(rpcs_.size());
+  // +1 for this issuing frame, released by the scoped cleanup above
+  round->pending.store(static_cast<int>(round->rpcs.size()) + 1);
 
-  for (int i = 0; i < rpcs_.size(); ++i) {
-    auto& controller = controllers_[i];
-    controller.AsyncCall([this, rpc = rpcs_[i].get()](const Status& s) { TxnPrewriteRpcCallback(s, rpc); });
+  for (size_t i = 0; i < round->rpcs.size(); ++i) {
+    auto& controller = round->controllers[i];
+    // round is captured by value: the callbacks collectively keep this
+    // round's rpcs/controllers alive until every chain fully unwinds
+    controller.AsyncCall(
+        [this, round, rpc = round->rpcs[i].get()](const Status& s) { TxnPrewriteRpcCallback(round, s, rpc); });
   }
 }
 
-void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRpc* rpc) {
+void TxnPrewriteTask::TxnPrewriteRpcCallback(const std::shared_ptr<Round>& round, const Status& status,
+                                             TxnPrewriteRpc* rpc) {
   DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] rpc: {} request: {} response: {}", txn_impl_->ID(), rpc->Method(),
                                   rpc->Request()->ShortDebugString(), rpc->Response()->ShortDebugString());
 
@@ -311,21 +351,27 @@ void TxnPrewriteTask::TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRp
     txn_impl_->ScheduleHeartBeat();
   }
 
-  if (sub_tasks_count_.fetch_sub(1) == 1) {
-    Status tmp;
-    bool tmp_need_retry = false;
-    {
-      ReadLockGuard guard(rw_lock_);
-      tmp = status_;
-      tmp_need_retry = need_retry_;
-    }
-    if (tmp.ok() && tmp_need_retry) {
-      txn_impl_->GetTracer()->IncrementPrewriteRetryCount(1);
-      DoAsyncRetry();
-      return;
-    }
-    DoAsyncDone(tmp);
+  FinishSubTask(round);
+}
+
+void TxnPrewriteTask::FinishSubTask(const std::shared_ptr<Round>& round) {
+  if (round->pending.fetch_sub(1) != 1) {
+    return;
   }
+
+  Status tmp;
+  bool tmp_need_retry = false;
+  {
+    ReadLockGuard guard(rw_lock_);
+    tmp = status_;
+    tmp_need_retry = need_retry_;
+  }
+  if (tmp.ok() && tmp_need_retry) {
+    txn_impl_->GetTracer()->IncrementPrewriteRetryCount(1);
+    DoAsyncRetry();
+    return;
+  }
+  DoAsyncDone(tmp);
 }
 
 void TxnPrewriteTask::BackoffAndRetry() {

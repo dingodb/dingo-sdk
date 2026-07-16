@@ -482,6 +482,148 @@ TEST_F(SDKTxnImplTest, BatchGetConcurrentPushMinCommitTsCallbacks) {
   EXPECT_EQ(txn->GetTracer()->ReadRetryCount(), kConflictRounds);
 }
 
+// Same per-round ownership requirement on the prewrite path: a zero-delay
+// retry round scheduled after a successful lock resolve must not free state
+// the previous round's issuing loop / callback chains still use.
+TEST_F(SDKTxnImplTest, PrewriteRetryRoundKeepsPreviousRoundAlive) {
+  auto txn = NewTransactionImpl(options);
+  txn->Put("b", "b");
+  txn->Put("d", "d");
+  txn->Put("f", "f");
+
+  auto mock_lock = PrepareLockInfo();
+  mock_lock.set_key("d");
+
+  constexpr int kConflictRounds = 8;  // must stay below FLAGS_txn_op_max_retry
+  const int ordinary_fanout = 2;      // two non-primary keys, one region each
+
+  EXPECT_CALL(*txn_lock_resolver, ResolveLock).Times(testing::AnyNumber());
+
+  AsyncMockRpcCompleter completer;
+  std::atomic<int> ordinary_seq{0};
+
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+    auto* prewrite_rpc = dynamic_cast<TxnPrewriteRpc*>(&rpc);
+    if (prewrite_rpc == nullptr) {
+      // commit / heartbeat rpcs are not under test here
+      cb();
+      return;
+    }
+    if (prewrite_rpc->Request()->txn_size() == 1) {
+      // primary key prewrite succeeds right away
+      completer.Dispatch([cb = std::move(cb)] { cb(); });
+      return;
+    }
+
+    completer.send_seq.fetch_add(1);
+    int seq = ordinary_seq.fetch_add(1);
+    bool conflict = (seq / ordinary_fanout) < kConflictRounds;
+
+    completer.Dispatch([prewrite_rpc, conflict, &mock_lock, cb = std::move(cb)] {
+      if (conflict) {
+        auto* txn_result = prewrite_rpc->MutableResponse()->add_txn_result();
+        *txn_result->mutable_locked() = mock_lock;
+      }
+      cb();
+    });
+
+    if (seq % ordinary_fanout == ordinary_fanout - 1) {
+      // stall the issuing loop so the completed round schedules the next
+      // round while this DoAsync frame is still on the stack
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+  });
+
+  Status s = txn->TEST_PreCommit();
+  EXPECT_TRUE(s.ok()) << s.ToString();
+  EXPECT_EQ(txn->TEST_IsPreCommittedState(), true);
+
+  completer.JoinAll();
+}
+
+// A commit round retried after EREGION_VERSION rebuilds per-round state; that
+// new round must not free or mutate state the previous round's issuing frame
+// (stalled across the retry backoff) still reads. The backoff is zeroed so
+// the retry goes through Actuator::Execute: the Timer path confuses TSan's
+// happens-before tracking (see tsan_suppressions.txt).
+TEST_F(SDKTxnImplTest, CommitRetryRoundKeepsPreviousRoundAlive) {
+  int64_t saved_delay_ms = FLAGS_txn_op_delay_ms;
+  FLAGS_txn_op_delay_ms = 0;
+
+  auto txn = NewTransactionImpl(options);
+  txn->Put("b", "b");
+  txn->Put("d", "d");
+  txn->Put("f", "f");
+
+  const std::string pk = txn->TEST_GetPrimaryKey();
+  // keys b/d/f live in regions [a,c) [c,e) [e,g): region id is pk[0] - 1
+  const char pk_char = pk[0];
+
+  AsyncMockRpcCompleter completer;
+  std::atomic<int> primary_commit_seq{0};
+
+  EXPECT_CALL(*rpc_client, SendRpc).WillRepeatedly([&](Rpc& rpc, std::function<void()> cb) {
+    auto* commit_rpc = dynamic_cast<TxnCommitRpc*>(&rpc);
+    if (commit_rpc == nullptr) {
+      // prewrite / heartbeat rpcs complete inline
+      cb();
+      return;
+    }
+    if (!(commit_rpc->Request()->keys_size() == 1 && commit_rpc->Request()->keys(0) == pk)) {
+      // ordinary key commits are not under test here
+      cb();
+      return;
+    }
+
+    completer.send_seq.fetch_add(1);
+    int seq = primary_commit_seq.fetch_add(1);
+    constexpr int kErrorRounds = 6;  // must stay below FLAGS_txn_op_max_retry
+    if (seq < kErrorRounds) {
+      // region version mismatch; store_region_info (with a growing epoch)
+      // refreshes the meta cache so every retry round can route again
+      completer.Dispatch([commit_rpc, pk_char, seq, cb = std::move(cb)] {
+        auto* error = commit_rpc->MutableResponse()->mutable_error();
+        error->set_errcode(pb::error::EREGION_VERSION);
+        auto* info = error->mutable_store_region_info();
+        info->set_region_id(pk_char - 1);
+        info->mutable_current_region_epoch()->set_version(2 + seq);
+        info->mutable_current_region_epoch()->set_conf_version(1);
+        info->mutable_current_range()->set_start_key(std::string(1, pk_char - 1));
+        info->mutable_current_range()->set_end_key(std::string(1, pk_char + 1));
+        for (const auto& entry : kInitReplica) {
+          auto* peer = info->add_peers();
+          peer->mutable_server_location()->set_host(entry.first.Host());
+          peer->mutable_server_location()->set_port(entry.first.Port());
+        }
+        cb();
+      });
+      // stall this issuing frame across the zero-delay retry so the next
+      // round runs while this frame still reads this round's state
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      return;
+    }
+    completer.Dispatch([cb = std::move(cb)] { cb(); });
+  });
+
+  Status s = txn->TEST_PreCommit();
+  EXPECT_TRUE(s.ok()) << s.ToString();
+
+  s = txn->TEST_Commit();
+  EXPECT_TRUE(s.ok()) << s.ToString();
+
+  int poll = 0;
+  while (!txn->TEST_IsFinishedState()) {
+    CHECK(poll++ < 3000);
+    usleep(1000);
+  }
+
+  completer.JoinAll();
+  // let stalled frames leave the mock before test locals die
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+  FLAGS_txn_op_delay_ms = saved_delay_ms;
+}
+
 TEST_F(SDKTxnImplTest, BatchGetRetryBackoffEscalates) {
   int64_t saved_delay_ms = FLAGS_txn_op_delay_ms;
   FLAGS_txn_op_delay_ms = 5;
