@@ -49,7 +49,12 @@ class TxnBatchGetTask : public TxnTask {
 
   std::string Name() const override { return "TxnBatchGetTask"; }
 
-  void TxnBatchGetRpcCallback(const Status& status, TxnBatchGetRpc* rpc);
+  using Round = StoreRpcRound<TxnBatchGetRpc>;
+
+  void TxnBatchGetRpcCallback(const std::shared_ptr<Round>& round, const Status& status, TxnBatchGetRpc* rpc);
+
+  // drops one pending count of the round; the last owner decides retry/done
+  void FinishSubTask(const std::shared_ptr<Round>& round);
 
   const std::vector<std::string>& keys_;
   std::vector<KVPair>& out_kvs_;
@@ -57,16 +62,13 @@ class TxnBatchGetTask : public TxnTask {
   std::set<std::string_view> next_keys_;
   std::shared_ptr<TxnImpl> txn_impl_;
 
+  // guarded by rw_lock_
   std::unordered_map<int64_t, uint64_t> region_id_to_resolved_lock_;
 
-  std::vector<StoreRpcController> controllers_;
-  std::vector<std::shared_ptr<TxnBatchGetRpc>> rpcs_;
   bool need_retry_{false};
 
   RWLock rw_lock_;
   Status status_;
-
-  std::atomic<int> sub_tasks_count_{0};
 };
 
 }  // namespace sdk

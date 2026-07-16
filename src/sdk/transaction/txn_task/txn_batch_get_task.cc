@@ -47,24 +47,36 @@ Status TxnBatchGetTask::Init() {
 }
 
 void TxnBatchGetTask::DoAsync() {
+  // Owns this frame's +1 pending count. Declared before the tracer cleanup so
+  // it runs after it (reverse destruction order): once released, the last
+  // finished sub task may complete the task and destroy it, so nothing may
+  // touch task state afterwards.
+  std::shared_ptr<Round> round;
+  SCOPED_CLEANUP({
+    if (round) {
+      FinishSubTask(round);
+    }
+  });
+
   auto start_time = TimestampUs();
   SCOPED_CLEANUP(txn_impl_->GetTracer()->IncrementReadSdkTime(TimestampUs() - start_time););
 
   std::set<std::string_view> next_batch;
+  std::unordered_map<int64_t, uint64_t> resolved_locks;
   {
     WriteLockGuard guard(rw_lock_);
     next_batch = next_keys_;
     need_retry_ = false;
     status_ = Status::OK();
+    resolved_locks.swap(region_id_to_resolved_lock_);
   }
 
   if (next_batch.empty()) {
-    DoAsyncDone(Status::OK());
+    // completes via the round release above
+    round = std::make_shared<Round>();
+    round->pending.store(1);
     return;
   }
-
-  rpcs_.clear();
-  controllers_.clear();
 
   std::unordered_map<int64_t, std::shared_ptr<Region>> region_id_to_region;
   std::unordered_map<int64_t, std::vector<std::string_view>> region_id_to_keys;
@@ -74,7 +86,13 @@ void TxnBatchGetTask::DoAsync() {
     std::shared_ptr<Region> tmp;
     Status s = meta_cache->LookupRegionByKey(key, tmp);
     if (!s.ok()) {
-      DoAsyncDone(s);
+      {
+        WriteLockGuard guard(rw_lock_);
+        status_ = s;
+        need_retry_ = false;
+      }
+      round = std::make_shared<Round>();
+      round->pending.store(1);
       return;
     }
     auto iter = region_id_to_region.find(tmp->RegionId());
@@ -84,8 +102,9 @@ void TxnBatchGetTask::DoAsync() {
     region_id_to_keys[tmp->RegionId()].push_back(key);
   }
 
-  controllers_.reserve(region_id_to_keys.size());
-  rpcs_.reserve(region_id_to_keys.size());
+  round = std::make_shared<Round>();
+  round->controllers.reserve(region_id_to_keys.size());
+  round->rpcs.reserve(region_id_to_keys.size());
   for (const auto& entry : region_id_to_keys) {
     auto region_id = entry.first;
     auto iter = region_id_to_region.find(region_id);
@@ -93,8 +112,9 @@ void TxnBatchGetTask::DoAsync() {
     auto region = iter->second;
 
     uint64_t resolved_lock = 0;
-    if (region_id_to_resolved_lock_.find(region_id) != region_id_to_resolved_lock_.end()) {
-      resolved_lock = region_id_to_resolved_lock_[region_id];
+    auto resolved_iter = resolved_locks.find(region_id);
+    if (resolved_iter != resolved_locks.end()) {
+      resolved_lock = resolved_iter->second;
     }
 
     auto rpc = std::make_shared<TxnBatchGetRpc>();
@@ -106,21 +126,24 @@ void TxnBatchGetTask::DoAsync() {
     for (const auto& key : entry.second) {
       *rpc->MutableRequest()->add_keys() = key;
     }
-    controllers_.emplace_back(stub, rpc, region);
-    rpcs_.push_back(rpc);
+    round->controllers.emplace_back(stub, rpc, region);
+    round->rpcs.push_back(rpc);
   }
-  CHECK(rpcs_.size() == controllers_.size());
-  sub_tasks_count_.store(rpcs_.size());
+  CHECK(round->rpcs.size() == round->controllers.size());
+  // +1 for this issuing frame, released by the scoped cleanup above
+  round->pending.store(static_cast<int>(round->rpcs.size()) + 1);
 
-  region_id_to_resolved_lock_.clear();
-
-  for (int i = 0; i < rpcs_.size(); ++i) {
-    auto& controller = controllers_[i];
-    controller.AsyncCall([this, rpc = rpcs_[i].get()](const Status& s) { TxnBatchGetRpcCallback(s, rpc); });
+  for (size_t i = 0; i < round->rpcs.size(); ++i) {
+    auto& controller = round->controllers[i];
+    // round is captured by value: the callbacks collectively keep this
+    // round's rpcs/controllers alive until every chain fully unwinds
+    controller.AsyncCall(
+        [this, round, rpc = round->rpcs[i].get()](const Status& s) { TxnBatchGetRpcCallback(round, s, rpc); });
   }
 }
 
-void TxnBatchGetTask::TxnBatchGetRpcCallback(const Status& status, TxnBatchGetRpc* rpc) {
+void TxnBatchGetTask::TxnBatchGetRpcCallback(const std::shared_ptr<Round>& round, const Status& status,
+                                             TxnBatchGetRpc* rpc) {
   DINGO_LOG(DEBUG) << fmt::format("[sdk.txn.{}] rpc: {} request: {} response: {}", txn_impl_->ID(), rpc->Method(),
                                   rpc->Request()->ShortDebugString(), rpc->Response()->ShortDebugString());
 
@@ -131,6 +154,7 @@ void TxnBatchGetTask::TxnBatchGetRpcCallback(const Status& status, TxnBatchGetRp
 
   Status s;
   bool need_retry = false;
+  uint64_t resolved_lock_ts = 0;
   const auto* response = rpc->Response();
   if (!status.ok()) {
     DINGO_LOG(WARNING) << fmt::format("[sdk.txn.{}] rpc: {} send to region: {} fail: {}", txn_impl_->ID(),
@@ -145,8 +169,7 @@ void TxnBatchGetTask::TxnBatchGetRpcCallback(const Status& status, TxnBatchGetRp
         if (s.ok()) {
           need_retry = true;
         } else if (s.IsPushMinCommitTs()) {
-          region_id_to_resolved_lock_[rpc->Request()->context().region_id()] =
-              response->txn_result().locked().lock_ts();
+          resolved_lock_ts = response->txn_result().locked().lock_ts();
           need_retry = true;
           s = Status::OK();
         }
@@ -172,6 +195,9 @@ void TxnBatchGetTask::TxnBatchGetRpcCallback(const Status& status, TxnBatchGetRp
         }
       } else {
         need_retry_ = true;
+        if (resolved_lock_ts != 0) {
+          region_id_to_resolved_lock_[rpc->Request()->context().region_id()] = resolved_lock_ts;
+        }
       }
     } else {
       if (status_.ok()) {
@@ -184,21 +210,27 @@ void TxnBatchGetTask::TxnBatchGetRpcCallback(const Status& status, TxnBatchGetRp
     }
   }
 
-  if (sub_tasks_count_.fetch_sub(1) == 1) {
-    Status tmp;
-    bool tmp_need_retry = false;
-    {
-      ReadLockGuard guard(rw_lock_);
-      tmp = status_;
-      tmp_need_retry = need_retry_;
-    }
-    if (tmp.ok() && tmp_need_retry) {
-      txn_impl_->GetTracer()->IncrementReadRetryCount(1);
-      DoAsyncRetry();
-      return;
-    }
-    DoAsyncDone(tmp);
+  FinishSubTask(round);
+}
+
+void TxnBatchGetTask::FinishSubTask(const std::shared_ptr<Round>& round) {
+  if (round->pending.fetch_sub(1) != 1) {
+    return;
   }
+
+  Status tmp;
+  bool tmp_need_retry = false;
+  {
+    ReadLockGuard guard(rw_lock_);
+    tmp = status_;
+    tmp_need_retry = need_retry_;
+  }
+  if (tmp.ok() && tmp_need_retry) {
+    txn_impl_->GetTracer()->IncrementReadRetryCount(1);
+    DoAsyncRetry();
+    return;
+  }
+  DoAsyncDone(tmp);
 }
 
 }  // namespace sdk

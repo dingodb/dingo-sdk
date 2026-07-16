@@ -1,0 +1,11 @@
+# ThreadSanitizer suppressions for sdk_unit_test.
+#
+# The dingo-eureka third-party libraries (protobuf, brpc, ...) are prebuilt
+# without TSan instrumentation, so their internal synchronization is invisible
+# to TSan. Keep entries narrow: suppress only known-safe internal lazy-init
+# paths, never whole libraries, so real races on message objects still show.
+
+# protobuf descriptor lazy initialization is guarded by an internal call_once
+# TSan cannot see.
+race:google::protobuf::*OnceInit*
+race:google::protobuf::DescriptorPool::Tables::AllocateBytes
