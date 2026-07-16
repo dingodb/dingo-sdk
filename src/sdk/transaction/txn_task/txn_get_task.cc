@@ -31,6 +31,9 @@ void TxnGetTask::DoAsync() {
   auto start_time = TimestampUs();
   SCOPED_CLEANUP(txn_impl_->GetTracer()->IncrementReadSdkTime(TimestampUs() - start_time););
 
+  // reset per attempt, a clean response of a retry must not inherit the previous error
+  status_ = Status::OK();
+
   auto meta_cache = stub.GetMetaCache();
   RegionPtr region;
   Status s = meta_cache->LookupRegionByKey(key_, region);
