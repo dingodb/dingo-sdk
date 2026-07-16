@@ -55,7 +55,12 @@ class TxnPrewriteTask : public TxnTask {
 
   std::string Name() const override { return "TxnPrewriteTask"; }
 
-  void TxnPrewriteRpcCallback(const Status& status, TxnPrewriteRpc* rpc);
+  using Round = StoreRpcRound<TxnPrewriteRpc>;
+
+  void TxnPrewriteRpcCallback(const std::shared_ptr<Round>& round, const Status& status, TxnPrewriteRpc* rpc);
+
+  // drops one pending count of the round; the last owner decides retry/done
+  void FinishSubTask(const std::shared_ptr<Round>& round);
 
   void BackoffAndRetry() override;
   bool IsRetryError() override;
@@ -70,15 +75,12 @@ class TxnPrewriteTask : public TxnTask {
   const std::map<std::string, const TxnMutation*>& mutations_ordinarykeys_for_async_commit_;
   uint64_t& min_commit_ts_;
 
-  std::vector<StoreRpcController> controllers_;
-  std::vector<std::shared_ptr<TxnPrewriteRpc>> rpcs_;
   std::shared_ptr<TxnImpl> txn_impl_;
 
   bool need_retry_{false};
 
   std::map<std::string, const TxnMutation*> next_mutations_;
 
-  std::atomic<int> sub_tasks_count_{0};
   RWLock rw_lock_;
   Status status_;
   int retry_count_{0};

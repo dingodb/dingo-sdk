@@ -50,7 +50,12 @@ class TxnCommitTask : public TxnTask {
 
   std::string Name() const override { return "TxnCommitTask"; }
 
-  void TxnCommitRpcCallback(const Status& status, TxnCommitRpc* rpc);
+  using Round = StoreRpcRound<TxnCommitRpc>;
+
+  void TxnCommitRpcCallback(const std::shared_ptr<Round>& round, const Status& status, TxnCommitRpc* rpc);
+
+  // drops one pending count of the round; the last owner completes the task
+  void FinishSubTask(const std::shared_ptr<Round>& round);
 
   Status ProcessTxnCommitResponse(const TxnCommitResponse* response, bool is_primary);
 
@@ -60,11 +65,8 @@ class TxnCommitTask : public TxnTask {
   bool is_primary_{false};
   std::shared_ptr<TxnImpl> txn_impl_;
 
-  std::vector<StoreRpcController> controllers_;
-  std::vector<std::shared_ptr<TxnCommitRpc>> rpcs_;
   std::set<std::string_view> next_keys_;
 
-  std::atomic<int> sub_tasks_count_{0};
   RWLock rw_lock_;
   Status status_;
   int64_t retry_count_commit_{0};
