@@ -15,7 +15,9 @@
 #ifndef DINGODB_SDK_STORE_RPC_CONTROLLER_H_
 #define DINGODB_SDK_STORE_RPC_CONTROLLER_H_
 
+#include <atomic>
 #include <memory>
+#include <vector>
 
 #include "dingosdk/status.h"
 #include "proto/error.pb.h"
@@ -96,6 +98,22 @@ class StoreRpcController {
   int rpc_retry_times_;
   Status status_;
   StatusCallback call_back_;
+};
+
+// One retry round of fan-out store rpcs. Tasks that retry by re-running
+// DoAsync must keep each round's rpcs/controllers in a StoreRpcRound owned by
+// the AsyncCall callbacks (capture the shared_ptr by value), never in task
+// members that the next round clears: a zero-delay retry round runs while the
+// previous round's issuing frame and callback chains are still on other
+// threads' stacks. pending must be set to rpcs.size() + 1 before issuing; the
+// extra count is released by the issuing frame after its last use of task
+// state, so the task cannot complete (and be destroyed) underneath that frame.
+// See TxnBatchGetTask for the reference usage.
+template <typename RpcType>
+struct StoreRpcRound {
+  std::vector<std::shared_ptr<RpcType>> rpcs;
+  std::vector<StoreRpcController> controllers;
+  std::atomic<int> pending{0};
 };
 
 }  // namespace sdk
