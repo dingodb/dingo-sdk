@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "bthread/mutex.h"
 #include "dingosdk/status.h"
 #include "proto/meta.pb.h"
 #include "sdk/utils/rw_lock.h"
@@ -46,11 +47,13 @@ class TsoProvider {
   // than FLAGS_tso_anchor_max_age_us.
   Status GetPhysicalTs(int64_t& physical_ts);
 
-  void Refresh();
-
  private:
-  // when period is beyond 1ms is considered stale
-  bool IsStale();
+  // batch is only usable for FLAGS_stale_period_us after it was fetched
+  bool IsStale() const;
+  // allocates from the cached batch, caller must hold the write lock
+  bool TryAllocate(uint32_t count, int64_t& ts, bool check_stale);
+  // fetches a new batch, must NOT be called with rwlock_ held
+  Status RefillBatch(uint32_t count);
   Status FetchTso(uint32_t count);
 
   const ClientStub& stub_;
@@ -59,6 +62,10 @@ class TsoProvider {
   const uint32_t batch_size_;
 
   RWLock rwlock_;
+
+  // serializes fetchers so that concurrent callers share a single coordinator
+  // round trip instead of each issuing one; never held together with rwlock_
+  bthread::Mutex fetch_mutex_;
 
   int64_t physical_{0};
   int64_t next_logical_{0};

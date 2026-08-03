@@ -77,6 +77,10 @@ DEFINE_int64(txn_heartbeat_lock_delay_ms, 20000, "txn heartbeat lock delay time"
 DEFINE_int64(txn_check_status_interval_ms, 5, "txn check status interval ms");
 
 DEFINE_uint32(stale_period_us, 1000, "stale period us default 1000 us, used for tso provider");
+// a validator is what makes the flag reloadable through brpc's /flags handler,
+// this one is the main tso tuning knob so it must be changeable at runtime
+static bool ValidateStalePeriodUs(const char*, uint32_t) { return true; }
+DEFINE_validator(stale_period_us, &ValidateStalePeriodUs);
 DEFINE_uint32(tso_batch_size, 256, "tso batch size default 256, used for tso provider");
 DEFINE_uint32(tso_anchor_max_age_us, 60000000,
               "max age of the physical-time anchor before GetPhysicalTs falls back to a real tso fetch");
